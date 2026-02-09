@@ -26,7 +26,7 @@ namespace ApprovalUI
             hWnd,
             ss.str().c_str(),
             L"BadUSB Guard",
-            MB_ICONWARNING | MB_YESNO | MB_DEFBUTTON2
+            MB_ICONWARNING | MB_YESNO | MB_DEFBUTTON2 | MB_TOPMOST | MB_SETFOREGROUND
         );
         return (r == IDYES);
     }
