@@ -1,0 +1,12 @@
+﻿{
+  "warn_cps": 15.0,
+  "block_cps": 25.0,
+  "warn_score": 20,
+  "block_score": 50,
+  "keywords": [
+    "powershell",
+    "cmd",
+    "netsh",
+    "rundll32"
+  ]
+}
