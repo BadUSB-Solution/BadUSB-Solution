@@ -1,4 +1,4 @@
-// ¹é±×¶ó¿îµå ½ÇÇàÀ» À§ÇÑ Æ®·¹ÀÌ ui ºÎºÐ
+// ï¿½ï¿½×¶ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ Æ®ï¿½ï¿½ï¿½ï¿½ ui ï¿½Îºï¿½
 
 #include "ui_tray.h"
 #include <shellapi.h>
@@ -39,6 +39,10 @@ namespace UiTray
 
         HMENU menu = CreatePopupMenu();
         AppendMenuW(menu, MF_STRING, IDM_TRAY_OPEN, L"Open");
+        AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+        AppendMenuW(menu, MF_STRING, IDM_TRAY_HOOK_ON,  L"Hook ON (Test)");
+        AppendMenuW(menu, MF_STRING, IDM_TRAY_HOOK_OFF, L"Hook OFF (Test)");
+        AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
         AppendMenuW(menu, MF_STRING, IDM_TRAY_EXIT, L"Exit");
 
         SetForegroundWindow(hWnd);
