@@ -16,6 +16,7 @@
 #include "ui_tray.h"
 #include "ui_tabs.h"
 #include "hid_monitor.h"
+#include "keyboard_hook.h"
 
 #pragma comment(lib, "Shell32.lib")
 
@@ -124,6 +125,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         if (LOWORD(wParam) == IDM_TRAY_EXIT) {
             DestroyWindow(hWnd);
+        }
+        if (LOWORD(wParam) == IDM_TRAY_HOOK_ON) {
+            KeyboardHook::Install();
+        }
+        if (LOWORD(wParam) == IDM_TRAY_HOOK_OFF) {
+            KeyboardHook::Uninstall();
         }
         return 0;
 
