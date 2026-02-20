@@ -1,91 +1,95 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="소스 파일">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="헤더 파일">
+    <Filter Include="Core">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="리소스 파일">
+    <Filter Include="Detect">
+      <UniqueIdentifier>{D2E3A8E1-6B1A-4C3D-9F2E-1A2B3C4D5E6F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Hook">
+      <UniqueIdentifier>{E3F4B9F2-7C2B-4D4E-A03F-2B3C4D5E6F70}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm">
+      <UniqueIdentifier>{F4050A03-8D3C-4E5F-B140-3C4D5E6F7081}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UI">
+      <UniqueIdentifier>{05161B14-9E4D-4F60-C251-4D5E6F708192}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resource">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="framework.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Core\framework.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="targetver.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Core\targetver.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Resource.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Core\Capstone.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Capstone.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Core\Resource.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="badusb.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Core\ui_message_id.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="logger.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Core\logger.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="policy.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Core\policy.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="ui_tabs.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Detect\hid_monitor.h">
+      <Filter>Detect</Filter>
     </ClInclude>
-    <ClInclude Include="hid_monitor.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="Hook\badusb.h">
+      <Filter>Hook</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ui_tray.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ui_tabs.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ui_approval.h">
+      <Filter>UI</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Core\logger.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="ui_message_id.h">
-      <Filter>헤더 파일</Filter>
+    <ClCompile Include="Core\policy.cpp">
+      <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="logger.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="Detect\hid_monitor.cpp">
+      <Filter>Detect</Filter>
     </ClCompile>
-    <ClCompile Include="policy.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="UI\ui_tray.cpp">
+      <Filter>UI</Filter>
     </ClCompile>
-    <ClCompile Include="ui_approval.h">
-      <Filter>헤더 파일</Filter>
+    <ClCompile Include="UI\ui_tabs.cpp">
+      <Filter>UI</Filter>
     </ClCompile>
-    <ClCompile Include="ui_approval.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="ui_tray.h">
-      <Filter>헤더 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="ui_tray.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="ui_tabs.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="hid_monitor.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="UI\ui_approval.cpp">
+      <Filter>UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Capstone.rc">
-      <Filter>리소스 파일</Filter>
+    <ResourceCompile Include="Resource\Capstone.rc">
+      <Filter>Resource</Filter>
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="small.ico">
-      <Filter>리소스 파일</Filter>
+    <Image Include="Resource\Capstone.ico">
+      <Filter>Resource</Filter>
     </Image>
-    <Image Include="Capstone.ico">
-      <Filter>리소스 파일</Filter>
+    <Image Include="Resource\small.ico">
+      <Filter>Resource</Filter>
     </Image>
   </ItemGroup>
 </Project>

@@ -76,11 +76,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>Core;Detect;Hook;UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>Core;Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -90,11 +94,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>Core;Detect;Hook;UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>Core;Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -102,11 +110,15 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>Core;Detect;Hook;UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>Core;Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -116,41 +128,45 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>Core;Detect;Hook;UI;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <ResourceCompile>
+      <AdditionalIncludeDirectories>Core;Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="badusb.h" />
-    <ClInclude Include="Capstone.h" />
-    <ClInclude Include="framework.h" />
-    <ClInclude Include="hid_monitor.h" />
-    <ClInclude Include="logger.h" />
-    <ClInclude Include="policy.h" />
-    <ClInclude Include="Resource.h" />
-    <ClInclude Include="ui_tabs.h" />
-    <ClInclude Include="targetver.h" />
+    <ClInclude Include="Core\framework.h" />
+    <ClInclude Include="Core\targetver.h" />
+    <ClInclude Include="Core\Capstone.h" />
+    <ClInclude Include="Core\Resource.h" />
+    <ClInclude Include="Core\ui_message_id.h" />
+    <ClInclude Include="Core\logger.h" />
+    <ClInclude Include="Core\policy.h" />
+    <ClInclude Include="Detect\hid_monitor.h" />
+    <ClInclude Include="Hook\badusb.h" />
+    <ClInclude Include="UI\ui_tray.h" />
+    <ClInclude Include="UI\ui_tabs.h" />
+    <ClInclude Include="UI\ui_approval.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ui_approval.cpp" />
-    <ClCompile Include="ui_approval.h" />
-    <ClCompile Include="hid_monitor.cpp" />
-    <ClCompile Include="logger.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="policy.cpp" />
-    <ClCompile Include="ui_tabs.cpp" />
-    <ClCompile Include="ui_tray.h" />
-    <ClCompile Include="ui_message_id.h" />
-    <ClCompile Include="ui_tray.cpp" />
+    <ClCompile Include="Core\logger.cpp" />
+    <ClCompile Include="Core\policy.cpp" />
+    <ClCompile Include="Detect\hid_monitor.cpp" />
+    <ClCompile Include="UI\ui_tray.cpp" />
+    <ClCompile Include="UI\ui_tabs.cpp" />
+    <ClCompile Include="UI\ui_approval.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Capstone.rc" />
+    <ResourceCompile Include="Resource\Capstone.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="Capstone.ico" />
-    <Image Include="small.ico" />
+    <Image Include="Resource\Capstone.ico" />
+    <Image Include="Resource\small.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
