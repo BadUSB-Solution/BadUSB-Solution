@@ -48,6 +48,9 @@
     <ClInclude Include="Hook\badusb.h">
       <Filter>Hook</Filter>
     </ClInclude>
+    <ClInclude Include="Hook\keyboard_hook.h">
+      <Filter>Hook</Filter>
+    </ClInclude>
     <ClInclude Include="UI\ui_tray.h">
       <Filter>UI</Filter>
     </ClInclude>
@@ -77,6 +80,9 @@
     </ClCompile>
     <ClCompile Include="UI\ui_approval.cpp">
       <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Hook\keyboard_hook.cpp">
+      <Filter>Hook</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
