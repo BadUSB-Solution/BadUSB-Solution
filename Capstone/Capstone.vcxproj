@@ -148,6 +148,7 @@
     <ClInclude Include="Core\policy.h" />
     <ClInclude Include="Detect\hid_monitor.h" />
     <ClInclude Include="Hook\badusb.h" />
+    <ClInclude Include="Hook\keyboard_hook.h" />
     <ClInclude Include="UI\ui_tray.h" />
     <ClInclude Include="UI\ui_tabs.h" />
     <ClInclude Include="UI\ui_approval.h" />
@@ -160,6 +161,7 @@
     <ClCompile Include="UI\ui_tray.cpp" />
     <ClCompile Include="UI\ui_tabs.cpp" />
     <ClCompile Include="UI\ui_approval.cpp" />
+    <ClCompile Include="Hook\keyboard_hook.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource\Capstone.rc" />
