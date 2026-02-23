@@ -16,6 +16,8 @@
 #include "ui_tray.h"
 #include "ui_tabs.h"
 #include "hid_monitor.h"
+#include "hid_initialScan.h"
+#include "hid_approval_flow.h"   
 #include "keyboard_hook.h"
 
 #pragma comment(lib, "Shell32.lib")
@@ -76,12 +78,18 @@ BOOL InitInstance(HINSTANCE hInstance, int)
     );
     if (!hWnd) return FALSE;
 
-    // logger -> UI notify 연결
     Logger::SetNotifyWindow(hWnd, WM_APP_NEWLOG);
 
     UiTabs::Create(hWnd, hInst);
     HidMonitor::RegisterNotifications(hWnd);
     UiTray::AddIcon(hWnd, hInst, IDI_CAPSTONE);
+
+    // 시작 시: 현재 연결된 HID 전체 스캔 → 승인 UI
+    // 부모가 숨김 상태이므로 NULL로 띄우는 게 포커스/모달 안정적
+    {
+        auto paths = HidInitialScan::EnumerateHidDevicePaths();
+        DeviceApprovalFlow::ApproveFromPaths(nullptr, paths); // 또는 hWnd
+    }
 
     ShowWindow(hWnd, SW_HIDE);
     return TRUE;

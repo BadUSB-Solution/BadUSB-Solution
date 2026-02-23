@@ -188,6 +188,7 @@
 //}
 
 #include "hid_monitor.h"
+#include "../hid_approval_flow.h" 
 
 #include <dbt.h>
 #include <initguid.h>
@@ -195,180 +196,20 @@
 
 #include <string>
 #include <unordered_set>
-#include <sstream>
-#include <cstdint>
-#include <vector>
 
 #include "logger.h"
-#include "policy.h"
-#include "ui_approval.h"
 
 namespace HidMonitor
 {
     static HDEVNOTIFY g_hDevNotify = nullptr;
 
-    // 중복 제거
+    // DevicePath 중복 제거 (이벤트 중복 방지)
     static std::unordered_set<std::wstring> g_seenDevicePaths;
 
     // 쿨다운
     static ULONGLONG g_lastArrivalTick = 0;
     static const ULONGLONG ARRIVAL_COOLDOWN_MS = 300;
 
-    // "미승인" 장치 모아서 한 번에 UI
-    static std::vector<UsbItem> g_pending;
-    static bool g_uiOpen = false;
-
-    static std::wstring HexU16(uint16_t v)
-    {
-        std::wstringstream ss;
-        ss << L"0x" << std::hex << v << std::dec;
-        return ss.str();
-    }
-
-    // path에서 vid, pid 추출
-    static bool ExtractVidPid(const std::wstring& path, uint16_t& vid, uint16_t& pid)
-    {
-        size_t v = path.find(L"VID_");
-        size_t p = path.find(L"PID_");
-
-        if (v == std::wstring::npos || p == std::wstring::npos) return false;
-        if (v + 8 > path.size() || p + 8 > path.size()) return false;
-
-        vid = (uint16_t)wcstoul(path.substr(v + 4, 4).c_str(), nullptr, 16);
-        pid = (uint16_t)wcstoul(path.substr(p + 4, 4).c_str(), nullptr, 16);
-        return true;
-    }
-
-    static uint64_t Hash64_FNV1a(const std::wstring& s)
-    {
-        uint64_t h = 1469598103934665603ULL;
-        for (wchar_t c : s) { h ^= (uint64_t)c; h *= 1099511628211ULL; }
-        return h;
-    }
-
-    // NOTE: 기존에는 fingerprint = (vid<<16)|pid 였는데,
-    // 동일 VID/PID 장치 여러 개를 구분 못 함.
-    // 아래는 "VID/PID + DevicePath hash" 섞어서 장치 단위 구분하도록 변경.
-    static UsbItem BuildItem(const std::wstring& devicePath)
-    {
-        UsbItem item;
-        item.devicePath = devicePath;
-
-        uint16_t vid = 0, pid = 0;
-        bool ok = ExtractVidPid(devicePath, vid, pid);
-        item.vid = vid;
-        item.pid = pid;
-
-        if (ok) {
-            uint64_t h = Hash64_FNV1a(devicePath);
-            item.fingerprint = ((uint64_t)vid << 48) ^ ((uint64_t)pid << 32) ^ (h & 0xFFFFFFFFULL);
-        }
-        else {
-            item.fingerprint = Hash64_FNV1a(devicePath);
-        }
-
-        // name은 지금 당장 없으면 비워둬도 됨
-        item.name = L"";
-        return item;
-    }
-
-    static bool PendingContains(uint64_t fp)
-    {
-        for (auto& it : g_pending) {
-            if (it.fingerprint == fp) return true;
-        }
-        return false;
-    }
-
-    static void OpenApprovalUIOnce(HWND hWnd)
-    {
-        if (g_uiOpen) return;
-        if (g_pending.empty()) return;
-
-        g_uiOpen = true;
-
-        // UI 표시 전 allow 기본값 세팅
-        for (auto& it : g_pending) {
-            if (Policy::IsWhitelisted(it.fingerprint)) it.allow = true;
-            else if (Policy::IsBlacklisted(it.fingerprint)) it.allow = false;
-            else it.allow = false; // 기본: 미체크(blacklist)
-        }
-
-        Logger::Add(L"[UI] Showing approval list dialog...");
-        bool saved = ApprovalUI::ShowUsbListDialog(hWnd, g_pending);
-
-        if (saved) {
-            Logger::Add(L"[UI] Saved. Applying policy...");
-
-            for (const auto& it : g_pending) {
-                if (Policy::IsWhitelisted(it.fingerprint) || Policy::IsBlacklisted(it.fingerprint)) {
-                    continue;
-                }
-                if (it.allow) {
-                    Policy::AddWhitelist(it.fingerprint);
-                    Logger::Add(L"[T] Added to Whitelist: " + std::to_wstring(it.fingerprint));
-                }
-                else {
-                    Policy::AddBlacklist(it.fingerprint);
-                    Logger::Add(L"[T] Added to Blacklist: " + std::to_wstring(it.fingerprint));
-                }
-            }
-
-            // 만약 Policy에 저장 함수가 있으면 여기 한 줄 추가
-            // Policy::Save();
-        }
-        else {
-            Logger::Add(L"[UI] Canceled. No policy changes.");
-        }
-
-        g_pending.clear();
-        g_uiOpen = false;
-    }
-
-    static void HandleAutoHidArrival(HWND hWnd, const std::wstring& devicePath)
-    {
-        UsbItem item = BuildItem(devicePath);
-
-        Logger::Add(L"----------------------------------------");
-        Logger::Add(L"[D] USB HID Device Connected? -> Yes");
-        Logger::Add(L"[E] VID=" + HexU16(item.vid) + L" PID=" + HexU16(item.pid));
-        Logger::Add(L"[E] Fingerprint = " + std::to_wstring(item.fingerprint));
-        Logger::Add(L"[F] Default Policy: HOLD");
-        Logger::Add(L"[G] Notify UserMode Service");
-        Logger::Add(L"[H] Service Collects Device Info");
-
-        if (Policy::IsWhitelisted(item.fingerprint)) {
-            Logger::Add(L"[I] In Whitelist -> [J] ALLOW");
-            Logger::Add(L"[T] Policy unchanged");
-            return;
-        }
-
-        if (Policy::IsBlacklisted(item.fingerprint)) {
-            Logger::Add(L"[K] In Blacklist -> [L] BLOCK");
-            Logger::Add(L"[T] Policy unchanged");
-            return;
-        }
-
-        Logger::Add(L"[M] Observation Window");
-        Sleep(300);
-        Logger::Add(L"[N] Behavior Analysis");
-        Logger::Add(L"[O] Risk Low");
-
-        // 여기서부터: pending에 추가 후 한 번에 UI
-        if (!PendingContains(item.fingerprint)) {
-            g_pending.push_back(std::move(item));
-            Logger::Add(L"[P] Added to pending approval list.");
-        }
-        else {
-            Logger::Add(L"[P] Already pending.");
-        }
-
-        // 가장 단순: 새 장치 오면 즉시 “리스트 UI” 띄움
-        // (여러 개를 모아서 띄우려면 Timer로 지연 호출하면 됨)
-        OpenApprovalUIOnce(hWnd);
-    }
-
-    // 기기 정보 등록
     void RegisterNotifications(HWND hWnd)
     {
         DEV_BROADCAST_DEVICEINTERFACE_W filter{};
@@ -399,13 +240,14 @@ namespace HidMonitor
                 return 0;
             g_lastArrivalTick = now;
 
-            // DevicePath 중복 제거
+            // 중복 제거
             if (!path.empty() && !g_seenDevicePaths.insert(path).second) {
                 Logger::Add(L"[Auto] Duplicate arrival ignored (same DevicePath).");
                 return 0;
             }
 
-            HandleAutoHidArrival(hWnd, path);
+            Logger::Add(L"[Auto] HID arrival detected.");
+            DeviceApprovalFlow::ApproveFromPath(hWnd, path);
             return 0;
         }
 
@@ -418,6 +260,7 @@ namespace HidMonitor
             std::wstring path = di->dbcc_name ? di->dbcc_name : L"";
             if (!path.empty()) g_seenDevicePaths.erase(path);
 
+            Logger::Add(L"[Auto] HID removed.");
             return 0;
         }
 
