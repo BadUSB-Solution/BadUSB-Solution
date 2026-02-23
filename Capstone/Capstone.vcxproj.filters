@@ -30,9 +30,6 @@
     <ClInclude Include="Core\Capstone.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Core\Resource.h">
-      <Filter>Core</Filter>
-    </ClInclude>
     <ClInclude Include="Core\ui_message_id.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -59,6 +56,9 @@
     </ClInclude>
     <ClInclude Include="UI\ui_approval.h">
       <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\resource.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -87,6 +87,9 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource\Capstone.rc">
+      <Filter>Resource</Filter>
+    </ResourceCompile>
+    <ResourceCompile Include="Resource\ui_approval.rc">
       <Filter>Resource</Filter>
     </ResourceCompile>
   </ItemGroup>

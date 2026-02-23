@@ -1,12 +1,11 @@
-﻿//{{NO_DEPENDENCIES}}
-// Microsoft Visual C++에서 생성한 포함 파일입니다.
-// 다음에서 사용 Capstone.rc
+﻿#pragma once
+//Capstone.rc
 
 #define IDS_APP_TITLE			103
 
 #define IDR_MAINFRAME			128
 #define IDD_CAPSTONE_DIALOG	102
-#define IDD_ABOUTBOX			103
+#define IDD_ABOUTBOX			130
 #define IDM_ABOUT				104
 #define IDM_EXIT				105
 #define IDI_CAPSTONE			107
@@ -16,8 +15,13 @@
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
 #endif
-// 다음은 새 개체에 사용할 기본값입니다.
-//
+
+// ui_approval.rc
+#define IDD_USB_APPROVAL      2001
+#define IDC_USB_LIST          2002
+#define IDC_BTN_SAVE          2003
+#define IDC_BTN_CANCEL        2004
+
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 
@@ -28,3 +32,6 @@
 #define _APS_NEXT_SYMED_VALUE		110
 #endif
 #endif
+
+
+

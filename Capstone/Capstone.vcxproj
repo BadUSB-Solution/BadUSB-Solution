@@ -140,9 +140,9 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Core\framework.h" />
+    <ClInclude Include="Core\resource.h" />
     <ClInclude Include="Core\targetver.h" />
     <ClInclude Include="Core\Capstone.h" />
-    <ClInclude Include="Core\Resource.h" />
     <ClInclude Include="Core\ui_message_id.h" />
     <ClInclude Include="Core\logger.h" />
     <ClInclude Include="Core\policy.h" />
@@ -165,6 +165,7 @@
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource\Capstone.rc" />
+    <ResourceCompile Include="Resource\ui_approval.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Resource\Capstone.ico" />
