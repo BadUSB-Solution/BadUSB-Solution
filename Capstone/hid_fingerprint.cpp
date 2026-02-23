@@ -1,5 +1,12 @@
 #include "hid_fingerprint.h"
-#include <cstdlib>
+#include <windows.h>
+#include <initguid.h>      // 반드시 hidclass.h 보다 먼저
+#include <hidclass.h>
+#include <setupapi.h>
+#include <vector>
+#include <string>
+
+#pragma comment(lib, "Setupapi.lib")
 
 namespace HidFingerprint
 {
@@ -27,6 +34,81 @@ namespace HidFingerprint
         return h;
     }
 
+    static std::wstring GetDeviceNameFromPath(const std::wstring& devicePath)
+    {
+        HDEVINFO hDevInfo = SetupDiGetClassDevsW(
+            &GUID_DEVINTERFACE_HID,
+            nullptr,
+            nullptr,
+            DIGCF_PRESENT | DIGCF_DEVICEINTERFACE);
+
+        if (hDevInfo == INVALID_HANDLE_VALUE)
+            return L"";
+
+        SP_DEVICE_INTERFACE_DATA ifData{};
+        ifData.cbSize = sizeof(ifData);
+
+        std::wstring result;
+
+        for (DWORD i = 0;
+            SetupDiEnumDeviceInterfaces(hDevInfo, nullptr, &GUID_DEVINTERFACE_HID, i, &ifData);
+            i++)
+        {
+            DWORD required = 0;
+            SetupDiGetDeviceInterfaceDetailW(hDevInfo, &ifData, nullptr, 0, &required, nullptr);
+            if (required == 0) continue;
+
+            std::vector<BYTE> buffer(required);
+            auto* detail = reinterpret_cast<SP_DEVICE_INTERFACE_DETAIL_DATA_W*>(buffer.data());
+            detail->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA_W);
+
+            SP_DEVINFO_DATA devInfo{};
+            devInfo.cbSize = sizeof(devInfo);
+
+            if (!SetupDiGetDeviceInterfaceDetailW(
+                hDevInfo,
+                &ifData,
+                detail,
+                required,
+                nullptr,
+                &devInfo))
+                continue;
+
+            if (devicePath == detail->DevicePath)
+            {
+                WCHAR name[256]{};
+
+                if (SetupDiGetDeviceRegistryPropertyW(
+                    hDevInfo,
+                    &devInfo,
+                    SPDRP_FRIENDLYNAME,
+                    nullptr,
+                    (PBYTE)name,
+                    sizeof(name),
+                    nullptr))
+                {
+                    result = name;
+                }
+                else if (SetupDiGetDeviceRegistryPropertyW(
+                    hDevInfo,
+                    &devInfo,
+                    SPDRP_DEVICEDESC,
+                    nullptr,
+                    (PBYTE)name,
+                    sizeof(name),
+                    nullptr))
+                {
+                    result = name;
+                }
+
+                break;
+            }
+        }
+
+        SetupDiDestroyDeviceInfoList(hDevInfo);
+        return result;
+    }
+
     UsbItem BuildItem(const std::wstring& devicePath)
     {
         UsbItem item;
@@ -46,8 +128,11 @@ namespace HidFingerprint
             item.fingerprint = Hash64_FNV1a(devicePath);
         }
 
-        item.name = L"";
+        item.name = GetDeviceNameFromPath(devicePath);
+        if (item.name.empty())
+            item.name = L"Unknown HID Device";
         item.allow = false;
         return item;
     }
 }
+
