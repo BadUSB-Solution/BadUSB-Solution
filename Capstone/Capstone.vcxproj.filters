@@ -66,6 +66,9 @@
     <ClInclude Include="hid_fingerprint.h">
       <Filter>Detect</Filter>
     </ClInclude>
+    <ClInclude Include="usb_item.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
