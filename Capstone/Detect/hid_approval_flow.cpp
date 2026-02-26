@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <cwchar>
-#include <unordered_map>
 #include <vector>
 
 #include "hid_fingerprint.h"
@@ -14,122 +13,54 @@
 
 namespace
 {
-    // 동일 VID/PID 다중 fingerprint 묶음 표현 구조
-    struct PendingGroup {
-        UsbItem displayItem;
-        std::vector<uint64_t> memberFingerprints;
-    };
-
-    uint64_t MakeGroupKey(const UsbItem& item)
+    // 중복 fingerprint 후보 포함 여부 확인
+    bool ContainsPendingFingerprint(const std::vector<UsbItem>& pending, uint64_t fp)
     {
-        // VID/PID 우선 그룹 키 생성
-        if (item.vid != 0 || item.pid != 0) {
-            return (1ULL << 63) | (static_cast<uint64_t>(item.vid) << 16) | static_cast<uint64_t>(item.pid);
-        }
-        return item.fingerprint;
-    }
-
-    bool ContainsFingerprint(const std::vector<uint64_t>& values, uint64_t fp)
-    {
-        for (uint64_t value : values) {
-            if (value == fp) {
+        for (const auto& item : pending) {
+            if (item.fingerprint == fp) {
                 return true;
             }
         }
         return false;
     }
 
-    void SortGroups(std::vector<PendingGroup>& groups)
+    // 후보 목록 정렬: VID -> PID -> Name -> Fingerprint
+    void SortPending(std::vector<UsbItem>& pending)
     {
-        std::sort(groups.begin(), groups.end(), [](const PendingGroup& left, const PendingGroup& right) {
-            if (left.displayItem.vid != right.displayItem.vid) {
-                return left.displayItem.vid < right.displayItem.vid;
+        std::sort(pending.begin(), pending.end(), [](const UsbItem& left, const UsbItem& right) {
+            if (left.vid != right.vid) {
+                return left.vid < right.vid;
             }
-            if (left.displayItem.pid != right.displayItem.pid) {
-                return left.displayItem.pid < right.displayItem.pid;
+            if (left.pid != right.pid) {
+                return left.pid < right.pid;
             }
 
-            const int nameCmp = _wcsicmp(left.displayItem.name.c_str(), right.displayItem.name.c_str());
+            const int nameCmp = _wcsicmp(left.name.c_str(), right.name.c_str());
             if (nameCmp != 0) {
                 return nameCmp < 0;
             }
 
-            return left.displayItem.fingerprint < right.displayItem.fingerprint;
+            return left.fingerprint < right.fingerprint;
         });
     }
 
-    void FinalizeGroupDisplay(std::vector<PendingGroup>& groups)
+    bool RunApprovalDialog(HWND hWnd, std::vector<UsbItem>& pending)
     {
-        // 병합 개수 [xN] 접미사 부여
-        for (auto& group : groups) {
-            if (group.memberFingerprints.size() > 1) {
-                group.displayItem.name += L" [x" + std::to_wstring(group.memberFingerprints.size()) + L"]";
-            }
-        }
-    }
-
-    void AddOrUpdateGroup(
-        std::vector<PendingGroup>& groups,
-        std::unordered_map<uint64_t, size_t>& groupIndexByKey,
-        UsbItem&& item)
-    {
-        const uint64_t groupKey = MakeGroupKey(item);
-        auto it = groupIndexByKey.find(groupKey);
-
-        if (it == groupIndexByKey.end()) {
-            PendingGroup group;
-            group.displayItem = std::move(item);
-            group.memberFingerprints.push_back(group.displayItem.fingerprint);
-
-            // VID/PID 그룹 fingerprint 표시값 재구성
-            if (group.displayItem.vid != 0 || group.displayItem.pid != 0) {
-                group.displayItem.fingerprint = (static_cast<uint64_t>(group.displayItem.vid) << 16) |
-                    static_cast<uint64_t>(group.displayItem.pid);
-            }
-
-            groupIndexByKey.emplace(groupKey, groups.size());
-            groups.push_back(std::move(group));
-            return;
-        }
-
-        PendingGroup& group = groups[it->second];
-
-        if (!ContainsFingerprint(group.memberFingerprints, item.fingerprint)) {
-            group.memberFingerprints.push_back(item.fingerprint);
-        }
-
-        // Unknown 표시명 대체 우선 적용
-        if (group.displayItem.name == L"Unknown HID Device" && item.name != L"Unknown HID Device") {
-            group.displayItem.name = item.name;
-        }
-    }
-
-    bool RunApprovalDialog(HWND hWnd, std::vector<PendingGroup>& groups)
-    {
-        if (groups.empty()) {
+        if (pending.empty()) {
             return false;
         }
 
-        std::vector<UsbItem> pending;
-        pending.reserve(groups.size());
-
-        // UI 표시 모델 및 초기 체크 상태 구성
-        for (const auto& group : groups) {
-            UsbItem item = group.displayItem;
-            item.allow = false;
-
-            for (uint64_t fp : group.memberFingerprints) {
-                if (Policy::IsWhitelisted(fp)) {
-                    item.allow = true;
-                    break;
-                }
-                if (Policy::IsBlacklisted(fp)) {
-                    item.allow = false;
-                    break;
-                }
+        // UI 초기 체크 상태 설정
+        for (auto& item : pending) {
+            if (Policy::IsWhitelisted(item.fingerprint)) {
+                item.allow = true;
             }
-
-            pending.push_back(std::move(item));
+            else if (Policy::IsBlacklisted(item.fingerprint)) {
+                item.allow = false;
+            }
+            else {
+                item.allow = false;
+            }
         }
 
         Logger::Add(L"[UI] Showing approval list dialog...");
@@ -142,22 +73,18 @@ namespace
 
         Logger::Add(L"[UI] Saved. Applying policy...");
 
-        // 그룹 내 모든 fingerprint 대상 정책 반영
-        for (size_t i = 0; i < groups.size(); i++) {
-            const bool allow = pending[i].allow;
-
-            for (uint64_t fp : groups[i].memberFingerprints) {
-                if (allow) {
-                    if (!Policy::IsWhitelisted(fp)) {
-                        Policy::AddWhitelist(fp);
-                        Logger::Add(L"[T] Added to Whitelist: " + std::to_wstring(fp));
-                    }
+        // 항목별 fingerprint 단위 정책 반영
+        for (const auto& item : pending) {
+            if (item.allow) {
+                if (!Policy::IsWhitelisted(item.fingerprint)) {
+                    Policy::AddWhitelist(item.fingerprint);
+                    Logger::Add(L"[T] Added to Whitelist: " + std::to_wstring(item.fingerprint));
                 }
-                else {
-                    if (!Policy::IsBlacklisted(fp)) {
-                        Policy::AddBlacklist(fp);
-                        Logger::Add(L"[T] Added to Blacklist: " + std::to_wstring(fp));
-                    }
+            }
+            else {
+                if (!Policy::IsBlacklisted(item.fingerprint)) {
+                    Policy::AddBlacklist(item.fingerprint);
+                    Logger::Add(L"[T] Added to Blacklist: " + std::to_wstring(item.fingerprint));
                 }
             }
         }
@@ -168,11 +95,8 @@ namespace
 
 bool DeviceApprovalFlow::ApproveDevicesFromPaths(HWND hWnd, const std::vector<std::wstring>& paths)
 {
-    std::vector<PendingGroup> groups;
-    groups.reserve(paths.size());
-
-    std::unordered_map<uint64_t, size_t> groupIndexByKey;
-    groupIndexByKey.reserve(paths.size());
+    std::vector<UsbItem> pending;
+    pending.reserve(paths.size());
 
     for (const auto& path : paths) {
         if (path.empty()) {
@@ -186,22 +110,25 @@ bool DeviceApprovalFlow::ApproveDevicesFromPaths(HWND hWnd, const std::vector<st
             continue;
         }
 
-        AddOrUpdateGroup(groups, groupIndexByKey, std::move(item));
+        if (ContainsPendingFingerprint(pending, item.fingerprint)) {
+            continue;
+        }
+
+        pending.push_back(std::move(item));
     }
 
-    if (groups.empty()) {
+    if (pending.empty()) {
         Logger::Add(L"[Approval] No unknown HID devices.");
         return false;
     }
 
-    SortGroups(groups);
-    FinalizeGroupDisplay(groups);
+    SortPending(pending);
 
-    for (const auto& group : groups) {
-        Logger::Add(L"[Approval] Candidate: " + group.displayItem.name);
+    for (const auto& item : pending) {
+        Logger::Add(L"[Approval] Candidate: " + item.name);
     }
 
-    return RunApprovalDialog(hWnd, groups);
+    return RunApprovalDialog(hWnd, pending);
 }
 
 bool DeviceApprovalFlow::ApproveDeviceFromPath(HWND hWnd, const std::wstring& path)
