@@ -156,6 +156,7 @@
     <ClInclude Include="UI\ui_tray.h" />
     <ClInclude Include="UI\ui_tabs.h" />
     <ClInclude Include="UI\ui_approval.h" />
+    <ClInclude Include="UI\ui_buffer_view.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Detect\hid_approval_flow.cpp" />
@@ -169,6 +170,7 @@
     <ClCompile Include="UI\ui_tabs.cpp" />
     <ClCompile Include="UI\ui_approval.cpp" />
     <ClCompile Include="Hook\keyboard_hook.cpp" />
+    <ClCompile Include="UI\ui_buffer_view.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource\Capstone.rc" />

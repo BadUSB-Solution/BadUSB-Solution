@@ -71,6 +71,8 @@
     </ClInclude>
     <ClInclude Include="Core\usb_item.h">
       <Filter>Core</Filter>
+    <ClInclude Include="UI\ui_buffer_view.h">
+      <Filter>UI</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -104,6 +106,8 @@
     </ClCompile>
     <ClCompile Include="Detect\hid_initialScan.cpp">
       <Filter>Detect</Filter>
+    <ClCompile Include="UI\ui_buffer_view.cpp">
+      <Filter>UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

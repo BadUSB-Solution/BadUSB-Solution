@@ -19,6 +19,7 @@
 #include "hid_initialScan.h"
 #include "hid_approval_flow.h"   
 #include "keyboard_hook.h"
+#include "ui_buffer_view.h"
 
 #pragma comment(lib, "Shell32.lib")
 
@@ -138,7 +139,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             KeyboardHook::Install();
         }
         if (LOWORD(wParam) == IDM_TRAY_HOOK_OFF) {
+            auto keys = KeyboardHook::GetBufferedKeys();
             KeyboardHook::Uninstall();
+            bool allowed = BufferViewUI::Show(hWnd, 0, 0, keys);
+            Logger::Add(allowed ? L"[Test] User: Allow" : L"[Test] User: Deny");
         }
         return 0;
 
