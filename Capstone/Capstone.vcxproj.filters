@@ -30,9 +30,6 @@
     <ClInclude Include="Core\Capstone.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="Core\Resource.h">
-      <Filter>Core</Filter>
-    </ClInclude>
     <ClInclude Include="Core\ui_message_id.h">
       <Filter>Core</Filter>
     </ClInclude>
@@ -60,6 +57,20 @@
     <ClInclude Include="UI\ui_approval.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="Core\resource.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Detect\hid_approval_flow.h">
+      <Filter>Detect</Filter>
+    </ClInclude>
+    <ClInclude Include="Detect\hid_fingerprint.h">
+      <Filter>Detect</Filter>
+    </ClInclude>
+    <ClInclude Include="Detect\hid_initialScan.h">
+      <Filter>Detect</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\usb_item.h">
+      <Filter>Core</Filter>
     <ClInclude Include="UI\ui_buffer_view.h">
       <Filter>UI</Filter>
     </ClInclude>
@@ -87,12 +98,23 @@
     <ClCompile Include="Hook\keyboard_hook.cpp">
       <Filter>Hook</Filter>
     </ClCompile>
+    <ClCompile Include="Detect\hid_approval_flow.cpp">
+      <Filter>Detect</Filter>
+    </ClCompile>
+    <ClCompile Include="Detect\hid_fingerprint.cpp">
+      <Filter>Detect</Filter>
+    </ClCompile>
+    <ClCompile Include="Detect\hid_initialScan.cpp">
+      <Filter>Detect</Filter>
     <ClCompile Include="UI\ui_buffer_view.cpp">
       <Filter>UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource\Capstone.rc">
+      <Filter>Resource</Filter>
+    </ResourceCompile>
+    <ResourceCompile Include="Resource\ui_approval.rc">
       <Filter>Resource</Filter>
     </ResourceCompile>
   </ItemGroup>

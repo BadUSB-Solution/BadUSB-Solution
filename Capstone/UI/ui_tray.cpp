@@ -1,4 +1,4 @@
-// ��׶��� ������ ���� Ʈ���� ui �κ�
+// background ui tray
 
 #include "ui_tray.h"
 #include <shellapi.h>
