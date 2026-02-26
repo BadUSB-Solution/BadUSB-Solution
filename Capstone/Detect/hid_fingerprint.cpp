@@ -76,6 +76,29 @@ namespace
         return key;
     }
 
+    uint64_t ComputeFnv1a64(const std::wstring& value)
+    {
+        uint64_t hash = 1469598103934665603ULL;
+        for (wchar_t ch : value) {
+            hash ^= static_cast<uint64_t>(ch);
+            hash *= 1099511628211ULL;
+        }
+        return hash;
+    }
+
+    uint64_t BuildFingerprint(bool hasVidPid, uint16_t vid, uint16_t pid, const std::wstring& identityKey)
+    {
+        const uint64_t identityHash = ComputeFnv1a64(identityKey);
+        if (!hasVidPid) {
+            return identityHash;
+        }
+
+        const uint64_t vidPidPrefix =
+            (static_cast<uint64_t>(vid) << 48) ^
+            (static_cast<uint64_t>(pid) << 32);
+        return vidPidPrefix ^ (identityHash & 0xFFFFFFFFULL);
+    }
+
     // 일반 HID 인터페이스 라벨 판별
     bool LooksLikeGenericHidLabel(const std::wstring& value)
     {
@@ -145,6 +168,60 @@ namespace
         return buffer;
     }
 
+    bool AssignNonEmptyWideString(const wchar_t* text, std::wstring& value)
+    {
+        if (!text || text[0] == L'\0') {
+            return false;
+        }
+
+        value = text;
+        return true;
+    }
+
+    template <typename Reader>
+    bool ReadSetupDiWideString(Reader&& reader, std::wstring& value)
+    {
+        WCHAR localBuffer[256]{};
+        DWORD requiredBytes = 0;
+
+        if (reader(reinterpret_cast<PBYTE>(localBuffer), static_cast<DWORD>(sizeof(localBuffer)), &requiredBytes)) {
+            return AssignNonEmptyWideString(localBuffer, value);
+        }
+
+        if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || requiredBytes < sizeof(wchar_t)) {
+            return false;
+        }
+
+        std::vector<BYTE> dynamicBuffer(requiredBytes, 0);
+        if (!reader(dynamicBuffer.data(), static_cast<DWORD>(dynamicBuffer.size()), nullptr)) {
+            return false;
+        }
+
+        return AssignNonEmptyWideString(reinterpret_cast<const wchar_t*>(dynamicBuffer.data()), value);
+    }
+
+    template <typename Reader>
+    bool ReadCmWideString(Reader&& reader, std::wstring& value)
+    {
+        ULONG requiredBytes = 0;
+        CONFIGRET cr = reader(nullptr, &requiredBytes);
+        if (cr != CR_SUCCESS && cr != CR_BUFFER_SMALL) {
+            return false;
+        }
+
+        if (requiredBytes < sizeof(wchar_t)) {
+            return false;
+        }
+
+        std::vector<BYTE> dynamicBuffer(requiredBytes, 0);
+        cr = reader(dynamicBuffer.data(), &requiredBytes);
+        if (cr != CR_SUCCESS) {
+            return false;
+        }
+
+        return AssignNonEmptyWideString(reinterpret_cast<const wchar_t*>(dynamicBuffer.data()), value);
+    }
+
     bool ReadDeviceGuidProperty(
         HDEVINFO deviceInfoSet,
         SP_DEVINFO_DATA& deviceInfo,
@@ -155,7 +232,7 @@ namespace
         DWORD requiredBytes = 0;
         GUID localValue{};
 
-        if (!SetupDiGetDevicePropertyW(
+        const BOOL ok = SetupDiGetDevicePropertyW(
             deviceInfoSet,
             &deviceInfo,
             &key,
@@ -163,16 +240,12 @@ namespace
             reinterpret_cast<PBYTE>(&localValue),
             static_cast<DWORD>(sizeof(localValue)),
             &requiredBytes,
-            0))
-        {
+            0);
+        if (!ok) {
             return false;
         }
 
-        if (propType != DEVPROP_TYPE_GUID) {
-            return false;
-        }
-
-        if (requiredBytes != sizeof(localValue)) {
+        if (propType != DEVPROP_TYPE_GUID || requiredBytes != sizeof(localValue)) {
             return false;
         }
 
@@ -291,46 +364,18 @@ namespace
         DWORD property,
         std::wstring& value)
     {
-        WCHAR localBuffer[256]{};
-        DWORD requiredBytes = 0;
-
-        if (SetupDiGetDeviceRegistryPropertyW(
-            deviceInfoSet,
-            &deviceInfo,
-            property,
-            nullptr,
-            reinterpret_cast<PBYTE>(localBuffer),
-            static_cast<DWORD>(sizeof(localBuffer)),
-            &requiredBytes))
-        {
-            value = localBuffer;
-            return !value.empty();
-        }
-
-        if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || requiredBytes < sizeof(wchar_t)) {
-            return false;
-        }
-
-        std::vector<BYTE> buffer(requiredBytes, 0);
-        if (!SetupDiGetDeviceRegistryPropertyW(
-            deviceInfoSet,
-            &deviceInfo,
-            property,
-            nullptr,
-            buffer.data(),
-            static_cast<DWORD>(buffer.size()),
-            nullptr))
-        {
-            return false;
-        }
-
-        const auto* text = reinterpret_cast<const wchar_t*>(buffer.data());
-        if (!text || text[0] == L'\0') {
-            return false;
-        }
-
-        value = text;
-        return true;
+        return ReadSetupDiWideString(
+            [&](PBYTE buffer, DWORD bufferBytes, DWORD* requiredBytes) {
+                return SetupDiGetDeviceRegistryPropertyW(
+                    deviceInfoSet,
+                    &deviceInfo,
+                    property,
+                    nullptr,
+                    buffer,
+                    bufferBytes,
+                    requiredBytes);
+            },
+            value);
     }
 
     // SetupAPI DEVPROPKEY 문자열 속성 조회
@@ -340,79 +385,32 @@ namespace
         const DEVPROPKEY& key,
         std::wstring& value)
     {
-        WCHAR localBuffer[256]{};
         DEVPROPTYPE propType = 0;
-        DWORD requiredBytes = 0;
 
-        if (SetupDiGetDevicePropertyW(
-            deviceInfoSet,
-            &deviceInfo,
-            &key,
-            &propType,
-            reinterpret_cast<PBYTE>(localBuffer),
-            static_cast<DWORD>(sizeof(localBuffer)),
-            &requiredBytes,
-            0))
-        {
-            value = localBuffer;
-            return !value.empty();
-        }
-
-        if (GetLastError() != ERROR_INSUFFICIENT_BUFFER || requiredBytes < sizeof(wchar_t)) {
-            return false;
-        }
-
-        std::vector<BYTE> buffer(requiredBytes, 0);
-        if (!SetupDiGetDevicePropertyW(
-            deviceInfoSet,
-            &deviceInfo,
-            &key,
-            &propType,
-            buffer.data(),
-            static_cast<DWORD>(buffer.size()),
-            nullptr,
-            0))
-        {
-            return false;
-        }
-
-        const auto* text = reinterpret_cast<const wchar_t*>(buffer.data());
-        if (!text || text[0] == L'\0') {
-            return false;
-        }
-
-        value = text;
-        return true;
+        return ReadSetupDiWideString(
+            [&](PBYTE buffer, DWORD bufferBytes, DWORD* requiredBytes) {
+                return SetupDiGetDevicePropertyW(
+                    deviceInfoSet,
+                    &deviceInfo,
+                    &key,
+                    &propType,
+                    buffer,
+                    bufferBytes,
+                    requiredBytes,
+                    0);
+            },
+            value);
     }
 
     // devnode DEVPROPKEY 문자열 속성 조회
     bool ReadDevNodeProperty(DEVINST devInst, const DEVPROPKEY& key, std::wstring& value)
     {
         DEVPROPTYPE propType = 0;
-        ULONG requiredBytes = 0;
-
-        CONFIGRET cr = CM_Get_DevNode_PropertyW(devInst, &key, &propType, nullptr, &requiredBytes, 0);
-        if (cr != CR_SUCCESS && cr != CR_BUFFER_SMALL) {
-            return false;
-        }
-
-        if (requiredBytes < sizeof(wchar_t)) {
-            return false;
-        }
-
-        std::vector<BYTE> buffer(requiredBytes, 0);
-        cr = CM_Get_DevNode_PropertyW(devInst, &key, &propType, buffer.data(), &requiredBytes, 0);
-        if (cr != CR_SUCCESS) {
-            return false;
-        }
-
-        const auto* text = reinterpret_cast<const wchar_t*>(buffer.data());
-        if (!text || text[0] == L'\0') {
-            return false;
-        }
-
-        value = text;
-        return true;
+        return ReadCmWideString(
+            [&](PBYTE buffer, PULONG requiredBytes) {
+                return CM_Get_DevNode_PropertyW(devInst, &key, &propType, buffer, requiredBytes, 0);
+            },
+            value);
     }
 
     // HID 문자열 디스크립터 조회
@@ -446,8 +444,17 @@ namespace
         return true;
     }
 
+    template <typename TKey, typename Reader>
+    void AddCandidateByKey(const TKey& key, Reader&& reader, std::vector<std::wstring>& candidates)
+    {
+        std::wstring value;
+        if (reader(key, value)) {
+            AddCandidateName(candidates, value);
+        }
+    }
+
     // HID 문자열 기반 이름 후보 추가
-    void AddHidProductCandidates(const std::wstring& devicePath, std::vector<std::wstring>& candidates)
+    void CollectHidStringCandidates(const std::wstring& devicePath, std::vector<std::wstring>& candidates)
     {
         std::wstring product;
         std::wstring manufacturer;
@@ -469,55 +476,56 @@ namespace
     }
 
     // 현재 HID 인터페이스 노드 기반 이름 후보 추가
-    void AddCurrentNodeCandidates(
+    void CollectCurrentNodeCandidates(
         HDEVINFO deviceInfoSet,
         SP_DEVINFO_DATA& devInfo,
         std::vector<std::wstring>& candidates)
     {
-        std::wstring value;
+        static const DEVPROPKEY kDevicePropertyKeys[] = {
+            DEVPKEY_Device_BusReportedDeviceDesc,
+            DEVPKEY_NAME,
+            DEVPKEY_Device_FriendlyName,
+            DEVPKEY_Device_DeviceDesc
+        };
 
-        if (ReadDeviceProperty(deviceInfoSet, devInfo, DEVPKEY_Device_BusReportedDeviceDesc, value)) {
-            AddCandidateName(candidates, value);
-        }
-        if (ReadDeviceProperty(deviceInfoSet, devInfo, DEVPKEY_NAME, value)) {
-            AddCandidateName(candidates, value);
-        }
-        if (ReadDeviceProperty(deviceInfoSet, devInfo, DEVPKEY_Device_FriendlyName, value)) {
-            AddCandidateName(candidates, value);
-        }
-        if (ReadDeviceProperty(deviceInfoSet, devInfo, DEVPKEY_Device_DeviceDesc, value)) {
-            AddCandidateName(candidates, value);
+        static const DWORD kRegistryProperties[] = {
+            SPDRP_FRIENDLYNAME,
+            SPDRP_DEVICEDESC,
+            SPDRP_MFG
+        };
+
+        auto readDeviceProperty = [&](const DEVPROPKEY& key, std::wstring& value) {
+            return ReadDeviceProperty(deviceInfoSet, devInfo, key, value);
+        };
+        for (const auto& key : kDevicePropertyKeys) {
+            AddCandidateByKey(key, readDeviceProperty, candidates);
         }
 
-        if (ReadDeviceRegistryProperty(deviceInfoSet, devInfo, SPDRP_FRIENDLYNAME, value)) {
-            AddCandidateName(candidates, value);
-        }
-        if (ReadDeviceRegistryProperty(deviceInfoSet, devInfo, SPDRP_DEVICEDESC, value)) {
-            AddCandidateName(candidates, value);
-        }
-        if (ReadDeviceRegistryProperty(deviceInfoSet, devInfo, SPDRP_MFG, value)) {
-            AddCandidateName(candidates, value);
+        auto readRegistryProperty = [&](DWORD property, std::wstring& value) {
+            return ReadDeviceRegistryProperty(deviceInfoSet, devInfo, property, value);
+        };
+        for (DWORD property : kRegistryProperties) {
+            AddCandidateByKey(property, readRegistryProperty, candidates);
         }
     }
 
     // 상위 devnode 기반 이름 후보 추가
-    void AddAncestorNodeCandidates(DEVINST startDevInst, std::vector<std::wstring>& candidates)
+    void CollectAncestorNodeCandidates(DEVINST startDevInst, std::vector<std::wstring>& candidates)
     {
+        static const DEVPROPKEY kAncestorPropertyKeys[] = {
+            DEVPKEY_Device_BusReportedDeviceDesc,
+            DEVPKEY_Device_FriendlyName,
+            DEVPKEY_NAME,
+            DEVPKEY_Device_DeviceDesc
+        };
+
         DEVINST current = startDevInst;
         for (int depth = 0; depth < 6; depth++) {
-            std::wstring value;
-
-            if (ReadDevNodeProperty(current, DEVPKEY_Device_BusReportedDeviceDesc, value)) {
-                AddCandidateName(candidates, value);
-            }
-            if (ReadDevNodeProperty(current, DEVPKEY_Device_FriendlyName, value)) {
-                AddCandidateName(candidates, value);
-            }
-            if (ReadDevNodeProperty(current, DEVPKEY_NAME, value)) {
-                AddCandidateName(candidates, value);
-            }
-            if (ReadDevNodeProperty(current, DEVPKEY_Device_DeviceDesc, value)) {
-                AddCandidateName(candidates, value);
+            auto readDevNodeProperty = [&](const DEVPROPKEY& key, std::wstring& value) {
+                return ReadDevNodeProperty(current, key, value);
+            };
+            for (const auto& key : kAncestorPropertyKeys) {
+                AddCandidateByKey(key, readDevNodeProperty, candidates);
             }
 
             DEVINST parent = 0;
@@ -529,7 +537,7 @@ namespace
     }
 
     // 일반명 제외 우선 선택 처리
-    std::wstring PickBestCandidateName(const std::vector<std::wstring>& candidates)
+    std::wstring SelectBestCandidateName(const std::vector<std::wstring>& candidates)
     {
         for (const auto& name : candidates) {
             if (!LooksLikeGenericHidLabel(name)) {
@@ -544,8 +552,8 @@ namespace
         return L"";
     }
 
-    // HID 인터페이스 경로 기반 표시명 해석
-    std::wstring ResolveDeviceDisplayNameFromPath(const std::wstring& devicePath, std::wstring* outIdentityKey)
+    // HID 인터페이스 경로 기반 표시명/식별키 해석
+    std::wstring ResolveDeviceMetadataFromPath(const std::wstring& devicePath, std::wstring* outIdentityKey)
     {
         if (outIdentityKey != nullptr) {
             outIdentityKey->clear();
@@ -597,15 +605,15 @@ namespace
             }
 
             std::vector<std::wstring> candidates;
-            AddHidProductCandidates(devicePath, candidates);
-            AddCurrentNodeCandidates(deviceInfoSet, devInfo, candidates);
-            AddAncestorNodeCandidates(devInfo.DevInst, candidates);
+            CollectHidStringCandidates(devicePath, candidates);
+            CollectCurrentNodeCandidates(deviceInfoSet, devInfo, candidates);
+            CollectAncestorNodeCandidates(devInfo.DevInst, candidates);
 
             if (outIdentityKey != nullptr) {
                 *outIdentityKey = ResolveDeviceIdentityKey(deviceInfoSet, devInfo);
             }
 
-            resolvedName = PickBestCandidateName(candidates);
+            resolvedName = SelectBestCandidateName(candidates);
             break;
         }
 
@@ -649,14 +657,9 @@ namespace HidFingerprint
         return true;
     }
 
-    uint64_t ComputePathHash64(const std::wstring& value)
+    uint64_t ComputeStableHash64(const std::wstring& value)
     {
-        uint64_t hash = 1469598103934665603ULL;
-        for (wchar_t ch : value) {
-            hash ^= static_cast<uint64_t>(ch);
-            hash *= 1099511628211ULL;
-        }
-        return hash;
+        return ComputeFnv1a64(value);
     }
 
     UsbItem BuildUsbItemFromPath(const std::wstring& devicePath)
@@ -671,27 +674,13 @@ namespace HidFingerprint
         item.pid = pid;
 
         std::wstring identityKey;
-        item.name = ResolveDeviceDisplayNameFromPath(devicePath, &identityKey);
+        item.name = ResolveDeviceMetadataFromPath(devicePath, &identityKey);
 
         // 기기 단위 키 계산: VID/PID + 식별키 해시 하위 32비트
-        if (!identityKey.empty()) {
-            const uint64_t identityHash = ComputePathHash64(identityKey);
-            if (hasVidPid) {
-                item.fingerprint = (static_cast<uint64_t>(vid) << 48) ^ (static_cast<uint64_t>(pid) << 32) ^ (identityHash & 0xFFFFFFFFULL);
-            }
-            else {
-                item.fingerprint = identityHash;
-            }
+        if (identityKey.empty()) {
+            identityKey = BuildPathFallbackIdentity(devicePath);
         }
-        else {
-            const uint64_t fallbackHash = ComputePathHash64(BuildPathFallbackIdentity(devicePath));
-            if (hasVidPid) {
-                item.fingerprint = (static_cast<uint64_t>(vid) << 48) ^ (static_cast<uint64_t>(pid) << 32) ^ (fallbackHash & 0xFFFFFFFFULL);
-            }
-            else {
-                item.fingerprint = fallbackHash;
-            }
-        }
+        item.fingerprint = BuildFingerprint(hasVidPid, vid, pid, identityKey);
 
         if (item.name.empty()) {
             item.name = BuildFallbackName(hasVidPid, vid, pid);
