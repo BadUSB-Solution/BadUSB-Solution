@@ -4,7 +4,7 @@
 #include <string>
 #include <cstdint>
 
-#include "../Core/usb_item.h"
+#include "usb_item.h"
 
 namespace ApprovalUI {
     // devices: UI에서 allow 값을 수정함(체크박스 결과가 반영됨)

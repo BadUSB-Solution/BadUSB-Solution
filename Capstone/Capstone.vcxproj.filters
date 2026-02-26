@@ -60,13 +60,16 @@
     <ClInclude Include="Core\resource.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="hid_initialScan.h">
+    <ClInclude Include="Detect\hid_approval_flow.h">
       <Filter>Detect</Filter>
     </ClInclude>
-    <ClInclude Include="hid_fingerprint.h">
+    <ClInclude Include="Detect\hid_fingerprint.h">
       <Filter>Detect</Filter>
     </ClInclude>
-    <ClInclude Include="usb_item.h">
+    <ClInclude Include="Detect\hid_initialScan.h">
+      <Filter>Detect</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\usb_item.h">
       <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
@@ -93,16 +96,13 @@
     <ClCompile Include="Hook\keyboard_hook.cpp">
       <Filter>Hook</Filter>
     </ClCompile>
-    <ClCompile Include="hid_initialScan.cpp">
+    <ClCompile Include="Detect\hid_approval_flow.cpp">
       <Filter>Detect</Filter>
     </ClCompile>
-    <ClCompile Include="hid_fingerprint.cpp">
+    <ClCompile Include="Detect\hid_fingerprint.cpp">
       <Filter>Detect</Filter>
     </ClCompile>
-    <ClCompile Include="hid_approval_flow.h">
-      <Filter>Detect</Filter>
-    </ClCompile>
-    <ClCompile Include="hid_approval_flow.cpp">
+    <ClCompile Include="Detect\hid_initialScan.cpp">
       <Filter>Detect</Filter>
     </ClCompile>
   </ItemGroup>

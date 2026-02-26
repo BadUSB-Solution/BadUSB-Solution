@@ -146,21 +146,21 @@
     <ClInclude Include="Core\ui_message_id.h" />
     <ClInclude Include="Core\logger.h" />
     <ClInclude Include="Core\policy.h" />
+    <ClInclude Include="Core\usb_item.h" />
+    <ClInclude Include="Detect\hid_approval_flow.h" />
+    <ClInclude Include="Detect\hid_fingerprint.h" />
+    <ClInclude Include="Detect\hid_initialScan.h" />
     <ClInclude Include="Detect\hid_monitor.h" />
-    <ClInclude Include="hid_fingerprint.h" />
-    <ClInclude Include="hid_initialScan.h" />
     <ClInclude Include="Hook\badusb.h" />
     <ClInclude Include="Hook\keyboard_hook.h" />
     <ClInclude Include="UI\ui_tray.h" />
     <ClInclude Include="UI\ui_tabs.h" />
     <ClInclude Include="UI\ui_approval.h" />
-    <ClInclude Include="usb_item.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="hid_approval_flow.cpp" />
-    <ClCompile Include="hid_approval_flow.h" />
-    <ClCompile Include="hid_fingerprint.cpp" />
-    <ClCompile Include="hid_initialScan.cpp" />
+    <ClCompile Include="Detect\hid_approval_flow.cpp" />
+    <ClCompile Include="Detect\hid_fingerprint.cpp" />
+    <ClCompile Include="Detect\hid_initialScan.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Core\logger.cpp" />
     <ClCompile Include="Core\policy.cpp" />

@@ -58,37 +58,34 @@ namespace
     }
 }
 
-namespace DeviceApprovalFlow
+bool  DeviceApprovalFlow::ApproveFromPaths(HWND hWnd, const std::vector<std::wstring>& paths)
 {
-    bool ApproveFromPaths(HWND hWnd, const std::vector<std::wstring>& paths)
-    {
-        std::vector<UsbItem> pending;
-        pending.reserve(paths.size());
+    std::vector<UsbItem> pending;
+    pending.reserve(paths.size());
 
-        for (const auto& path : paths) {
-            if (path.empty()) continue;
+    for (const auto& path : paths) {
+        if (path.empty()) continue;
 
-            UsbItem item = HidFingerprint::BuildItem(path);
+        UsbItem item = HidFingerprint::BuildItem(path);
 
-            // 이미 승인/차단이면 스킵
-            if (Policy::IsWhitelisted(item.fingerprint) || Policy::IsBlacklisted(item.fingerprint))
-                continue;
+        // 이미 승인/차단이면 스킵
+        if (Policy::IsWhitelisted(item.fingerprint) || Policy::IsBlacklisted(item.fingerprint))
+            continue;
 
-            if (!PendingContains(pending, item.fingerprint))
-                pending.push_back(std::move(item));
-        }
-
-        if (pending.empty()) {
-            Logger::Add(L"[Approval] No unknown HID devices.");
-            return false;
-        }
-
-        return RunApprovalDialog(hWnd, pending);
+        if (!PendingContains(pending, item.fingerprint))
+            pending.push_back(std::move(item));
     }
 
-    bool ApproveFromPath(HWND hWnd, const std::wstring& path)
-    {
-        std::vector<std::wstring> one{ path };
-        return ApproveFromPaths(hWnd, one);
+    if (pending.empty()) {
+        Logger::Add(L"[Approval] No unknown HID devices.");
+        return false;
     }
+
+    return RunApprovalDialog(hWnd, pending);
+}
+
+bool  DeviceApprovalFlow::ApproveFromPath(HWND hWnd, const std::wstring& path)
+{
+    std::vector<std::wstring> one{ path };
+    return ApproveFromPaths(hWnd, one);
 }

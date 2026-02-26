@@ -2,7 +2,7 @@
 #pragma once
 #include <string>
 #include <cstdint>
-#include "ui_approval.h" // UsbItem
+#include "usb_item.h"
 
 namespace HidFingerprint {
     bool ExtractVidPid(const std::wstring& path, uint16_t& vid, uint16_t& pid);
