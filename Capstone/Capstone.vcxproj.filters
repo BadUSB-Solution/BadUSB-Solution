@@ -60,6 +60,9 @@
     <ClInclude Include="UI\ui_approval.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="UI\ui_buffer_view.h">
+      <Filter>UI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
@@ -83,6 +86,9 @@
     </ClCompile>
     <ClCompile Include="Hook\keyboard_hook.cpp">
       <Filter>Hook</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ui_buffer_view.cpp">
+      <Filter>UI</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
