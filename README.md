@@ -13,25 +13,32 @@ Capstone/
 │   ├── framework.h, targetver.h, Capstone.h, Resource.h
 │   ├── ui_message_id.h
 │   ├── logger.h / logger.cpp
-│   └── policy.h / policy.cpp
+│   ├── policy.h / policy.cpp
+│   └── usb_item.h
 │
 ├── Detect/
-│   └── hid_monitor.h / hid_monitor.cpp
+│   ├── hid_monitor.h / hid_monitor.cpp
+│   ├── hid_approval_flow.h / hid_approval_flow.cpp
+│   ├── hid_fingerprint.h / hid_fingerprint.cpp
+│   └── hid_initialScan.h / hid_initialScan.cpp
 │
 ├── Hook/
-│   └── badusb.h
+│   ├── badusb.h
+│   └── keyboard_hook.h / keyboard_hook.cpp
 │
 ├── Algorithm/
 │
 ├── UI/
 │   ├── ui_tray.h / ui_tray.cpp
 │   ├── ui_tabs.h / ui_tabs.cpp
-│   └── ui_approval.h / ui_approval.cpp
+│   ├── ui_approval.h / ui_approval.cpp
+│   └── ui_buffer_view.h / ui_buffer_view.cpp
 │
 └── Resource/
     ├── Capstone.rc
     ├── Capstone.ico
-    └── small.ico
+    ├── small.ico
+    └── ui_approval.rc
 ```
 
 ## 폴더 설명

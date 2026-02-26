@@ -10,9 +10,6 @@
     <Filter Include="Hook">
       <UniqueIdentifier>{E3F4B9F2-7C2B-4D4E-A03F-2B3C4D5E6F70}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Algorithm">
-      <UniqueIdentifier>{F4050A03-8D3C-4E5F-B140-3C4D5E6F7081}</UniqueIdentifier>
-    </Filter>
     <Filter Include="UI">
       <UniqueIdentifier>{05161B14-9E4D-4F60-C251-4D5E6F708192}</UniqueIdentifier>
     </Filter>
