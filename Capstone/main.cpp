@@ -88,8 +88,8 @@ BOOL InitInstance(HINSTANCE hInstance, int)
     // 시작 시: 현재 연결된 HID 전체 스캔 → 승인 UI
     // 부모가 숨김 상태이므로 NULL로 띄우는 게 포커스/모달 안정적
     {
-        auto paths = HidInitialScan::EnumerateHidDevicePaths();
-        DeviceApprovalFlow::ApproveFromPaths(nullptr, paths); // 또는 hWnd
+        auto paths = HidInitialScan::EnumeratePresentHidDevicePaths();
+        DeviceApprovalFlow::ApproveDevicesFromPaths(nullptr, paths); // 또는 hWnd
     }
 
     ShowWindow(hWnd, SW_HIDE);

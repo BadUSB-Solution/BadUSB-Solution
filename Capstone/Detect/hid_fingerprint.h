@@ -1,11 +1,17 @@
-#pragma once
-#pragma once
-#include <string>
+﻿#pragma once
+
 #include <cstdint>
+#include <string>
+
 #include "usb_item.h"
 
 namespace HidFingerprint {
-    bool ExtractVidPid(const std::wstring& path, uint16_t& vid, uint16_t& pid);
-    uint64_t Hash64_FNV1a(const std::wstring& s);
-    UsbItem BuildItem(const std::wstring& devicePath);
+    // DevicePath 기반 VID/PID 토큰 추출
+    bool TryExtractVidPid(const std::wstring& devicePath, uint16_t& vid, uint16_t& pid);
+
+    // 경로 기반 64비트 해시 계산
+    uint64_t ComputePathHash64(const std::wstring& value);
+
+    // VID/PID, fingerprint, 표시명 포함 UsbItem 생성
+    UsbItem BuildUsbItemFromPath(const std::wstring& devicePath);
 }
