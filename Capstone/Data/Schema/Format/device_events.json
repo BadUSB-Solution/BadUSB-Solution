@@ -1,0 +1,42 @@
+{
+  "_schema": "BadUSB-Solution Device Events",
+  "_description": "드라이버 레벨 장치 이벤트 기록 (Hook/badusb.h - BadUsbDeviceEvent 구조체)",
+  "events": [
+    {
+      "event_type": "",
+      "event_type_code": 0,
+      "device_instance_id_hash": 0,
+      "vid": "",
+      "pid": "",
+      "interface_class": 0,
+      "interface_sub_class": 0,
+      "interface_protocol": 0,
+      "timestamp": ""
+    }
+  ],
+  "_event_types": {
+    "None": 0,
+    "DeviceConnected": 1
+  },
+  "_field_types": {
+    "event_type": "BadUsbEventType(uint32_t) → string",
+    "event_type_code": "BadUsbEventType(uint32_t) → number",
+    "device_instance_id_hash": "uint64_t → number",
+    "vid": "uint16_t → hex string",
+    "pid": "uint16_t → hex string",
+    "interface_class": "uint32_t → number (HID=3)",
+    "interface_sub_class": "uint32_t → number (Boot=1)",
+    "interface_protocol": "uint32_t → number (Keyboard=1, Mouse=2)"
+  },
+  "_input_source": {
+    "전체": "IOCTL_BADUSB_GET_EVENT → 커널 드라이버(BadUsbFilter)에서 DeviceIoControl로 수신",
+    "event_type": "BadUsbDeviceEvent.type → 드라이버가 설정",
+    "device_instance_id_hash": "BadUsbDeviceEvent.deviceInstanceIdHash → 드라이버가 계산한 장치 인스턴스 ID 해시",
+    "vid": "BadUsbDeviceEvent.vid → USB 디스크립터에서 드라이버가 추출",
+    "pid": "BadUsbDeviceEvent.pid → USB 디스크립터에서 드라이버가 추출",
+    "interface_class": "BadUsbDeviceEvent.interfaceClass → USB 인터페이스 디스크립터",
+    "interface_sub_class": "BadUsbDeviceEvent.interfaceSubClass → USB 인터페이스 디스크립터",
+    "interface_protocol": "BadUsbDeviceEvent.interfaceProtocol → USB 인터페이스 디스크립터",
+    "timestamp": "이벤트 수신 시점 타임스탬프 (ISO 8601)"
+  }
+}

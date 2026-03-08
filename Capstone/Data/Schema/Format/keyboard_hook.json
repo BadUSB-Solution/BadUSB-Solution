@@ -1,0 +1,57 @@
+{
+  "_schema": "BadUSB-Solution Keyboard Hook",
+  "_description": "키보드 후킹 버퍼 데이터 (Hook/keyboard_hook.h/cpp + UI/ui_buffer_view.cpp)",
+  "hook_active": false,
+  "marker_passthrough": "",
+  "buffer": {
+    "_description": "캡처된 키 입력 기록 (KeyRecord 구조체 배열)",
+    "records": [
+      {
+        "vk_code": 0,
+        "vk_name": "",
+        "scan_code": 0,
+        "flags": 0,
+        "is_key_up": false,
+        "time": 0
+      }
+    ]
+  },
+  "buffer_view_result": {
+    "_description": "버퍼 뷰어 UI 판정 결과",
+    "device_vid": "",
+    "device_pid": "",
+    "total_keystrokes": 0,
+    "key_down_only_count": 0,
+    "display_text": "",
+    "user_decision": "",
+    "decided_at": ""
+  },
+  "_field_types": {
+    "vk_code": "DWORD → number (가상 키코드)",
+    "scan_code": "DWORD → number (하드웨어 스캔코드)",
+    "flags": "DWORD → number (bit 7 = 0x80 = key up)",
+    "time": "DWORD → number (밀리초 단위 시스템 타임)"
+  },
+  "_notes": {
+    "hook_behavior": "설치 시 모든 키보드 입력을 차단(return 1)하고 버퍼에 기록",
+    "passthrough": "dwExtraInfo == 0xBADC0DE인 입력은 통과 (선택적 차단 확장용)",
+    "display_text": "key-down(flags & 0x80 == 0)만 [키이름] 형태로 표시"
+  },
+  "_input_source": {
+    "hook_active": "KeyboardHook::IsActive() → g_hook != nullptr 여부",
+    "marker_passthrough": "main.cpp 상수 MARKER_PASSTHROUGH (0xBADC0DE)",
+    "buffer.records[].vk_code": "KBDLLHOOKSTRUCT.vkCode → SetWindowsHookExW(WH_KEYBOARD_LL) 콜백에서 수신",
+    "buffer.records[].vk_name": "VkCodeToString(vkCode) → ui_buffer_view.cpp에서 변환",
+    "buffer.records[].scan_code": "KBDLLHOOKSTRUCT.scanCode → LL Hook 콜백에서 수신",
+    "buffer.records[].flags": "KBDLLHOOKSTRUCT.flags → bit 7(0x80)이 1이면 key-up",
+    "buffer.records[].is_key_up": "flags & 0x80 != 0 여부",
+    "buffer.records[].time": "KBDLLHOOKSTRUCT.time → 시스템 밀리초 타이머",
+    "buffer_view_result.device_vid": "BufferViewUI::Show() 호출 시 전달받은 vid 파라미터",
+    "buffer_view_result.device_pid": "BufferViewUI::Show() 호출 시 전달받은 pid 파라미터",
+    "buffer_view_result.total_keystrokes": "GetBufferedKeys().size() → 전체 키 이벤트 수",
+    "buffer_view_result.key_down_only_count": "flags & 0x80 == 0인 레코드 수",
+    "buffer_view_result.display_text": "BuildKeysText(keys) → key-down만 [키이름] 형태로 조합",
+    "buffer_view_result.user_decision": "BufferViewUI::Show() 반환값: true → 'Allow', false → 'Deny'",
+    "buffer_view_result.decided_at": "사용자 판정 시점 타임스탬프 (ISO 8601)"
+  }
+}
