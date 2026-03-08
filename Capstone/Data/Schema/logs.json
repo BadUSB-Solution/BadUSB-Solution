@@ -1,0 +1,88 @@
+{
+  "_schema": "BadUSB-Solution Logs",
+  "_description": "애플리케이션 로그 (Core/logger.h/cpp - 최대 500개, FIFO)",
+  "max_entries": 500,
+  "entries": [
+    {
+      "index": 0,
+      "message": "[A] Start (Tray resident)",
+      "category": "system",
+      "timestamp": "2025-06-15T09:29:55+09:00"
+    },
+    {
+      "index": 1,
+      "message": "[Init] HID notifications registered.",
+      "category": "init",
+      "timestamp": "2025-06-15T09:29:56+09:00"
+    },
+    {
+      "index": 2,
+      "message": "[UI] Showing approval list dialog...",
+      "category": "ui",
+      "timestamp": "2025-06-15T09:30:00+09:00"
+    },
+    {
+      "index": 3,
+      "message": "[UI] Saved. Applying policy...",
+      "category": "ui",
+      "timestamp": "2025-06-15T09:30:10+09:00"
+    },
+    {
+      "index": 4,
+      "message": "[T] Added to Whitelist: 1234567890123456",
+      "category": "policy",
+      "timestamp": "2025-06-15T09:30:10+09:00"
+    },
+    {
+      "index": 5,
+      "message": "[Auto] HID arrival detected.",
+      "category": "detect",
+      "timestamp": "2025-06-15T10:15:00+09:00"
+    },
+    {
+      "index": 6,
+      "message": "[Approval] Candidate: Suspicious Keyboard",
+      "category": "approval",
+      "timestamp": "2025-06-15T10:15:01+09:00"
+    },
+    {
+      "index": 7,
+      "message": "[Hook] Keyboard hook installed. All keyboard input blocked.",
+      "category": "hook",
+      "timestamp": "2025-06-15T10:15:05+09:00"
+    },
+    {
+      "index": 8,
+      "message": "[Hook] Keyboard hook removed. Keyboard restored.",
+      "category": "hook",
+      "timestamp": "2025-06-15T10:15:30+09:00"
+    },
+    {
+      "index": 9,
+      "message": "[Test] User: Deny",
+      "category": "test",
+      "timestamp": "2025-06-15T10:15:31+09:00"
+    }
+  ],
+  "_log_prefix_to_category": {
+    "[A]": "system — 애플리케이션 시작",
+    "[Init]": "init — HID 알림 등록 성공/실패",
+    "[Auto]": "detect — 자동 감지 (도착/제거/중복무시)",
+    "[UI]": "ui — 승인 UI 표시/저장/취소",
+    "[T]": "policy — 정책 반영 (Whitelist/Blacklist 추가)",
+    "[Approval]": "approval — 승인 후보 장치 목록",
+    "[Hook]": "hook — 키보드 후킹 설치/제거",
+    "[Test]": "test — 테스트 결과 (Allow/Deny)"
+  },
+  "_categories": [
+    "system",
+    "init",
+    "ui",
+    "policy",
+    "detect",
+    "approval",
+    "hook",
+    "test",
+    "auto"
+  ]
+}

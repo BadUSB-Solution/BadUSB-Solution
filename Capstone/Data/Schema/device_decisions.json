@@ -1,0 +1,23 @@
+{
+  "_schema": "BadUSB-Solution Device Decisions",
+  "_description": "장치별 판정 결과 기록 (Hook/badusb.h - BadUsbDecisionRequest 구조체)",
+  "decisions": [
+    {
+      "device_instance_id_hash": 5678901234567890,
+      "decision": "Allow",
+      "decision_code": 1,
+      "decided_at": "2025-06-15T09:30:05+09:00",
+      "decided_by": "user"
+    }
+  ],
+  "_decision_types": {
+    "Hold": 0,
+    "Allow": 1,
+    "Block": 2
+  },
+  "_field_types": {
+    "device_instance_id_hash": "uint64_t → number",
+    "decision": "BadUsbDecision(uint32_t) → string",
+    "decision_code": "BadUsbDecision(uint32_t) → number"
+  }
+}

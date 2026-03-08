@@ -1,0 +1,10 @@
+{
+  "_schema": "BadUSB-Solution App Config",
+  "_description": "애플리케이션 전역 설정",
+  "version": "1.0.0",
+  "auto_scan_on_startup": true,
+  "arrival_cooldown_ms": 300,
+  "max_log_entries": 500,
+  "hook_marker_passthrough": "0xBADC0DE",
+  "tray_resident": true
+}

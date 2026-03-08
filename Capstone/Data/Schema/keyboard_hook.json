@@ -1,0 +1,48 @@
+{
+  "_schema": "BadUSB-Solution Keyboard Hook",
+  "_description": "키보드 후킹 버퍼 데이터 (Hook/keyboard_hook.h/cpp + UI/ui_buffer_view.cpp)",
+  "hook_active": false,
+  "marker_passthrough": "0xBADC0DE",
+  "buffer": {
+    "_description": "캡처된 키 입력 기록 (KeyRecord 구조체 배열)",
+    "records": [
+      {
+        "vk_code": 87,
+        "vk_name": "W",
+        "scan_code": 17,
+        "flags": 0,
+        "is_key_up": false,
+        "time": 1718412605000
+      },
+      {
+        "vk_code": 87,
+        "vk_name": "W",
+        "scan_code": 17,
+        "flags": 128,
+        "is_key_up": true,
+        "time": 1718412605100
+      }
+    ]
+  },
+  "buffer_view_result": {
+    "_description": "버퍼 뷰어 UI 판정 결과",
+    "device_vid": "0x1234",
+    "device_pid": "0x5678",
+    "total_keystrokes": 15,
+    "key_down_only_count": 8,
+    "display_text": "[W] [I] [N] [Enter] [Space]",
+    "user_decision": "Allow",
+    "decided_at": "2025-06-15T10:00:30+09:00"
+  },
+  "_field_types": {
+    "vk_code": "DWORD → number (가상 키코드)",
+    "scan_code": "DWORD → number (하드웨어 스캔코드)",
+    "flags": "DWORD → number (bit 7 = 0x80 = key up)",
+    "time": "DWORD → number (밀리초 단위 시스템 타임)"
+  },
+  "_notes": {
+    "hook_behavior": "설치 시 모든 키보드 입력을 차단(return 1)하고 버퍼에 기록",
+    "passthrough": "dwExtraInfo == 0xBADC0DE인 입력은 통과 (선택적 차단 확장용)",
+    "display_text": "key-down(flags & 0x80 == 0)만 [키이름] 형태로 표시"
+  }
+}

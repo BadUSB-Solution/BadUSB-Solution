@@ -1,0 +1,50 @@
+{
+  "_schema": "BadUSB-Solution Fingerprint Details",
+  "_description": "장치 fingerprint 생성 세부 정보 (Detect/hid_fingerprint.cpp)",
+  "records": [
+    {
+      "device_path": "\\\\?\\hid#vid_046d&pid_c52b#7&abcdef&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}",
+      "vid": "0x046D",
+      "pid": "0xC52B",
+      "has_vid_pid": true,
+      "identity_key": "cid:{12345678-abcd-ef01-2345-6789abcdef01}",
+      "identity_key_type": "container_id",
+      "fingerprint": 1234567890123456,
+      "resolved_name": "Logitech USB Receiver",
+      "name_source": "hid_product_string",
+      "is_generic_label": false,
+      "computed_at": "2025-06-15T09:30:00+09:00"
+    }
+  ],
+  "_identity_key_types": {
+    "container_id": "DEVPKEY_Device_ContainerId GUID 기반 (cid:접두사)",
+    "usb_instance_id": "USB\\VID_ 포함 인스턴스 ID (inst:접두사)",
+    "hid_instance_id": "HID\\VID_ 포함 인스턴스 ID (inst:접두사)",
+    "fallback_path": "DevicePath에서 mi_/col 토큰 제거 후 소문자 변환"
+  },
+  "_name_sources": {
+    "hid_product_string": "HidD_GetProductString",
+    "hid_manufacturer_product": "Manufacturer + Product 결합",
+    "bus_reported_desc": "DEVPKEY_Device_BusReportedDeviceDesc",
+    "friendly_name": "DEVPKEY_Device_FriendlyName / SPDRP_FRIENDLYNAME",
+    "device_desc": "DEVPKEY_Device_DeviceDesc / SPDRP_DEVICEDESC",
+    "registry_mfg": "SPDRP_MFG",
+    "ancestor_node": "상위 devnode 속성 (최대 6단계)",
+    "fallback_vid_pid": "HID Device (VID_XXXX&PID_XXXX) 형식"
+  },
+  "_fingerprint_algorithm": {
+    "hash": "FNV-1a 64bit",
+    "with_vid_pid": "(VID << 48) ^ (PID << 32) ^ (identityHash & 0xFFFFFFFF)",
+    "without_vid_pid": "identityHash 그대로 사용"
+  },
+  "_generic_label_keywords": [
+    "hid compliant",
+    "hid-compliant",
+    "hid keyboard",
+    "hid mouse",
+    "hid device",
+    "vendor-defined",
+    "consumer control",
+    "system controller"
+  ]
+}
