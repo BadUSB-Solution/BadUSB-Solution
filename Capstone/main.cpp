@@ -20,6 +20,7 @@
 #include "hid_approval_flow.h"   
 #include "keyboard_hook.h"
 #include "ui_buffer_view.h"
+#include "policy.h"
 
 #pragma comment(lib, "Shell32.lib")
 
@@ -44,8 +45,13 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int)
     LoadStringW(hInstance, IDC_CAPSTONE, szWindowClass, MAX_LOADSTRING);
 
     MyRegisterClass(hInstance);
-    InitInstance(hInstance, 0);
 
+    // DB 먼저 로드 시도 (InitInstance 내부에서 참조)
+    if (Policy::Load()) {
+        Logger::Add(L"[A] Policy DB loaded from file.");
+    }
+
+    InitInstance(hInstance, 0);
     Logger::Add(L"[A] Start (Tray resident)");
 
     MSG msg;
@@ -85,11 +91,13 @@ BOOL InitInstance(HINSTANCE hInstance, int)
     HidMonitor::RegisterNotifications(hWnd);
     UiTray::AddIcon(hWnd, hInst, IDI_CAPSTONE);
 
-    // 시작 시: 현재 연결된 HID 전체 스캔 → 승인 UI
-    // 부모가 숨김 상태이므로 NULL로 띄우는 게 포커스/모달 안정적
-    {
+    // DB에 기존 정책이 있으면 스캔 생략, 없으면 전체 스캔 → 승인 UI
+    if (Policy::GetWhitelist().empty() && Policy::GetBlacklist().empty()) {
         auto paths = HidInitialScan::EnumeratePresentHidDevicePaths();
-        DeviceApprovalFlow::ApproveDevicesFromPaths(nullptr, paths); // 또는 hWnd
+        DeviceApprovalFlow::ApproveDevicesFromPaths(nullptr, paths);
+    }
+    else {
+        Logger::Add(L"[A] Skipped initial scan (policy DB exists).");
     }
 
     ShowWindow(hWnd, SW_HIDE);
