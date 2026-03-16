@@ -53,6 +53,20 @@ namespace KeyboardHook
         return false;
     }
 
+    // Hook 해제 후 modifier 키 stuck 방지: 강제 KEYUP 전송
+    static void ResetKeyboardState()
+    {
+        static const BYTE modifiers[] = {
+            VK_LSHIFT, VK_RSHIFT,
+            VK_LCONTROL, VK_RCONTROL,
+            VK_LMENU, VK_RMENU,
+            VK_LWIN, VK_RWIN,
+        };
+
+        for (BYTE vk : modifiers)
+            keybd_event(vk, 0, KEYEVENTF_KEYUP, 0);
+    }
+
     void Uninstall()
     {
         if (g_hook == nullptr)
@@ -60,6 +74,9 @@ namespace KeyboardHook
 
         UnhookWindowsHookEx(g_hook);
         g_hook = nullptr;
+
+        ResetKeyboardState();
+
         Logger::Add(L"[Hook] Keyboard hook removed. Keyboard restored.");
     }
 
