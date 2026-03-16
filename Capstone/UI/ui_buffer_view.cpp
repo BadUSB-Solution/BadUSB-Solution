@@ -138,12 +138,21 @@ static LRESULT CALLBACK ViewerProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
 
     case WM_TIMER:
         if (wParam == IDC_TIMER_REFRESH && g_hEdit) {
+            // 스크롤이 맨 아래인지 확인 (사용자가 올렸으면 강제 스크롤 안 함)
+            SCROLLINFO si{};
+            si.cbSize = sizeof(si);
+            si.fMask = SIF_ALL;
+            GetScrollInfo(g_hEdit, SB_VERT, &si);
+            bool wasAtBottom = (si.nPos + (int)si.nPage >= si.nMax) || (si.nMax == 0);
+
             auto keys = KeyboardHook::GetBufferedKeys();
             std::wstring text = BuildKeysText(keys);
             SetWindowTextW(g_hEdit, text.c_str());
-            // 스크롤을 맨 아래로
-            SendMessageW(g_hEdit, EM_SETSEL, (WPARAM)text.size(), (LPARAM)text.size());
-            SendMessageW(g_hEdit, EM_SCROLLCARET, 0, 0);
+
+            if (wasAtBottom) {
+                SendMessageW(g_hEdit, EM_SETSEL, (WPARAM)text.size(), (LPARAM)text.size());
+                SendMessageW(g_hEdit, EM_SCROLLCARET, 0, 0);
+            }
         }
         return 0;
 
