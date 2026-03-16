@@ -40,9 +40,6 @@ namespace UiTray
         HMENU menu = CreatePopupMenu();
         AppendMenuW(menu, MF_STRING, IDM_TRAY_OPEN, L"Open");
         AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-        AppendMenuW(menu, MF_STRING, IDM_TRAY_HOOK_ON,  L"Hook ON (Test)");
-        AppendMenuW(menu, MF_STRING, IDM_TRAY_HOOK_OFF, L"Hook OFF (Test)");
-        AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
         AppendMenuW(menu, MF_STRING, IDM_TRAY_EXIT, L"Exit");
 
         SetForegroundWindow(hWnd);
