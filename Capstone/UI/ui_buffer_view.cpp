@@ -1,5 +1,5 @@
 #include "ui_buffer_view.h"
-#include <sstream>
+#include "keyboard_hook.h"
 #include <string>
 
 // --- 가상 키코드 → 문자열 변환 ---
@@ -108,12 +108,15 @@ static std::wstring BuildKeysText(const std::vector<KeyboardHook::KeyRecord>& ke
 static const wchar_t* VIEWER_CLASS = L"BadUSB_BufferViewer";
 static bool g_result = false;
 static bool g_closed = false;
+static HWND g_hEdit = nullptr;
+static HWND g_hModelessWnd = nullptr;
 
-static const UINT_PTR IDC_EDIT_KEYS   = 2001;
-static const UINT_PTR IDC_BTN_ALLOW   = 2002;
-static const UINT_PTR IDC_BTN_DENY    = 2003;
+static const UINT_PTR IDC_EDIT_KEYS    = 2001;
+static const UINT_PTR IDC_BTN_ALLOW    = 2002;
+static const UINT_PTR IDC_BTN_DENY     = 2003;
 static const UINT_PTR IDC_LABEL_DEVICE = 2004;
 static const UINT_PTR IDC_LABEL_TITLE  = 2005;
+static const UINT_PTR IDC_TIMER_REFRESH = 2006;
 
 static LRESULT CALLBACK ViewerProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -133,13 +136,34 @@ static LRESULT CALLBACK ViewerProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
         }
         break;
 
+    case WM_TIMER:
+        if (wParam == IDC_TIMER_REFRESH && g_hEdit) {
+            auto keys = KeyboardHook::GetBufferedKeys();
+            std::wstring text = BuildKeysText(keys);
+            SetWindowTextW(g_hEdit, text.c_str());
+            // 스크롤을 맨 아래로
+            SendMessageW(g_hEdit, EM_SETSEL, (WPARAM)text.size(), (LPARAM)text.size());
+            SendMessageW(g_hEdit, EM_SCROLLCARET, 0, 0);
+        }
+        return 0;
+
     case WM_CLOSE:
+        // 모달리스 모니터링 창은 X 버튼으로 닫기 허용
+        if (hWnd == g_hModelessWnd) {
+            DestroyWindow(hWnd);
+            return 0;
+        }
+        // 모달 뷰어는 Deny 처리
         g_result = false;
         g_closed = true;
         DestroyWindow(hWnd);
         return 0;
 
     case WM_DESTROY:
+        KillTimer(hWnd, IDC_TIMER_REFRESH);
+        g_hEdit = nullptr;
+        if (hWnd == g_hModelessWnd)
+            g_hModelessWnd = nullptr;
         return 0;
     }
 
@@ -162,10 +186,24 @@ static void RegisterViewerClass(HINSTANCE hInst)
     registered = true;
 }
 
+// 장치 라벨 텍스트 생성
+static void FormatDeviceLabel(wchar_t* buf, size_t bufLen,
+                              uint16_t vid, uint16_t pid,
+                              const std::wstring& deviceName)
+{
+    if (deviceName.empty())
+        wsprintfW(buf, L"Device:  VID=0x%04X   PID=0x%04X", vid, pid);
+    else
+        wsprintfW(buf, L"Device:  %s  (VID=0x%04X  PID=0x%04X)",
+                  deviceName.c_str(), vid, pid);
+}
+
+// --- 모달 뷰어 (Allow/Deny 버튼 포함, 차단) ---
+
 namespace BufferViewUI
 {
     bool Show(HWND hParent, uint16_t vid, uint16_t pid,
-              const std::vector<KeyboardHook::KeyRecord>& keys)
+              const std::wstring& deviceName)
     {
         HINSTANCE hInst = (HINSTANCE)GetWindowLongPtrW(hParent, GWLP_HINSTANCE);
         RegisterViewerClass(hInst);
@@ -173,10 +211,8 @@ namespace BufferViewUI
         g_result = false;
         g_closed = false;
 
-        // 창 크기
         const int W = 500, H = 350;
 
-        // 화면 중앙 배치
         int sx = GetSystemMetrics(SM_CXSCREEN);
         int sy = GetSystemMetrics(SM_CYSCREEN);
         int x = (sx - W) / 2;
@@ -194,60 +230,130 @@ namespace BufferViewUI
 
         // 장치 정보 라벨
         {
-            wchar_t buf[128];
-            wsprintfW(buf, L"Device:  VID=0x%04X   PID=0x%04X", vid, pid);
+            wchar_t buf[256];
+            FormatDeviceLabel(buf, 256, vid, pid, deviceName);
             CreateWindowExW(0, L"STATIC", buf,
                 WS_CHILD | WS_VISIBLE,
                 20, 15, 450, 20, hWnd, (HMENU)IDC_LABEL_DEVICE, hInst, nullptr);
         }
 
-        // "캡처된 키 입력:" 라벨
         CreateWindowExW(0, L"STATIC", L"Captured Keystrokes:",
             WS_CHILD | WS_VISIBLE,
             20, 45, 200, 20, hWnd, (HMENU)IDC_LABEL_TITLE, hInst, nullptr);
 
-        // 키 입력 표시 영역 (읽기 전용, 여러 줄)
         {
-            std::wstring text = BuildKeysText(keys);
-            HWND hEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", text.c_str(),
+            g_hEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT",
+                L"(No keystrokes detected)",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL |
                 ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
                 20, 70, 445, 170, hWnd, (HMENU)IDC_EDIT_KEYS, hInst, nullptr);
 
-            // 폰트 설정
             HFONT hFont = CreateFontW(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                 DEFAULT_CHARSET, 0, 0, 0, 0, L"Consolas");
             if (hFont)
-                SendMessageW(hEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
+                SendMessageW(g_hEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
         }
 
-        // 허용 버튼
+        SetTimer(hWnd, IDC_TIMER_REFRESH, 200, nullptr);
+
         CreateWindowExW(0, L"BUTTON", L"Allow",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
             120, 260, 100, 35, hWnd, (HMENU)IDC_BTN_ALLOW, hInst, nullptr);
 
-        // 거부 버튼
         CreateWindowExW(0, L"BUTTON", L"Deny",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
             260, 260, 100, 35, hWnd, (HMENU)IDC_BTN_DENY, hInst, nullptr);
 
-        // 부모 창 비활성화 (모달)
         EnableWindow(hParent, FALSE);
 
         ShowWindow(hWnd, SW_SHOW);
         UpdateWindow(hWnd);
 
-        // 메시지 루프 (LL Hook 콜백이 계속 동작하도록 메시지 펌핑)
         MSG msg;
         while (!g_closed && GetMessageW(&msg, nullptr, 0, 0)) {
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
 
-        // 부모 창 다시 활성화
         EnableWindow(hParent, TRUE);
         SetForegroundWindow(hParent);
 
         return g_result;
+    }
+
+    // --- 모달리스 모니터링 창 (버튼 없음, 비차단) ---
+
+    void Open(HWND hParent, uint16_t vid, uint16_t pid,
+              const std::wstring& deviceName)
+    {
+        // 이미 열려 있으면 닫기
+        if (g_hModelessWnd) {
+            DestroyWindow(g_hModelessWnd);
+            g_hModelessWnd = nullptr;
+            g_hEdit = nullptr;
+        }
+
+        HINSTANCE hInst = (HINSTANCE)GetWindowLongPtrW(hParent, GWLP_HINSTANCE);
+        RegisterViewerClass(hInst);
+
+        const int W = 480, H = 280;
+
+        // 화면 오른쪽 상단 배치 (승인 다이얼로그와 겹치지 않게)
+        int sx = GetSystemMetrics(SM_CXSCREEN);
+        int x = sx - W - 40;
+        int y = 40;
+
+        HWND hWnd = CreateWindowExW(
+            WS_EX_TOPMOST,
+            VIEWER_CLASS, L"BadUSB Guard - Keystroke Monitor",
+            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
+            x, y, W, H,
+            nullptr, nullptr, hInst, nullptr  // 부모 없음 → 독립 창
+        );
+
+        if (!hWnd) return;
+        g_hModelessWnd = hWnd;
+
+        // 장치 정보 라벨
+        {
+            wchar_t buf[256];
+            FormatDeviceLabel(buf, 256, vid, pid, deviceName);
+            CreateWindowExW(0, L"STATIC", buf,
+                WS_CHILD | WS_VISIBLE,
+                20, 15, 430, 20, hWnd, (HMENU)IDC_LABEL_DEVICE, hInst, nullptr);
+        }
+
+        CreateWindowExW(0, L"STATIC", L"Captured Keystrokes:",
+            WS_CHILD | WS_VISIBLE,
+            20, 45, 200, 20, hWnd, (HMENU)IDC_LABEL_TITLE, hInst, nullptr);
+
+        {
+            g_hEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT",
+                L"(No keystrokes detected)",
+                WS_CHILD | WS_VISIBLE | WS_VSCROLL |
+                ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
+                20, 70, 425, 160, hWnd, (HMENU)IDC_EDIT_KEYS, hInst, nullptr);
+
+            HFONT hFont = CreateFontW(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                DEFAULT_CHARSET, 0, 0, 0, 0, L"Consolas");
+            if (hFont)
+                SendMessageW(g_hEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
+        }
+
+        // 버튼 없음 — 승인 다이얼로그에서 결정
+
+        SetTimer(hWnd, IDC_TIMER_REFRESH, 200, nullptr);
+
+        ShowWindow(hWnd, SW_SHOW);
+        UpdateWindow(hWnd);
+    }
+
+    void Close()
+    {
+        if (g_hModelessWnd) {
+            DestroyWindow(g_hModelessWnd);
+            g_hModelessWnd = nullptr;
+        }
+        g_hEdit = nullptr;
     }
 }

@@ -7,9 +7,11 @@
 
 #include "hid_fingerprint.h"
 #include "hid_initialScan.h"
+#include "keyboard_hook.h"
 #include "logger.h"
 #include "policy.h"
 #include "ui_approval.h"
+#include "ui_buffer_view.h"
 
 namespace
 {
@@ -133,11 +135,33 @@ bool DeviceApprovalFlow::ApproveDevicesFromPaths(HWND hWnd, const std::vector<st
 
 bool DeviceApprovalFlow::ApproveDeviceFromPath(HWND hWnd, const std::wstring& path)
 {
-    // hotplug 입력 기반 현재 연결 경로 확장
+    if (path.empty()) return false;
+
+    UsbItem hotplugItem = HidFingerprint::BuildUsbItemFromPath(path);
+
+    // 이미 허용된 장치 → Hook/뷰어/다이얼로그 없이 통과
+    if (Policy::IsWhitelisted(hotplugItem.fingerprint)) {
+        Logger::Add(L"[Approval] Auto-allow (whitelisted): " + hotplugItem.name);
+        return true;
+    }
+
+    // 이미 차단된 장치 → Hook/뷰어/다이얼로그 없이 차단
+    if (Policy::IsBlacklisted(hotplugItem.fingerprint)) {
+        Logger::Add(L"[Approval] Auto-block (blacklisted): " + hotplugItem.name);
+        return false;
+    }
+
+    // ── Unknown → 키보드 훅 + 모니터링 창 + 승인 다이얼로그 동시 ──
+    Logger::Add(L"[Approval] Unknown device → starting hook + viewer: " + hotplugItem.name);
+
+    KeyboardHook::Install();
+    BufferViewUI::Open(hWnd, hotplugItem.vid, hotplugItem.pid, hotplugItem.name);
+
+    // 승인 리스트 다이얼로그 (모니터링 창과 동시에 표시)
     auto paths = HidInitialScan::EnumeratePresentHidDevicePaths();
 
     // 열거 지연 대비 도착 경로 강제 포함
-    if (!path.empty()) {
+    {
         bool exists = false;
         for (const auto& p : paths) {
             if (_wcsicmp(p.c_str(), path.c_str()) == 0) {
@@ -145,11 +169,15 @@ bool DeviceApprovalFlow::ApproveDeviceFromPath(HWND hWnd, const std::wstring& pa
                 break;
             }
         }
-
-        if (!exists) {
-            paths.push_back(path);
-        }
+        if (!exists) paths.push_back(path);
     }
 
-    return ApproveDevicesFromPaths(hWnd, paths);
+    // 후보 목록 빌드 → 승인 다이얼로그 표시
+    bool dialogResult = ApproveDevicesFromPaths(hWnd, paths);
+
+    // 다이얼로그 닫힘 → 모니터링 창 + 훅 해제
+    BufferViewUI::Close();
+    KeyboardHook::Uninstall();
+
+    return dialogResult;
 }

@@ -10,7 +10,3 @@ static const UINT IDM_TRAY_EXIT = 40002;
 
 // Logs notify
 #define WM_APP_NEWLOG (WM_APP + 1)
-
-// Hook test (임시)
-static const UINT IDM_TRAY_HOOK_ON  = 40010;
-static const UINT IDM_TRAY_HOOK_OFF = 40011;
