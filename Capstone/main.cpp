@@ -21,6 +21,7 @@
 #include "keyboard_hook.h"
 #include "ui_buffer_view.h"
 #include "policy.h"
+#include "policy.h"
 
 #pragma comment(lib, "Shell32.lib")
 
@@ -142,15 +143,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         }
         if (LOWORD(wParam) == IDM_TRAY_EXIT) {
             DestroyWindow(hWnd);
-        }
-        if (LOWORD(wParam) == IDM_TRAY_HOOK_ON) {
-            KeyboardHook::Install();
-        }
-        if (LOWORD(wParam) == IDM_TRAY_HOOK_OFF) {
-            auto keys = KeyboardHook::GetBufferedKeys();
-            KeyboardHook::Uninstall();
-            bool allowed = BufferViewUI::Show(hWnd, 0, 0, keys);
-            Logger::Add(allowed ? L"[Test] User: Allow" : L"[Test] User: Deny");
         }
         return 0;
 
