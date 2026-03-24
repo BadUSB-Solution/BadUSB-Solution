@@ -79,13 +79,13 @@ namespace
         for (const auto& item : pending) {
             if (item.allow) {
                 if (!Policy::IsWhitelisted(item.fingerprint)) {
-                    Policy::AddWhitelist(item.fingerprint);
+                    Policy::AddWhitelist(item);
                     Logger::Add(L"[T] Added to Whitelist: " + std::to_wstring(item.fingerprint));
                 }
             }
             else {
                 if (!Policy::IsBlacklisted(item.fingerprint)) {
-                    Policy::AddBlacklist(item.fingerprint);
+                    Policy::AddBlacklist(item);
                     Logger::Add(L"[T] Added to Blacklist: " + std::to_wstring(item.fingerprint));
                 }
             }
