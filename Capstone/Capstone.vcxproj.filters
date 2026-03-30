@@ -16,6 +16,27 @@
     <Filter Include="Resource">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Algorithm">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556666}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm\PreAnalysis">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556677}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm\Analysis">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556688}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm\Analysis\ShellDetector">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556699}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm\Analysis\ThreatMatcher">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-4444555566AA}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm\Analysis\UrlClassifier">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-4444555566BB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm\Analysis\CompoundScorer">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-4444555566CC}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\framework.h">
@@ -72,6 +93,24 @@
     <ClInclude Include="UI\ui_buffer_view.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="Algorithm\PreAnalysis\key_decoder.h">
+      <Filter>Algorithm\PreAnalysis</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\PreAnalysis\typing_analyzer.h">
+      <Filter>Algorithm\PreAnalysis</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\ShellDetector\shell_detector.h">
+      <Filter>Algorithm\Analysis\ShellDetector</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.h">
+      <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\url_classifier.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\CompoundScorer\compound_scorer.h">
+      <Filter>Algorithm\Analysis\CompoundScorer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
@@ -107,6 +146,24 @@
     </ClCompile>
     <ClCompile Include="UI\ui_buffer_view.cpp">
       <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\PreAnalysis\key_decoder.cpp">
+      <Filter>Algorithm\PreAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\PreAnalysis\typing_analyzer.cpp">
+      <Filter>Algorithm\PreAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\ShellDetector\shell_detector.cpp">
+      <Filter>Algorithm\Analysis\ShellDetector</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.cpp">
+      <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\url_classifier.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\CompoundScorer\compound_scorer.cpp">
+      <Filter>Algorithm\Analysis\CompoundScorer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

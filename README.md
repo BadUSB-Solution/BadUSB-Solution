@@ -12,21 +12,33 @@ Capstone/
 ├── Core/
 │   ├── framework.h, targetver.h, Capstone.h, Resource.h
 │   ├── ui_message_id.h
+│   ├── usb_item.h
 │   ├── logger.h / logger.cpp
-│   ├── policy.h / policy.cpp
-│   └── usb_item.h
+│   └── policy.h / policy.cpp
 │
 ├── Detect/
 │   ├── hid_monitor.h / hid_monitor.cpp
-│   ├── hid_approval_flow.h / hid_approval_flow.cpp
 │   ├── hid_fingerprint.h / hid_fingerprint.cpp
-│   └── hid_initialScan.h / hid_initialScan.cpp
+│   ├── hid_initialScan.h / hid_initialScan.cpp
+│   └── hid_approval_flow.h / hid_approval_flow.cpp
 │
 ├── Hook/
 │   ├── badusb.h
 │   └── keyboard_hook.h / keyboard_hook.cpp
 │
 ├── Algorithm/
+│   ├── PreAnalysis/
+│   │   ├── key_decoder.h / key_decoder.cpp
+│   │   └── typing_analyzer.h / typing_analyzer.cpp
+│   └── Analysis/
+│       ├── ShellDetector/
+│       │   └── shell_detector.h / shell_detector.cpp
+│       ├── ThreatMatcher/
+│       │   └── threat_matcher.h / threat_matcher.cpp
+│       ├── UrlClassifier/
+│       │   └── url_classifier.h / url_classifier.cpp
+│       └── CompoundScorer/
+│           └── compound_scorer.h / compound_scorer.cpp
 │
 ├── UI/
 │   ├── ui_tray.h / ui_tray.cpp
@@ -35,19 +47,18 @@ Capstone/
 │   └── ui_buffer_view.h / ui_buffer_view.cpp
 │
 └── Resource/
-    ├── Capstone.rc
+    ├── Capstone.rc / ui_approval.rc
     ├── Capstone.ico
-    ├── small.ico
-    └── ui_approval.rc
+    └── small.ico
 ```
 
 ## 폴더 설명
 
 | 폴더 | 설명 |
 |------|------|
-| Core | 공용 헤더, 로깅, 정책 관리 등 프로젝트 공통 인프라 |
-| Detect | USB HID 장치 연결/해제 감지 |
-| Hook | 키보드 입력 후킹 (추후 구현) |
-| Algorithm | BadUSB 판별 알고리즘 (추후 구현) |
-| UI | 트레이 아이콘, 탭 화면, 장치 승인 대화상자 |
+| Core | 공용 헤더, 로깅, 정책(화이트/블랙리스트) 관리 |
+| Detect | USB HID 장치 감지, 핑거프린트 생성, 승인 흐름 통합 |
+| Hook | WH_KEYBOARD_LL 기반 키보드 입력 후킹 (전체 차단 + 버퍼링) |
+| Algorithm | BadUSB 탐지 알고리즘 (분석 전 처리 + 명령어 분석) |
+| UI | 트레이 아이콘, 탭 화면, 장치 승인 다이얼로그, 키입력 버퍼 뷰어 |
 | Resource | rc 파일, 아이콘 등 리소스 |
