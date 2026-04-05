@@ -96,6 +96,9 @@
     <ClInclude Include="Algorithm\PreAnalysis\key_decoder.h">
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClInclude>
+    <ClInclude Include="Algorithm\PreAnalysis\keyboard_shortcuts_ref.h">
+      <Filter>Algorithm\PreAnalysis</Filter>
+    </ClInclude>
     <ClInclude Include="Algorithm\PreAnalysis\typing_analyzer.h">
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClInclude>

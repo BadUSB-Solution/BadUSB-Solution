@@ -158,6 +158,7 @@
     <ClInclude Include="UI\ui_approval.h" />
     <ClInclude Include="UI\ui_buffer_view.h" />
     <ClInclude Include="Algorithm\PreAnalysis\key_decoder.h" />
+    <ClInclude Include="Algorithm\PreAnalysis\keyboard_shortcuts_ref.h" />
     <ClInclude Include="Algorithm\PreAnalysis\typing_analyzer.h" />
     <ClInclude Include="Algorithm\Analysis\ShellDetector\shell_detector.h" />
     <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.h" />
