@@ -483,8 +483,8 @@ namespace BufferViewUI
         HFONT hMono = CreateFontW(15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
             DEFAULT_CHARSET, 0, 0, 0, 0, L"Consolas");
 
-        // ── Raw Buffer 섹션 ──────────────────────────────
-        CreateWindowExW(0, L"STATIC", L"Raw Buffer  (VkCode 표시 / 버튼 클릭 시 스냅샷)",
+        // --- Raw Buffer section ---
+        CreateWindowExW(0, L"STATIC", L"Raw Buffer  (VkCode display / snapshot on button click)",
             WS_CHILD | WS_VISIBLE,
             15, 10, 645, 18, hWnd, nullptr, hInst, nullptr);
 
@@ -500,29 +500,29 @@ namespace BufferViewUI
             SetWindowTextW(hRaw, rawText.c_str());
         }
 
-        // ── Normalized 섹션 ──────────────────────────────
+        // --- Normalized section ---
         CreateWindowExW(0, L"STATIC",
-            L"정규화 결과  (KeyDecoder::Decode \u2014 \ubbf8\uad6c\ud604)",
+            L"Normalized Result  (KeyDecoder::Decode -- not yet implemented)",
             WS_CHILD | WS_VISIBLE,
             15, 205, 645, 18, hWnd, nullptr, hInst, nullptr);
 
         HWND hNorm = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT",
-            L"(미구현)\r\n\r\n"
-            L"KeyDecoder::Decode()가 구현되면 다음 항목이 표시됩니다:\r\n\r\n"
-            L"  [lines]    Enter 기준으로 분리된 줄 목록\r\n"
-            L"             예) line[0]: notepad\r\n"
-            L"                 line[1]: Set x=CreateObject(\"WinHTTP...\")\r\n\r\n"
-            L"  [hotkeys]  감지된 단축키 콤보\r\n"
-            L"             예) Win+R @ line[0], Ctrl+S @ line[5]\r\n\r\n"
-            L"  [urls]     추출·디코딩된 URL\r\n"
-            L"             예) https://bit.ly/4lPxL5S  (Chr() 재조합 완료)",
+            L"[NOT IMPLEMENTED]\r\n\r\n"
+            L"Once KeyDecoder::Decode() is implemented, this panel will show:\r\n\r\n"
+            L"  [lines]    Lines split by Enter\r\n"
+            L"             e.g. line[0]: notepad\r\n"
+            L"                  line[1]: Set x=CreateObject(\"WinHTTP...\")\r\n\r\n"
+            L"  [hotkeys]  Detected shortcut combos\r\n"
+            L"             e.g. Win+R @ line[0],  Ctrl+S @ line[5]\r\n\r\n"
+            L"  [urls]     Extracted & decoded URLs\r\n"
+            L"             e.g. https://bit.ly/4lPxL5S  (Chr() reassembled)",
             WS_CHILD | WS_VISIBLE | WS_VSCROLL |
             ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
             15, 225, 645, 200, hWnd, (HMENU)IDC_NORMDEBUG_NORM, hInst, nullptr);
         if (hMono) SendMessageW(hNorm, WM_SETFONT, (WPARAM)hMono, TRUE);
 
-        // ── 닫기 버튼 ────────────────────────────────────
-        CreateWindowExW(0, L"BUTTON", L"닫기",
+        // --- Close button ---
+        CreateWindowExW(0, L"BUTTON", L"Close",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
             270, 440, 130, 35, hWnd, (HMENU)IDC_NORMDEBUG_CLOSE, hInst, nullptr);
 

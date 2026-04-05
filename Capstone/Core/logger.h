@@ -6,5 +6,5 @@ namespace Logger
 {
     void SetNotifyWindow(HWND hWnd, UINT msgId); // WM_APP_NEWLOG
     void Add(const std::wstring& s);
-    std::wstring GetAll(); // CRLF Æ÷ÇÔÇØ¼­ ÇÑ ¹ø¿¡ ¹İÈ¯
+    std::wstring GetAll(); // CRLF í¬í•¨í•´ì„œ í•œ ë²ˆì— ë°˜í™˜
 }

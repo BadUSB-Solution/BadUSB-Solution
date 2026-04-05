@@ -5,6 +5,6 @@ namespace UiTabs
 {
     void Create(HWND hWnd, HINSTANCE hInst);
     void OnSelChange();
-    void UpdateLogs(); // logger¿¡¼­ ¹®ÀÚ¿­ °¡Á®¿Í Edit¿¡ ¹İ¿µ
+    void UpdateLogs(); // loggerì—ì„œ ë¬¸ìì—´ ê°€ì ¸ì™€ Editì— ë°˜ì˜
     bool IsLogsTabActive();
 }
