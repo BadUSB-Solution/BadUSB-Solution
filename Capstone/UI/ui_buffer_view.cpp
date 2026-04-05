@@ -1,5 +1,6 @@
 #include "ui_buffer_view.h"
 #include "keyboard_hook.h"
+#include "key_decoder.h"
 #include <string>
 
 // --- 가상 키코드 → 문자열 변환 ---
@@ -502,24 +503,55 @@ namespace BufferViewUI
 
         // --- Normalized section ---
         CreateWindowExW(0, L"STATIC",
-            L"Normalized Result  (KeyDecoder::Decode -- not yet implemented)",
+            L"Normalized Result  (KeyDecoder::Decode)",
             WS_CHILD | WS_VISIBLE,
             15, 205, 645, 18, hWnd, nullptr, hInst, nullptr);
 
-        HWND hNorm = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT",
-            L"[NOT IMPLEMENTED]\r\n\r\n"
-            L"Once KeyDecoder::Decode() is implemented, this panel will show:\r\n\r\n"
-            L"  [lines]    Lines split by Enter\r\n"
-            L"             e.g. line[0]: notepad\r\n"
-            L"                  line[1]: Set x=CreateObject(\"WinHTTP...\")\r\n\r\n"
-            L"  [hotkeys]  Detected shortcut combos\r\n"
-            L"             e.g. Win+R @ line[0],  Ctrl+S @ line[5]\r\n\r\n"
-            L"  [urls]     Extracted & decoded URLs\r\n"
-            L"             e.g. https://bit.ly/4lPxL5S  (Chr() reassembled)",
+        HWND hNorm = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
             WS_CHILD | WS_VISIBLE | WS_VSCROLL |
             ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
             15, 225, 645, 200, hWnd, (HMENU)IDC_NORMDEBUG_NORM, hInst, nullptr);
         if (hMono) SendMessageW(hNorm, WM_SETFONT, (WPARAM)hMono, TRUE);
+
+        // Decode() 호출 후 결과 표시
+        {
+            auto keys   = KeyboardHook::GetBufferedKeys();
+            auto decoded = KeyDecoder::Decode(keys);
+
+            std::wstring normText;
+
+            // 줄 목록
+            normText += L"=== Lines ===\r\n";
+            for (size_t i = 0; i < decoded.lines.size(); ++i) {
+                wchar_t prefix[32];
+                wsprintfW(prefix, L"[%d] ", (int)i);
+                normText += prefix;
+                normText += decoded.lines[i].text;
+                normText += L"\r\n";
+            }
+
+            // 단축키 이벤트
+            normText += L"\r\n=== Hotkeys ===\r\n";
+            if (decoded.hotkeys.empty()) {
+                normText += L"(없음)\r\n";
+            } else {
+                for (auto& h : decoded.hotkeys) {
+                    wchar_t buf[64];
+                    wsprintfW(buf, L"%s  @ line[%d]\r\n", h.combo.c_str(), (int)h.lineIndex);
+                    normText += buf;
+                }
+            }
+
+            // URL 목록 (UrlExtractor 구현 후 채워짐)
+            normText += L"\r\n=== URLs ===\r\n";
+            bool hasUrl = false;
+            for (auto& line : decoded.lines)
+                if (!line.urls.empty()) hasUrl = true;
+            if (!hasUrl)
+                normText += L"(없음 -- UrlExtractor 미구현)\r\n";
+
+            SetWindowTextW(hNorm, normText.c_str());
+        }
 
         // --- Close button ---
         CreateWindowExW(0, L"BUTTON", L"Close",

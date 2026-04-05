@@ -96,6 +96,9 @@
     <ClInclude Include="Algorithm\PreAnalysis\key_decoder.h">
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClInclude>
+    <ClInclude Include="Algorithm\PreAnalysis\key_normalizer.h">
+      <Filter>Algorithm\PreAnalysis</Filter>
+    </ClInclude>
     <ClInclude Include="Algorithm\PreAnalysis\keyboard_shortcuts_ref.h">
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClInclude>
@@ -151,6 +154,9 @@
       <Filter>UI</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\PreAnalysis\key_decoder.cpp">
+      <Filter>Algorithm\PreAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\PreAnalysis\key_normalizer.cpp">
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\PreAnalysis\typing_analyzer.cpp">
