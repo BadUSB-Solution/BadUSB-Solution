@@ -7,7 +7,7 @@
 #include "usb_item.h"
 
 namespace ApprovalUI {
-    // devices: UI¿¡¼­ allow °ªÀ» ¼öÁ¤ÇÔ(Ã¼Å©¹Ú½º °á°ú°¡ ¹İ¿µµÊ)
-    // return: Save ´­·¶À¸¸é true, Cancel/´İ±â¸é false
+    // devices: UIì—ì„œ allow ê°’ì„ ìˆ˜ì •í•¨(ì²´í¬ë°•ìŠ¤ ê²°ê³¼ê°€ ë°˜ì˜ë¨)
+    // return: Save ëˆŒë €ìœ¼ë©´ true, Cancel/ë‹«ê¸°ë©´ false
     bool ShowUsbListDialog(HWND parent, std::vector<UsbItem>& devices);
 }

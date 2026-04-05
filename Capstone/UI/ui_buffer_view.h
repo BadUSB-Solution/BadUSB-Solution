@@ -9,8 +9,12 @@ namespace BufferViewUI
     bool Show(HWND hParent, uint16_t vid, uint16_t pid,
               const std::wstring& deviceName = L"");
 
-    // 모달리스 모니터링 창 (버튼 없음, 비차단)
+    // 모달리스 모니터링 창 (Copy / Normalize 버튼 포함, 비차단)
     void Open(HWND hParent, uint16_t vid, uint16_t pid,
               const std::wstring& deviceName = L"");
     void Close();
+
+    // 정규화 디버그 창: Raw Buffer 스냅샷 + 정규화 결과 예정 영역
+    // KeyDecoder::Decode() 구현 전까지 정규화 섹션은 플레이스홀더 표시
+    void OpenNormalizeDebug();
 }

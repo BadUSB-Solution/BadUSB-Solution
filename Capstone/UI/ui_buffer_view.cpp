@@ -1,5 +1,6 @@
 #include "ui_buffer_view.h"
 #include "keyboard_hook.h"
+#include "key_decoder.h"
 #include <string>
 
 // --- 가상 키코드 → 문자열 변환 ---
@@ -111,12 +112,21 @@ static bool g_closed = false;
 static HWND g_hEdit = nullptr;
 static HWND g_hModelessWnd = nullptr;
 
-static const UINT_PTR IDC_EDIT_KEYS    = 2001;
-static const UINT_PTR IDC_BTN_ALLOW    = 2002;
-static const UINT_PTR IDC_BTN_DENY     = 2003;
-static const UINT_PTR IDC_LABEL_DEVICE = 2004;
-static const UINT_PTR IDC_LABEL_TITLE  = 2005;
-static const UINT_PTR IDC_TIMER_REFRESH = 2006;
+static const UINT_PTR IDC_EDIT_KEYS       = 2001;
+static const UINT_PTR IDC_BTN_ALLOW       = 2002;
+static const UINT_PTR IDC_BTN_DENY        = 2003;
+static const UINT_PTR IDC_LABEL_DEVICE    = 2004;
+static const UINT_PTR IDC_LABEL_TITLE     = 2005;
+static const UINT_PTR IDC_TIMER_REFRESH   = 2006;
+static const UINT_PTR IDC_BTN_COPY        = 2007;
+static const UINT_PTR IDC_BTN_NORMALIZE   = 2008;
+
+// --- 정규화 디버그 창 전용 ---
+static const wchar_t* NORMDEBUG_CLASS     = L"BadUSB_NormDebug";
+static HWND           g_hNormDebugWnd     = nullptr;
+static const UINT_PTR IDC_NORMDEBUG_CLOSE = 2100;
+static const UINT_PTR IDC_NORMDEBUG_RAW   = 2101;
+static const UINT_PTR IDC_NORMDEBUG_NORM  = 2102;
 
 static LRESULT CALLBACK ViewerProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -134,16 +144,38 @@ static LRESULT CALLBACK ViewerProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
             DestroyWindow(hWnd);
             return 0;
         }
+        if (LOWORD(wParam) == IDC_BTN_COPY && g_hEdit) {
+            int len = GetWindowTextLengthW(g_hEdit);
+            if (len > 0 && OpenClipboard(hWnd)) {
+                HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, (len + 1) * sizeof(wchar_t));
+                if (hMem) {
+                    wchar_t* p = static_cast<wchar_t*>(GlobalLock(hMem));
+                    GetWindowTextW(g_hEdit, p, len + 1);
+                    GlobalUnlock(hMem);
+                    EmptyClipboard();
+                    SetClipboardData(CF_UNICODETEXT, hMem);
+                }
+                CloseClipboard();
+            }
+            return 0;
+        }
+        if (LOWORD(wParam) == IDC_BTN_NORMALIZE) {
+            BufferViewUI::OpenNormalizeDebug();
+            return 0;
+        }
         break;
 
     case WM_TIMER:
         if (wParam == IDC_TIMER_REFRESH && g_hEdit) {
-            // 스크롤이 맨 아래인지 확인 (사용자가 올렸으면 강제 스크롤 안 함)
             SCROLLINFO si{};
             si.cbSize = sizeof(si);
             si.fMask = SIF_ALL;
             GetScrollInfo(g_hEdit, SB_VERT, &si);
             bool wasAtBottom = (si.nPos + (int)si.nPage >= si.nMax) || (si.nMax == 0);
+
+            // SetWindowTextW 호출 전 첫 번째 보이는 줄 저장
+            // (SetWindowTextW는 Edit 컨트롤 스크롤을 항상 맨 위로 리셋함)
+            int firstVisible = (int)SendMessageW(g_hEdit, EM_GETFIRSTVISIBLELINE, 0, 0);
 
             auto keys = KeyboardHook::GetBufferedKeys();
             std::wstring text = BuildKeysText(keys);
@@ -152,6 +184,9 @@ static LRESULT CALLBACK ViewerProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
             if (wasAtBottom) {
                 SendMessageW(g_hEdit, EM_SETSEL, (WPARAM)text.size(), (LPARAM)text.size());
                 SendMessageW(g_hEdit, EM_SCROLLCARET, 0, 0);
+            } else {
+                // 사용자가 스크롤을 올렸으면 기존 위치 복원
+                SendMessageW(g_hEdit, EM_LINESCROLL, 0, firstVisible);
             }
         }
         return 0;
@@ -191,6 +226,43 @@ static void RegisterViewerClass(HINSTANCE hInst)
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = VIEWER_CLASS;
+    RegisterClassExW(&wc);
+    registered = true;
+}
+
+// --- 정규화 디버그 창 ---
+
+static LRESULT CALLBACK NormDebugProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    switch (msg) {
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDC_NORMDEBUG_CLOSE) {
+            DestroyWindow(hWnd);
+            return 0;
+        }
+        break;
+    case WM_CLOSE:
+        DestroyWindow(hWnd);
+        return 0;
+    case WM_DESTROY:
+        g_hNormDebugWnd = nullptr;
+        return 0;
+    }
+    return DefWindowProcW(hWnd, msg, wParam, lParam);
+}
+
+static void RegisterNormDebugClass(HINSTANCE hInst)
+{
+    static bool registered = false;
+    if (registered) return;
+
+    WNDCLASSEXW wc{};
+    wc.cbSize = sizeof(wc);
+    wc.lpfnWndProc = NormDebugProc;
+    wc.hInstance = hInst;
+    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.lpszClassName = NORMDEBUG_CLASS;
     RegisterClassExW(&wc);
     registered = true;
 }
@@ -265,13 +337,21 @@ namespace BufferViewUI
 
         SetTimer(hWnd, IDC_TIMER_REFRESH, 200, nullptr);
 
+        CreateWindowExW(0, L"BUTTON", L"Copy",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            15, 260, 75, 35, hWnd, (HMENU)IDC_BTN_COPY, hInst, nullptr);
+
+        CreateWindowExW(0, L"BUTTON", L"Normalize",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            100, 260, 90, 35, hWnd, (HMENU)IDC_BTN_NORMALIZE, hInst, nullptr);
+
         CreateWindowExW(0, L"BUTTON", L"Allow",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-            120, 260, 100, 35, hWnd, (HMENU)IDC_BTN_ALLOW, hInst, nullptr);
+            205, 260, 90, 35, hWnd, (HMENU)IDC_BTN_ALLOW, hInst, nullptr);
 
         CreateWindowExW(0, L"BUTTON", L"Deny",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-            260, 260, 100, 35, hWnd, (HMENU)IDC_BTN_DENY, hInst, nullptr);
+            305, 260, 90, 35, hWnd, (HMENU)IDC_BTN_DENY, hInst, nullptr);
 
         EnableWindow(hParent, FALSE);
 
@@ -341,7 +421,7 @@ namespace BufferViewUI
                 L"(No keystrokes detected)",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL |
                 ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
-                20, 70, 425, 160, hWnd, (HMENU)IDC_EDIT_KEYS, hInst, nullptr);
+                20, 70, 425, 130, hWnd, (HMENU)IDC_EDIT_KEYS, hInst, nullptr);
 
             HFONT hFont = CreateFontW(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                 DEFAULT_CHARSET, 0, 0, 0, 0, L"Consolas");
@@ -349,7 +429,13 @@ namespace BufferViewUI
                 SendMessageW(g_hEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
         }
 
-        // 버튼 없음 — 승인 다이얼로그에서 결정
+        CreateWindowExW(0, L"BUTTON", L"Copy",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            75, 215, 125, 30, hWnd, (HMENU)IDC_BTN_COPY, hInst, nullptr);
+
+        CreateWindowExW(0, L"BUTTON", L"Normalize",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            255, 215, 145, 30, hWnd, (HMENU)IDC_BTN_NORMALIZE, hInst, nullptr);
 
         SetTimer(hWnd, IDC_TIMER_REFRESH, 200, nullptr);
 
@@ -364,5 +450,115 @@ namespace BufferViewUI
             g_hModelessWnd = nullptr;
         }
         g_hEdit = nullptr;
+    }
+
+    // --- 정규화 디버그 창 ---
+    // 현재 버퍼 스냅샷의 raw 표시 + 정규화 결과 예정 영역을 보여주는 디버그 창.
+    // KeyDecoder::Decode() 구현 전까지 정규화 섹션은 "(미구현)" 플레이스홀더.
+
+    void OpenNormalizeDebug()
+    {
+        // 이미 열려 있으면 최상위로 올리기만
+        if (g_hNormDebugWnd) {
+            SetForegroundWindow(g_hNormDebugWnd);
+            return;
+        }
+
+        HINSTANCE hInst = GetModuleHandle(nullptr);
+        RegisterNormDebugClass(hInst);
+
+        const int W = 680, H = 510;
+        int sx = GetSystemMetrics(SM_CXSCREEN);
+        int sy = GetSystemMetrics(SM_CYSCREEN);
+
+        HWND hWnd = CreateWindowExW(
+            WS_EX_TOPMOST,
+            NORMDEBUG_CLASS, L"BadUSB Guard - Normalize Debug",
+            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
+            (sx - W) / 2, (sy - H) / 2, W, H,
+            nullptr, nullptr, hInst, nullptr
+        );
+        if (!hWnd) return;
+        g_hNormDebugWnd = hWnd;
+
+        HFONT hMono = CreateFontW(15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, 0, 0, L"Consolas");
+
+        // --- Raw Buffer section ---
+        CreateWindowExW(0, L"STATIC", L"Raw Buffer  (VkCode display / snapshot on button click)",
+            WS_CHILD | WS_VISIBLE,
+            15, 10, 645, 18, hWnd, nullptr, hInst, nullptr);
+
+        HWND hRaw = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+            WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL |
+            ES_MULTILINE | ES_READONLY | ES_AUTOHSCROLL,
+            15, 30, 645, 165, hWnd, (HMENU)IDC_NORMDEBUG_RAW, hInst, nullptr);
+        if (hMono) SendMessageW(hRaw, WM_SETFONT, (WPARAM)hMono, TRUE);
+
+        {
+            auto keys = KeyboardHook::GetBufferedKeys();
+            std::wstring rawText = BuildKeysText(keys);
+            SetWindowTextW(hRaw, rawText.c_str());
+        }
+
+        // --- Normalized section ---
+        CreateWindowExW(0, L"STATIC",
+            L"Normalized Result  (KeyDecoder::Decode)",
+            WS_CHILD | WS_VISIBLE,
+            15, 205, 645, 18, hWnd, nullptr, hInst, nullptr);
+
+        HWND hNorm = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+            WS_CHILD | WS_VISIBLE | WS_VSCROLL |
+            ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
+            15, 225, 645, 200, hWnd, (HMENU)IDC_NORMDEBUG_NORM, hInst, nullptr);
+        if (hMono) SendMessageW(hNorm, WM_SETFONT, (WPARAM)hMono, TRUE);
+
+        // Decode() 호출 후 결과 표시
+        {
+            auto keys   = KeyboardHook::GetBufferedKeys();
+            auto decoded = KeyDecoder::Decode(keys);
+
+            std::wstring normText;
+
+            // 줄 목록
+            normText += L"=== Lines ===\r\n";
+            for (size_t i = 0; i < decoded.lines.size(); ++i) {
+                wchar_t prefix[32];
+                wsprintfW(prefix, L"[%d] ", (int)i);
+                normText += prefix;
+                normText += decoded.lines[i].text;
+                normText += L"\r\n";
+            }
+
+            // 단축키 이벤트
+            normText += L"\r\n=== Hotkeys ===\r\n";
+            if (decoded.hotkeys.empty()) {
+                normText += L"(없음)\r\n";
+            } else {
+                for (auto& h : decoded.hotkeys) {
+                    wchar_t buf[64];
+                    wsprintfW(buf, L"%s  @ line[%d]\r\n", h.combo.c_str(), (int)h.lineIndex);
+                    normText += buf;
+                }
+            }
+
+            // URL 목록 (UrlExtractor 구현 후 채워짐)
+            normText += L"\r\n=== URLs ===\r\n";
+            bool hasUrl = false;
+            for (auto& line : decoded.lines)
+                if (!line.urls.empty()) hasUrl = true;
+            if (!hasUrl)
+                normText += L"(없음 -- UrlExtractor 미구현)\r\n";
+
+            SetWindowTextW(hNorm, normText.c_str());
+        }
+
+        // --- Close button ---
+        CreateWindowExW(0, L"BUTTON", L"Close",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            270, 440, 130, 35, hWnd, (HMENU)IDC_NORMDEBUG_CLOSE, hInst, nullptr);
+
+        ShowWindow(hWnd, SW_SHOW);
+        UpdateWindow(hWnd);
     }
 }

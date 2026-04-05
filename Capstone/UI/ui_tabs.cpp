@@ -1,4 +1,4 @@
-// ½ÇÁ¦ ¾Û È­¸é ±¸¼º - ÇöÀç´Â ¸ÅÀÎ(»óÅÂ) ÅÇ°ú ·Î±×ÅÇÀ¸·Î ±¸ºĞ
+// ì‹¤ì œ ì•± í™”ë©´ êµ¬ì„± - í˜„ì¬ëŠ” ë§¤ì¸(ìƒíƒœ) íƒ­ê³¼ ë¡œê·¸íƒ­ìœ¼ë¡œ êµ¬ë¶„
 
 #include "ui_tabs.h"
 #include <commctrl.h>
@@ -9,8 +9,8 @@
 namespace UiTabs
 {
     static HWND g_tabWnd = nullptr;
-    static HWND g_tabStatus = nullptr; // ¸ŞÀÎ(»óÅÂ) ÅÇ
-    static HWND g_tabLogs = nullptr; // ·Î±× ÅÇ
+    static HWND g_tabStatus = nullptr; // ë©”ì¸(ìƒíƒœ) íƒ­
+    static HWND g_tabLogs = nullptr; // ë¡œê·¸ íƒ­
 
     static void SwitchTab(int idx)
     {

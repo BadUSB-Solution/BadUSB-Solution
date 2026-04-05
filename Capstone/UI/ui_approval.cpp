@@ -1,4 +1,4 @@
-// usb Çã¿ë ui ºÎºĞ
+// usb í—ˆìš© ui ë¶€ë¶„
 #include "ui_approval.h"
 #include "resource.h"
 
@@ -27,8 +27,8 @@ static std::wstring U64ToW(uint64_t v)
     return ss.str();
 }
 
-// ListView¿¡ ³Ñ±â´Â ¹®ÀÚ¿­ Æ÷ÀÎÅÍÀÇ ¼ö¸í ¹®Á¦ ÇØ°á¿ë Ä³½Ã
-// (Dialog°¡ »ì¾ÆÀÖ´Â µ¿¾È À¯ÁöµÇ¸é ¾ÈÀü)
+// ListViewì— ë„˜ê¸°ëŠ” ë¬¸ìì—´ í¬ì¸í„°ì˜ ìˆ˜ëª… ë¬¸ì œ í•´ê²°ìš© ìºì‹œ
+// (Dialogê°€ ì‚´ì•„ìˆëŠ” ë™ì•ˆ ìœ ì§€ë˜ë©´ ì•ˆì „)
 static std::vector<std::wstring> g_textCache;
 
 static LPWSTR WSTR(const std::wstring& s)
@@ -47,7 +47,7 @@ static const std::wstring& Keep(std::wstring s)
 // -------------------------------------------
 static void InitListViewColumns(HWND hList)
 {
-    // È¤½Ã ÀçÈ£ÃâµÉ ¼ö ÀÖÀ¸´Ï ÄÃ·³ ÃÊ±âÈ­(Áßº¹ ¹æÁö)
+    // í˜¹ì‹œ ì¬í˜¸ì¶œë  ìˆ˜ ìˆìœ¼ë‹ˆ ì»¬ëŸ¼ ì´ˆê¸°í™”(ì¤‘ë³µ ë°©ì§€)
     while (ListView_DeleteColumn(hList, 0)) {}
 
     LVCOLUMNW col{};
@@ -145,7 +145,7 @@ static INT_PTR CALLBACK UsbApprovalDlgProc(HWND hDlg, UINT msg, WPARAM wParam, L
             FillListView(hList, *st->devices);
         }
 
-        // Æ®·¹ÀÌ »óÁÖ ¾ÛÀÌ¶ó Æ÷Ä¿½º ÀÌ½´ ÁÙÀÌ·Á¸é(¼±ÅÃ):
+        // íŠ¸ë ˆì´ ìƒì£¼ ì•±ì´ë¼ í¬ì»¤ìŠ¤ ì´ìŠˆ ì¤„ì´ë ¤ë©´(ì„ íƒ):
         // SetForegroundWindow(hDlg);
         return TRUE;
     }
