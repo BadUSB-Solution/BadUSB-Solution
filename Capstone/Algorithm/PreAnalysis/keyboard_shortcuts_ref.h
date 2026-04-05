@@ -1,5 +1,6 @@
 #pragma once
 #include "framework.h"
+#include <cstdint>
 
 // =============================================================================
 // keyboard_shortcuts_ref.h
@@ -77,8 +78,8 @@ static constexpr ShortcutDef WIN_SHORTCUTS[] = {
     { M_WIN, '7', L"Win+7", L"작업 표시줄 7번째 앱 실행/전환" },
     { M_WIN, '8', L"Win+8", L"작업 표시줄 8번째 앱 실행/전환" },
     { M_WIN, '9', L"Win+9", L"작업 표시줄 9번째 앱 실행/전환" },
-    // 돋보기
-    { M_WIN, VK_OEM_PLUS,  L"Win++",  L"돋보기 켜기 / 확대" },
+    // 돋보기  (VK_OEM_PLUS = '=' 키, Shift 없이 동작 → 레이블 "Win+=" 이 정확)
+    { M_WIN, VK_OEM_PLUS,  L"Win+=",  L"돋보기 켜기 / 확대" },
     { M_WIN, VK_OEM_MINUS, L"Win+-",  L"돋보기 축소" },
     { M_WIN, VK_ESCAPE,    L"Win+Esc", L"돋보기 끄기" },
     { M_WIN, VK_RETURN,    L"Win+Enter", L"내레이터 시작/중지" },
@@ -175,7 +176,7 @@ static constexpr ShortcutDef CTRL_SHORTCUTS[] = {
     { M_CTRL, VK_RIGHT,     L"Ctrl+Right", L"한 단어씩 오른쪽 이동" },
     { M_CTRL, VK_BACK,      L"Ctrl+Backspace", L"커서 앞 단어 삭제" },
     { M_CTRL, VK_DELETE,    L"Ctrl+Delete",    L"커서 뒤 단어 삭제" },
-    { M_CTRL, VK_OEM_PLUS,  L"Ctrl++",   L"확대" },
+    { M_CTRL, VK_OEM_PLUS,  L"Ctrl+=",   L"확대" },   // VK_OEM_PLUS = '=' 키, Shift 불필요
     { M_CTRL, VK_OEM_MINUS, L"Ctrl+-",   L"축소" },
     { M_CTRL, '0',          L"Ctrl+0",   L"원래 크기로 복원" },
     { M_CTRL, VK_F1,        L"Ctrl+F1",  L"리본 메뉴 표시/숨기기 (탐색기)" },
@@ -248,7 +249,7 @@ static constexpr ShortcutDef ALT_SHORTCUTS[] = {
 // =============================================================================
 static constexpr ShortcutDef ALT_SHIFT_SHORTCUTS[] = {
     { M_ALT|M_SHIFT, VK_TAB,       L"Alt+Shift+Tab",   L"열린 창 역방향 전환" },
-    { M_ALT|M_SHIFT, VK_OEM_PLUS,  L"Alt+Shift++",     L"창 수평 분할 (터미널)" },
+    { M_ALT|M_SHIFT, VK_OEM_PLUS,  L"Alt+Shift+=",     L"창 수평 분할 (터미널)" },
     { M_ALT|M_SHIFT, VK_OEM_MINUS, L"Alt+Shift+-",     L"창 수직 분할 (터미널)" },
 };
 
@@ -272,8 +273,14 @@ static constexpr ShortcutDef SHIFT_SHORTCUTS[] = {
 
 // =============================================================================
 // 12. Win+X 이후 서브메뉴 키 매핑
-//     Win+X 감지 후 다음 단일 키 입력으로 메뉴 항목 선택
-//     (KeyNormalizer에서 WIN_X 상태 진입 후 처리)
+//
+// ※ 상태 머신 주의 (KeyNormalizer 구현 시):
+//   - Lookup()으로 Win+X (M_WIN, 'X') 를 감지하면
+//     IsWinXEntry() == true → 내부 상태를 STATE_WIN_X 로 전환
+//   - 그 다음 keydown 1개를 LookupWinXMenu(key) 로 처리
+//   - 매칭되면 HotkeyEvent("Win+X → <action>") 생성, 상태 복귀
+//   - 매칭 안 되면 (ESC, 클릭 등) 상태만 복귀, 해당 키 정상 처리
+//   - STATE_WIN_X 상태에서는 일반 문자 출력 억제
 // =============================================================================
 struct WinXMenuEntry {
     wchar_t        key;     // 선택 키 (대소문자 무관)
@@ -318,5 +325,61 @@ static constexpr ShortcutDef SOLO_KEYS[] = {
     { M_NONE, VK_SCROLL,   L"ScrollLock", L"스크롤 잠금 토글" },
     { M_NONE, VK_NUMLOCK,  L"NumLock",  L"숫자 키패드 잠금 토글" },
 };
+
+// =============================================================================
+// 조회 헬퍼 함수
+// =============================================================================
+
+namespace detail {
+    template<size_t N>
+    inline const ShortcutDef* FindIn(const ShortcutDef (&arr)[N], uint8_t mods, DWORD vk)
+    {
+        for (size_t i = 0; i < N; ++i)
+            if (arr[i].mods == mods && arr[i].vk == vk)
+                return &arr[i];
+        return nullptr;
+    }
+} // namespace detail
+
+// 모든 테이블을 통합 조회. 매칭 없으면 nullptr 반환.
+// 우선순위: modifier 조합이 많은 테이블(Win+Ctrl+Shift) → 적은 테이블(Solo) 순으로 검색.
+inline const ShortcutDef* Lookup(uint8_t mods, DWORD vk)
+{
+    const ShortcutDef* p = nullptr;
+    // 3-modifier
+    if (!p) p = detail::FindIn(WIN_CTRL_SHIFT_SHORTCUTS, mods, vk);
+    // 2-modifier
+    if (!p) p = detail::FindIn(WIN_SHIFT_SHORTCUTS,      mods, vk);
+    if (!p) p = detail::FindIn(WIN_CTRL_SHORTCUTS,       mods, vk);
+    if (!p) p = detail::FindIn(WIN_ALT_SHORTCUTS,        mods, vk);
+    if (!p) p = detail::FindIn(CTRL_SHIFT_SHORTCUTS,     mods, vk);
+    if (!p) p = detail::FindIn(CTRL_ALT_SHORTCUTS,       mods, vk);
+    if (!p) p = detail::FindIn(ALT_SHIFT_SHORTCUTS,      mods, vk);
+    // 1-modifier
+    if (!p) p = detail::FindIn(WIN_SHORTCUTS,            mods, vk);
+    if (!p) p = detail::FindIn(CTRL_SHORTCUTS,           mods, vk);
+    if (!p) p = detail::FindIn(ALT_SHORTCUTS,            mods, vk);
+    if (!p) p = detail::FindIn(SHIFT_SHORTCUTS,          mods, vk);
+    // 0-modifier
+    if (!p) p = detail::FindIn(SOLO_KEYS,                mods, vk);
+    return p;
+}
+
+// Win+X 서브메뉴 조회. key는 대소문자 무관.
+// KeyNormalizer 에서 IsWinXEntry() 확인 후 STATE_WIN_X 상태에서만 호출할 것.
+inline const WinXMenuEntry* LookupWinXMenu(wchar_t key)
+{
+    if (key >= L'a' && key <= L'z') key = key - L'a' + L'A'; // 소문자 → 대문자
+    for (const auto& e : WIN_X_MENU)
+        if (e.key == key)
+            return &e;
+    return nullptr;
+}
+
+// Win+X 콤보 여부 확인 (KeyNormalizer STATE_WIN_X 진입 조건)
+inline bool IsWinXEntry(uint8_t mods, DWORD vk)
+{
+    return mods == M_WIN && vk == 'X';
+}
 
 } // namespace KeyShortcutRef
