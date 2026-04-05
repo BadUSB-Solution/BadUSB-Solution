@@ -111,12 +111,13 @@ static bool g_closed = false;
 static HWND g_hEdit = nullptr;
 static HWND g_hModelessWnd = nullptr;
 
-static const UINT_PTR IDC_EDIT_KEYS    = 2001;
-static const UINT_PTR IDC_BTN_ALLOW    = 2002;
-static const UINT_PTR IDC_BTN_DENY     = 2003;
-static const UINT_PTR IDC_LABEL_DEVICE = 2004;
-static const UINT_PTR IDC_LABEL_TITLE  = 2005;
+static const UINT_PTR IDC_EDIT_KEYS     = 2001;
+static const UINT_PTR IDC_BTN_ALLOW     = 2002;
+static const UINT_PTR IDC_BTN_DENY      = 2003;
+static const UINT_PTR IDC_LABEL_DEVICE  = 2004;
+static const UINT_PTR IDC_LABEL_TITLE   = 2005;
 static const UINT_PTR IDC_TIMER_REFRESH = 2006;
+static const UINT_PTR IDC_BTN_COPY      = 2007;
 
 static LRESULT CALLBACK ViewerProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -134,16 +135,34 @@ static LRESULT CALLBACK ViewerProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
             DestroyWindow(hWnd);
             return 0;
         }
+        if (LOWORD(wParam) == IDC_BTN_COPY && g_hEdit) {
+            int len = GetWindowTextLengthW(g_hEdit);
+            if (len > 0 && OpenClipboard(hWnd)) {
+                HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, (len + 1) * sizeof(wchar_t));
+                if (hMem) {
+                    wchar_t* p = static_cast<wchar_t*>(GlobalLock(hMem));
+                    GetWindowTextW(g_hEdit, p, len + 1);
+                    GlobalUnlock(hMem);
+                    EmptyClipboard();
+                    SetClipboardData(CF_UNICODETEXT, hMem);
+                }
+                CloseClipboard();
+            }
+            return 0;
+        }
         break;
 
     case WM_TIMER:
         if (wParam == IDC_TIMER_REFRESH && g_hEdit) {
-            // 스크롤이 맨 아래인지 확인 (사용자가 올렸으면 강제 스크롤 안 함)
             SCROLLINFO si{};
             si.cbSize = sizeof(si);
             si.fMask = SIF_ALL;
             GetScrollInfo(g_hEdit, SB_VERT, &si);
             bool wasAtBottom = (si.nPos + (int)si.nPage >= si.nMax) || (si.nMax == 0);
+
+            // SetWindowTextW 호출 전 첫 번째 보이는 줄 저장
+            // (SetWindowTextW는 Edit 컨트롤 스크롤을 항상 맨 위로 리셋함)
+            int firstVisible = (int)SendMessageW(g_hEdit, EM_GETFIRSTVISIBLELINE, 0, 0);
 
             auto keys = KeyboardHook::GetBufferedKeys();
             std::wstring text = BuildKeysText(keys);
@@ -152,6 +171,9 @@ static LRESULT CALLBACK ViewerProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
             if (wasAtBottom) {
                 SendMessageW(g_hEdit, EM_SETSEL, (WPARAM)text.size(), (LPARAM)text.size());
                 SendMessageW(g_hEdit, EM_SCROLLCARET, 0, 0);
+            } else {
+                // 사용자가 스크롤을 올렸으면 기존 위치 복원
+                SendMessageW(g_hEdit, EM_LINESCROLL, 0, firstVisible);
             }
         }
         return 0;
@@ -265,13 +287,17 @@ namespace BufferViewUI
 
         SetTimer(hWnd, IDC_TIMER_REFRESH, 200, nullptr);
 
+        CreateWindowExW(0, L"BUTTON", L"Copy",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            20, 260, 80, 35, hWnd, (HMENU)IDC_BTN_COPY, hInst, nullptr);
+
         CreateWindowExW(0, L"BUTTON", L"Allow",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-            120, 260, 100, 35, hWnd, (HMENU)IDC_BTN_ALLOW, hInst, nullptr);
+            160, 260, 100, 35, hWnd, (HMENU)IDC_BTN_ALLOW, hInst, nullptr);
 
         CreateWindowExW(0, L"BUTTON", L"Deny",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-            260, 260, 100, 35, hWnd, (HMENU)IDC_BTN_DENY, hInst, nullptr);
+            300, 260, 100, 35, hWnd, (HMENU)IDC_BTN_DENY, hInst, nullptr);
 
         EnableWindow(hParent, FALSE);
 
@@ -341,7 +367,7 @@ namespace BufferViewUI
                 L"(No keystrokes detected)",
                 WS_CHILD | WS_VISIBLE | WS_VSCROLL |
                 ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
-                20, 70, 425, 160, hWnd, (HMENU)IDC_EDIT_KEYS, hInst, nullptr);
+                20, 70, 425, 130, hWnd, (HMENU)IDC_EDIT_KEYS, hInst, nullptr);
 
             HFONT hFont = CreateFontW(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                 DEFAULT_CHARSET, 0, 0, 0, 0, L"Consolas");
@@ -349,7 +375,9 @@ namespace BufferViewUI
                 SendMessageW(g_hEdit, WM_SETFONT, (WPARAM)hFont, TRUE);
         }
 
-        // 버튼 없음 — 승인 다이얼로그에서 결정
+        CreateWindowExW(0, L"BUTTON", L"Copy",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            165, 215, 140, 30, hWnd, (HMENU)IDC_BTN_COPY, hInst, nullptr);
 
         SetTimer(hWnd, IDC_TIMER_REFRESH, 200, nullptr);
 
