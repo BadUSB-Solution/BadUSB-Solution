@@ -111,13 +111,21 @@ static bool g_closed = false;
 static HWND g_hEdit = nullptr;
 static HWND g_hModelessWnd = nullptr;
 
-static const UINT_PTR IDC_EDIT_KEYS     = 2001;
-static const UINT_PTR IDC_BTN_ALLOW     = 2002;
-static const UINT_PTR IDC_BTN_DENY      = 2003;
-static const UINT_PTR IDC_LABEL_DEVICE  = 2004;
-static const UINT_PTR IDC_LABEL_TITLE   = 2005;
-static const UINT_PTR IDC_TIMER_REFRESH = 2006;
-static const UINT_PTR IDC_BTN_COPY      = 2007;
+static const UINT_PTR IDC_EDIT_KEYS       = 2001;
+static const UINT_PTR IDC_BTN_ALLOW       = 2002;
+static const UINT_PTR IDC_BTN_DENY        = 2003;
+static const UINT_PTR IDC_LABEL_DEVICE    = 2004;
+static const UINT_PTR IDC_LABEL_TITLE     = 2005;
+static const UINT_PTR IDC_TIMER_REFRESH   = 2006;
+static const UINT_PTR IDC_BTN_COPY        = 2007;
+static const UINT_PTR IDC_BTN_NORMALIZE   = 2008;
+
+// --- 정규화 디버그 창 전용 ---
+static const wchar_t* NORMDEBUG_CLASS     = L"BadUSB_NormDebug";
+static HWND           g_hNormDebugWnd     = nullptr;
+static const UINT_PTR IDC_NORMDEBUG_CLOSE = 2100;
+static const UINT_PTR IDC_NORMDEBUG_RAW   = 2101;
+static const UINT_PTR IDC_NORMDEBUG_NORM  = 2102;
 
 static LRESULT CALLBACK ViewerProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -148,6 +156,10 @@ static LRESULT CALLBACK ViewerProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
                 }
                 CloseClipboard();
             }
+            return 0;
+        }
+        if (LOWORD(wParam) == IDC_BTN_NORMALIZE) {
+            BufferViewUI::OpenNormalizeDebug();
             return 0;
         }
         break;
@@ -213,6 +225,43 @@ static void RegisterViewerClass(HINSTANCE hInst)
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.lpszClassName = VIEWER_CLASS;
+    RegisterClassExW(&wc);
+    registered = true;
+}
+
+// --- 정규화 디버그 창 ---
+
+static LRESULT CALLBACK NormDebugProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    switch (msg) {
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDC_NORMDEBUG_CLOSE) {
+            DestroyWindow(hWnd);
+            return 0;
+        }
+        break;
+    case WM_CLOSE:
+        DestroyWindow(hWnd);
+        return 0;
+    case WM_DESTROY:
+        g_hNormDebugWnd = nullptr;
+        return 0;
+    }
+    return DefWindowProcW(hWnd, msg, wParam, lParam);
+}
+
+static void RegisterNormDebugClass(HINSTANCE hInst)
+{
+    static bool registered = false;
+    if (registered) return;
+
+    WNDCLASSEXW wc{};
+    wc.cbSize = sizeof(wc);
+    wc.lpfnWndProc = NormDebugProc;
+    wc.hInstance = hInst;
+    wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.lpszClassName = NORMDEBUG_CLASS;
     RegisterClassExW(&wc);
     registered = true;
 }
@@ -289,15 +338,19 @@ namespace BufferViewUI
 
         CreateWindowExW(0, L"BUTTON", L"Copy",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-            20, 260, 80, 35, hWnd, (HMENU)IDC_BTN_COPY, hInst, nullptr);
+            15, 260, 75, 35, hWnd, (HMENU)IDC_BTN_COPY, hInst, nullptr);
+
+        CreateWindowExW(0, L"BUTTON", L"Normalize",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            100, 260, 90, 35, hWnd, (HMENU)IDC_BTN_NORMALIZE, hInst, nullptr);
 
         CreateWindowExW(0, L"BUTTON", L"Allow",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-            160, 260, 100, 35, hWnd, (HMENU)IDC_BTN_ALLOW, hInst, nullptr);
+            205, 260, 90, 35, hWnd, (HMENU)IDC_BTN_ALLOW, hInst, nullptr);
 
         CreateWindowExW(0, L"BUTTON", L"Deny",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-            300, 260, 100, 35, hWnd, (HMENU)IDC_BTN_DENY, hInst, nullptr);
+            305, 260, 90, 35, hWnd, (HMENU)IDC_BTN_DENY, hInst, nullptr);
 
         EnableWindow(hParent, FALSE);
 
@@ -377,7 +430,11 @@ namespace BufferViewUI
 
         CreateWindowExW(0, L"BUTTON", L"Copy",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-            165, 215, 140, 30, hWnd, (HMENU)IDC_BTN_COPY, hInst, nullptr);
+            75, 215, 125, 30, hWnd, (HMENU)IDC_BTN_COPY, hInst, nullptr);
+
+        CreateWindowExW(0, L"BUTTON", L"Normalize",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            255, 215, 145, 30, hWnd, (HMENU)IDC_BTN_NORMALIZE, hInst, nullptr);
 
         SetTimer(hWnd, IDC_TIMER_REFRESH, 200, nullptr);
 
@@ -392,5 +449,84 @@ namespace BufferViewUI
             g_hModelessWnd = nullptr;
         }
         g_hEdit = nullptr;
+    }
+
+    // --- 정규화 디버그 창 ---
+    // 현재 버퍼 스냅샷의 raw 표시 + 정규화 결과 예정 영역을 보여주는 디버그 창.
+    // KeyDecoder::Decode() 구현 전까지 정규화 섹션은 "(미구현)" 플레이스홀더.
+
+    void OpenNormalizeDebug()
+    {
+        // 이미 열려 있으면 최상위로 올리기만
+        if (g_hNormDebugWnd) {
+            SetForegroundWindow(g_hNormDebugWnd);
+            return;
+        }
+
+        HINSTANCE hInst = GetModuleHandle(nullptr);
+        RegisterNormDebugClass(hInst);
+
+        const int W = 680, H = 510;
+        int sx = GetSystemMetrics(SM_CXSCREEN);
+        int sy = GetSystemMetrics(SM_CYSCREEN);
+
+        HWND hWnd = CreateWindowExW(
+            WS_EX_TOPMOST,
+            NORMDEBUG_CLASS, L"BadUSB Guard - Normalize Debug",
+            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
+            (sx - W) / 2, (sy - H) / 2, W, H,
+            nullptr, nullptr, hInst, nullptr
+        );
+        if (!hWnd) return;
+        g_hNormDebugWnd = hWnd;
+
+        HFONT hMono = CreateFontW(15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, 0, 0, L"Consolas");
+
+        // ── Raw Buffer 섹션 ──────────────────────────────
+        CreateWindowExW(0, L"STATIC", L"Raw Buffer  (VkCode 표시 / 버튼 클릭 시 스냅샷)",
+            WS_CHILD | WS_VISIBLE,
+            15, 10, 645, 18, hWnd, nullptr, hInst, nullptr);
+
+        HWND hRaw = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+            WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_HSCROLL |
+            ES_MULTILINE | ES_READONLY | ES_AUTOHSCROLL,
+            15, 30, 645, 165, hWnd, (HMENU)IDC_NORMDEBUG_RAW, hInst, nullptr);
+        if (hMono) SendMessageW(hRaw, WM_SETFONT, (WPARAM)hMono, TRUE);
+
+        {
+            auto keys = KeyboardHook::GetBufferedKeys();
+            std::wstring rawText = BuildKeysText(keys);
+            SetWindowTextW(hRaw, rawText.c_str());
+        }
+
+        // ── Normalized 섹션 ──────────────────────────────
+        CreateWindowExW(0, L"STATIC",
+            L"정규화 결과  (KeyDecoder::Decode \u2014 \ubbf8\uad6c\ud604)",
+            WS_CHILD | WS_VISIBLE,
+            15, 205, 645, 18, hWnd, nullptr, hInst, nullptr);
+
+        HWND hNorm = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT",
+            L"(미구현)\r\n\r\n"
+            L"KeyDecoder::Decode()가 구현되면 다음 항목이 표시됩니다:\r\n\r\n"
+            L"  [lines]    Enter 기준으로 분리된 줄 목록\r\n"
+            L"             예) line[0]: notepad\r\n"
+            L"                 line[1]: Set x=CreateObject(\"WinHTTP...\")\r\n\r\n"
+            L"  [hotkeys]  감지된 단축키 콤보\r\n"
+            L"             예) Win+R @ line[0], Ctrl+S @ line[5]\r\n\r\n"
+            L"  [urls]     추출·디코딩된 URL\r\n"
+            L"             예) https://bit.ly/4lPxL5S  (Chr() 재조합 완료)",
+            WS_CHILD | WS_VISIBLE | WS_VSCROLL |
+            ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
+            15, 225, 645, 200, hWnd, (HMENU)IDC_NORMDEBUG_NORM, hInst, nullptr);
+        if (hMono) SendMessageW(hNorm, WM_SETFONT, (WPARAM)hMono, TRUE);
+
+        // ── 닫기 버튼 ────────────────────────────────────
+        CreateWindowExW(0, L"BUTTON", L"닫기",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            270, 440, 130, 35, hWnd, (HMENU)IDC_NORMDEBUG_CLOSE, hInst, nullptr);
+
+        ShowWindow(hWnd, SW_SHOW);
+        UpdateWindow(hWnd);
     }
 }
