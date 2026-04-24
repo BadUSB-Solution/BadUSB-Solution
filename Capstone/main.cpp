@@ -16,11 +16,10 @@
 #include "ui_tray.h"
 #include "ui_tabs.h"
 #include "hid_monitor.h"
-#include "hid_initialScan.h"
+#include "hid_scan.h"
 #include "hid_approval_flow.h"   
 #include "keyboard_hook.h"
 #include "ui_buffer_view.h"
-#include "policy.h"
 #include "policy.h"
 
 #pragma comment(lib, "Shell32.lib")
@@ -94,7 +93,7 @@ BOOL InitInstance(HINSTANCE hInstance, int)
 
     // DB에 기존 정책이 있으면 스캔 생략, 없으면 전체 스캔 → 승인 UI
     if (Policy::GetWhitelist().empty() && Policy::GetBlacklist().empty()) {
-        auto paths = HidInitialScan::EnumeratePresentHidDevicePaths();
+        auto paths = HidScan::EnumeratePresentHidDevicePaths();
         DeviceApprovalFlow::ApproveDevicesFromPaths(nullptr, paths);
     }
     else {

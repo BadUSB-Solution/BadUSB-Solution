@@ -10,7 +10,7 @@
 
 #pragma comment(lib, "Setupapi.lib")
 
-namespace HidInitialScan
+namespace HidScan
 {
     std::vector<std::wstring> EnumeratePresentHidDevicePaths()
     {
