@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "hid_fingerprint.h"
-#include "hid_initialScan.h"
+#include "hid_scan.h"
 #include "keyboard_hook.h"
 #include "logger.h"
 #include "policy.h"
@@ -158,7 +158,7 @@ bool DeviceApprovalFlow::ApproveDeviceFromPath(HWND hWnd, const std::wstring& pa
     BufferViewUI::Open(hWnd, hotplugItem.vid, hotplugItem.pid, hotplugItem.name);
 
     // 승인 리스트 다이얼로그 (모니터링 창과 동시에 표시)
-    auto paths = HidInitialScan::EnumeratePresentHidDevicePaths();
+    auto paths = HidScan::EnumeratePresentHidDevicePaths();
 
     // 열거 지연 대비 도착 경로 강제 포함
     {
