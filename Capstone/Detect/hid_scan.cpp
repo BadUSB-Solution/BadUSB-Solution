@@ -1,4 +1,4 @@
-﻿#include "hid_initialScan.h"
+﻿#include "hid_scan.h"
 
 #include <framework.h>
 #include <setupapi.h>

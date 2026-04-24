@@ -153,8 +153,8 @@
     <ClInclude Include="Core\usb_item.h" />
     <ClInclude Include="Detect\hid_approval_flow.h" />
     <ClInclude Include="Detect\hid_fingerprint.h" />
-    <ClInclude Include="Detect\hid_initialScan.h" />
     <ClInclude Include="Detect\hid_monitor.h" />
+    <ClInclude Include="Detect\hid_scan.h" />
     <ClInclude Include="Hook\badusb.h" />
     <ClInclude Include="Hook\keyboard_hook.h" />
     <ClInclude Include="UI\ui_tray.h" />
@@ -173,7 +173,7 @@
   <ItemGroup>
     <ClCompile Include="Detect\hid_approval_flow.cpp" />
     <ClCompile Include="Detect\hid_fingerprint.cpp" />
-    <ClCompile Include="Detect\hid_initialScan.cpp" />
+    <ClCompile Include="Detect\hid_scan.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Core\logger.cpp" />
     <ClCompile Include="Core\policy.cpp" />
