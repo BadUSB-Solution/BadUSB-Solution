@@ -163,6 +163,7 @@
     <ClInclude Include="UI\ui_buffer_view.h" />
     <ClInclude Include="Algorithm\PreAnalysis\key_decoder.h" />
     <ClInclude Include="Algorithm\PreAnalysis\key_normalizer.h" />
+    <ClInclude Include="Algorithm\PreAnalysis\url_extractor.h" />
     <ClInclude Include="Algorithm\PreAnalysis\keyboard_shortcuts_ref.h" />
     <ClInclude Include="Algorithm\PreAnalysis\typing_analyzer.h" />
     <ClInclude Include="Algorithm\Analysis\ShellDetector\shell_detector.h" />
@@ -185,6 +186,7 @@
     <ClCompile Include="UI\ui_buffer_view.cpp" />
     <ClCompile Include="Algorithm\PreAnalysis\key_decoder.cpp" />
     <ClCompile Include="Algorithm\PreAnalysis\key_normalizer.cpp" />
+    <ClCompile Include="Algorithm\PreAnalysis\url_extractor.cpp" />
     <ClCompile Include="Algorithm\PreAnalysis\typing_analyzer.cpp" />
     <ClCompile Include="Algorithm\Analysis\ShellDetector\shell_detector.cpp" />
     <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.cpp" />

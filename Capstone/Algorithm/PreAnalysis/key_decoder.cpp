@@ -1,5 +1,6 @@
 #include "key_decoder.h"
 #include "key_normalizer.h"
+#include "url_extractor.h"
 
 // KeyDecoder: KeyNormalizer + (UrlExtractor) 결과를 통합해 DecodeResult 반환
 namespace KeyDecoder
@@ -28,7 +29,8 @@ namespace KeyDecoder
         }
         result.fullText = fullText;
 
-        // --- 2단계: URL 추출 (미구현, 추후 UrlExtractor::Extract() 호출) ---
+        // --- 2단계: URL 추출 ---
+        UrlExtractor::Extract(result.lines);
 
         return result;
     }
