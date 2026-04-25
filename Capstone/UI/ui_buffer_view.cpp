@@ -542,13 +542,26 @@ namespace BufferViewUI
                 }
             }
 
-            // URL 목록 (UrlExtractor 구현 후 채워짐)
+            // URL 목록
             normText += L"\r\n=== URLs ===\r\n";
             bool hasUrl = false;
-            for (auto& line : decoded.lines)
-                if (!line.urls.empty()) hasUrl = true;
+            for (auto& line : decoded.lines) {
+                for (auto& url : line.urls) {
+                    hasUrl = true;
+                    wchar_t buf[32];
+                    wsprintfW(buf, L"[line %d] ", (int)url.lineIndex);
+                    normText += buf;
+                    // raw != resolved 이면 인코딩 있었음을 표시
+                    if (url.raw != url.resolved) {
+                        normText += L"raw:  " + url.raw + L"\r\n";
+                        normText += L"          decoded: " + url.resolved + L"\r\n";
+                    } else {
+                        normText += url.resolved + L"\r\n";
+                    }
+                }
+            }
             if (!hasUrl)
-                normText += L"(없음 -- UrlExtractor 미구현)\r\n";
+                normText += L"(없음)\r\n";
 
             SetWindowTextW(hNorm, normText.c_str());
         }
