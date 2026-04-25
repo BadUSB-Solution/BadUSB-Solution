@@ -99,6 +99,9 @@
     <ClInclude Include="Algorithm\PreAnalysis\key_normalizer.h">
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClInclude>
+    <ClInclude Include="Algorithm\PreAnalysis\url_extractor.h">
+      <Filter>Algorithm\PreAnalysis</Filter>
+    </ClInclude>
     <ClInclude Include="Algorithm\PreAnalysis\keyboard_shortcuts_ref.h">
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClInclude>
@@ -157,6 +160,9 @@
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\PreAnalysis\key_normalizer.cpp">
+      <Filter>Algorithm\PreAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\PreAnalysis\url_extractor.cpp">
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\PreAnalysis\typing_analyzer.cpp">
