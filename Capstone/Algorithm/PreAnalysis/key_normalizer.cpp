@@ -42,16 +42,55 @@ namespace KeyNormalizer
         return combo;
     }
 
+    // VkCode + Shift 상태 -> 문자 변환 (US 키보드 레이아웃 기준)
+    // 변환 불가 키는 L'\0' 반환
+    static wchar_t VkToChar(DWORD vk, bool shift)
+    {
+        // 알파벳 A-Z
+        if (vk >= 'A' && vk <= 'Z')
+            return shift ? (wchar_t)vk : (wchar_t)(vk + 32);
+
+        // 숫자 0-9
+        if (vk >= '0' && vk <= '9') {
+            if (!shift) return (wchar_t)vk;
+            // Shift + 숫자 → 기호 (US 키보드)
+            static const wchar_t shiftNum[] = L")!@#$%^&*(";
+            return shiftNum[vk - '0'];
+        }
+
+        // 공백
+        if (vk == VK_SPACE) return L' ';
+
+        // OEM 기호 키 (US 키보드 레이아웃)
+        switch (vk) {
+        case VK_OEM_MINUS:  return shift ? L'_'  : L'-';
+        case VK_OEM_PLUS:   return shift ? L'+'  : L'=';
+        case VK_OEM_1:      return shift ? L':'  : L';';
+        case VK_OEM_7:      return shift ? L'"'  : L'\'';
+        case VK_OEM_COMMA:  return shift ? L'<'  : L',';
+        case VK_OEM_PERIOD: return shift ? L'>'  : L'.';
+        case VK_OEM_2:      return shift ? L'?'  : L'/';
+        case VK_OEM_4:      return shift ? L'{'  : L'[';
+        case VK_OEM_6:      return shift ? L'}'  : L']';
+        case VK_OEM_5:      return shift ? L'|'  : L'\\';
+        case VK_OEM_3:      return shift ? L'~'  : L'`';
+        }
+
+        return L'\0';
+    }
+
     NormalizeResult Normalize(const std::vector<KeyboardHook::KeyRecord>& buf)
     {
         NormalizeResult result;
         result.lines.push_back(L"");  // 첫 번째 빈 줄로 시작
 
         // 현재 눌린 modifier 상태
-        bool shiftDown = false;
-        bool ctrlDown  = false;
-        bool altDown   = false;
-        bool winDown   = false;
+        bool shiftDown   = false;
+        bool ctrlDown    = false;
+        bool altDown     = false;
+        bool winDown     = false;
+        // Win+X 서브메뉴 대기 상태
+        bool winXPending = false;
 
         for (const auto& r : buf) {
             bool up = IsKeyUp(r);
@@ -82,7 +121,6 @@ namespace KeyNormalizer
             if (vk == VK_RETURN) {
                 if (winDown || altDown) {
                     // Win+Enter(내레이터), Alt+Enter(속성) -> HotkeyEvent
-                    // Ctrl+Enter는 줄바꿈으로 처리 (ref에 없고 BadUSB와 무관)
                     uint8_t mods = BuildMods(winDown, false, altDown, false);
                     auto def = KeyShortcutRef::Lookup(mods, vk);
                     std::wstring combo = def ? def->combo
@@ -92,7 +130,22 @@ namespace KeyNormalizer
                     // Ctrl+Enter, Shift+Enter, 단독 Enter -> 줄바꿈
                     result.lines.push_back(L"");
                 }
+                winXPending = false;
                 continue;
+            }
+
+            // --- Win+X 서브메뉴 대기 처리 ---
+            // Win+X 이후 첫 keydown을 서브메뉴 선택키로 해석
+            if (winXPending) {
+                winXPending = false;
+                wchar_t key = (wchar_t)vk;
+                auto entry = KeyShortcutRef::LookupWinXMenu(key);
+                if (entry && !result.hotkeys.empty()) {
+                    // 마지막 HotkeyEvent(Win+X)에 서브메뉴 항목 이름 추가
+                    result.hotkeys.back().combo += L" \u2192 ";
+                    result.hotkeys.back().combo += entry->action;
+                }
+                continue; // 서브메뉴 선택키는 문자로 출력하지 않음
             }
 
             // --- Win/Ctrl/Alt + 일반 키 -> HotkeyEvent ---
@@ -103,10 +156,31 @@ namespace KeyNormalizer
                 std::wstring combo = def ? def->combo
                                          : BuildComboFallback(winDown, ctrlDown, altDown, shiftDown, vk);
                 result.hotkeys.push_back({ combo, result.lines.size() - 1 });
+
+                // Win+X 감지 → 다음 키를 서브메뉴 선택으로 처리
+                if (KeyShortcutRef::IsWinXEntry(mods, vk))
+                    winXPending = true;
+
                 continue;
             }
 
-            // 나머지 키: 이후 단계에서 문자 변환 예정 (현재는 무시)
+            // --- Backspace: 현재 줄 마지막 문자 삭제 ---
+            if (vk == VK_BACK) {
+                if (!result.lines.back().empty())
+                    result.lines.back().pop_back();
+                continue;
+            }
+
+            // --- Tab ---
+            if (vk == VK_TAB) {
+                result.lines.back() += L'\t';
+                continue;
+            }
+
+            // --- 일반 문자 변환 ---
+            wchar_t ch = VkToChar(vk, shiftDown);
+            if (ch != L'\0')
+                result.lines.back() += ch;
         }
 
         return result;
