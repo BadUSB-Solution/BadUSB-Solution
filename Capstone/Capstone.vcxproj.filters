@@ -84,7 +84,7 @@
     <ClInclude Include="Detect\hid_fingerprint.h">
       <Filter>Detect</Filter>
     </ClInclude>
-    <ClInclude Include="Detect\hid_initialScan.h">
+    <ClInclude Include="Detect\hid_scan.h">
       <Filter>Detect</Filter>
     </ClInclude>
     <ClInclude Include="Core\usb_item.h">
@@ -150,7 +150,7 @@
     <ClCompile Include="Detect\hid_fingerprint.cpp">
       <Filter>Detect</Filter>
     </ClCompile>
-    <ClCompile Include="Detect\hid_initialScan.cpp">
+    <ClCompile Include="Detect\hid_scan.cpp">
       <Filter>Detect</Filter>
     </ClCompile>
     <ClCompile Include="UI\ui_buffer_view.cpp">
