@@ -563,6 +563,25 @@ namespace BufferViewUI
             if (!hasUrl)
                 normText += L"(없음)\r\n";
 
+            // Parsed Commands
+            normText += L"\r\n=== Parsed Commands ===\r\n";
+            if (decoded.commands.empty()) {
+                normText += L"(없음)\r\n";
+            } else {
+                for (auto& cmd : decoded.commands) {
+                    wchar_t buf[32];
+                    wsprintfW(buf, L"[line %d] ", (int)cmd.lineIndex);
+                    normText += buf;
+                    normText += L"CMD: " + cmd.command;
+                    if (!cmd.args.empty()) {
+                        normText += L"  |  ARGS:";
+                        for (auto& arg : cmd.args)
+                            normText += L"  " + arg;
+                    }
+                    normText += L"\r\n";
+                }
+            }
+
             SetWindowTextW(hNorm, normText.c_str());
         }
 

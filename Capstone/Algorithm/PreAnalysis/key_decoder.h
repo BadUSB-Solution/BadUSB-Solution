@@ -24,10 +24,17 @@ namespace KeyDecoder
         std::vector<UrlInfo> urls;      // 이 줄에서 발견된 URL 목록
     };
 
+    struct ParsedCommand {
+        std::wstring              command;   // 소문자 정규화된 명령어 (첫 토큰)
+        std::vector<std::wstring> args;      // 원본 케이스 유지 인자 목록
+        size_t                    lineIndex;
+    };
+
     struct DecodeResult {
-        std::vector<DecodedLine>  lines;    // Enter 기준 분할 줄
-        std::vector<HotkeyEvent>  hotkeys;  // 감지된 단축키 이벤트
-        std::wstring              fullText; // 전체 텍스트 (\n 구분)
+        std::vector<DecodedLine>    lines;    // Enter 기준 분할 줄
+        std::vector<HotkeyEvent>    hotkeys;  // 감지된 단축키 이벤트
+        std::vector<ParsedCommand>  commands; // 명령어 파싱 결과
+        std::wstring                fullText; // 전체 텍스트 (\n 구분)
     };
 
     // VkCode 버퍼 전체를 분석해 DecodeResult 반환
