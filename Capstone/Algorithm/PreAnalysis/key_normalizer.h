@@ -9,8 +9,9 @@
 namespace KeyNormalizer
 {
     struct HotkeyEvent {
-        std::wstring combo;      // "Win+R", "Alt+Enter" 등
-        size_t       lineIndex;  // 발생 당시 줄 인덱스
+        std::wstring combo;       // "Win+R", "Win+X", "Alt+Enter" 등 (locale 독립 식별자)
+        wchar_t      submenuKey;  // Win+X 서브메뉴 키 ('A', 'J' 등). 서브메뉴 없으면 0
+        size_t       lineIndex;   // 발생 당시 줄 인덱스
     };
 
     struct NormalizeResult {

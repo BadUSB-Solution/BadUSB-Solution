@@ -9,8 +9,9 @@
 namespace KeyDecoder
 {
     struct HotkeyEvent {
-        std::wstring combo;      // "Win+R", "Ctrl+S", "Alt+F4" 등
-        size_t       lineIndex;  // 발생 당시 줄 인덱스
+        std::wstring combo;       // "Win+R", "Win+X", "Ctrl+S", "Alt+F4" 등 (locale 독립)
+        wchar_t      submenuKey;  // Win+X 서브메뉴 키 ('A', 'J' 등). 서브메뉴 없으면 0
+        size_t       lineIndex;
     };
 
     struct UrlInfo {

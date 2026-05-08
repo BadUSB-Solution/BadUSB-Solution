@@ -1,6 +1,7 @@
 #include "ui_buffer_view.h"
 #include "keyboard_hook.h"
 #include "key_decoder.h"
+#include "keyboard_shortcuts_ref.h"
 #include <string>
 
 // --- 가상 키코드 → 문자열 변환 ---
@@ -536,8 +537,18 @@ namespace BufferViewUI
                 normText += L"(없음)\r\n";
             } else {
                 for (auto& h : decoded.hotkeys) {
-                    wchar_t buf[64];
-                    wsprintfW(buf, L"%s  @ line[%d]\r\n", h.combo.c_str(), (int)h.lineIndex);
+                    // 기본 표시: combo
+                    normText += h.combo;
+                    // Win+X 서브메뉴면 action 설명 추가 표시
+                    if (h.submenuKey != 0) {
+                        auto entry = KeyShortcutRef::LookupWinXMenu(h.submenuKey);
+                        if (entry) {
+                            normText += L" → ";
+                            normText += entry->action;
+                        }
+                    }
+                    wchar_t buf[32];
+                    wsprintfW(buf, L"  @ line[%d]\r\n", (int)h.lineIndex);
                     normText += buf;
                 }
             }
