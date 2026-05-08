@@ -193,7 +193,7 @@ namespace KeyDecoder
 
         // 단축키 이벤트 복사
         for (auto& h : norm.hotkeys)
-            result.hotkeys.push_back({ h.combo, h.lineIndex });
+            result.hotkeys.push_back({ h.combo, h.submenuKey, h.lineIndex });
 
         // 줄 목록 구성 + fullText 조합
         std::wstring fullText;

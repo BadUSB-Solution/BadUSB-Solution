@@ -125,7 +125,7 @@ namespace KeyNormalizer
                     auto def = KeyShortcutRef::Lookup(mods, vk);
                     std::wstring combo = def ? def->combo
                                              : BuildComboFallback(winDown, false, altDown, false, vk);
-                    result.hotkeys.push_back({ combo, result.lines.size() - 1 });
+                    result.hotkeys.push_back({ combo, 0, result.lines.size() - 1 });
                 } else {
                     // Ctrl+Enter, Shift+Enter, 단독 Enter -> 줄바꿈
                     result.lines.push_back(L"");
@@ -139,11 +139,13 @@ namespace KeyNormalizer
             if (winXPending) {
                 winXPending = false;
                 wchar_t key = (wchar_t)vk;
-                auto entry = KeyShortcutRef::LookupWinXMenu(key);
+                wchar_t normKey = (key >= L'a' && key <= L'z') ? (key - L'a' + L'A') : key;
+                auto entry = KeyShortcutRef::LookupWinXMenu(normKey);
                 if (entry && !result.hotkeys.empty()) {
                     // 마지막 HotkeyEvent(Win+X)에 서브메뉴 항목 이름 추가
-                    result.hotkeys.back().combo += L" \u2192 ";
-                    result.hotkeys.back().combo += entry->action;
+                    // combo\ub294 "Win+X" \uc601\ubb38 \uc2dd\ubcc4\uc790 \uadf8\ub300\ub85c \ub450\uace0, \uba54\ub274 \ud0a4\ub9cc \ubcc4\ub3c4 \ud544\ub4dc\uc5d0 \uc800\uc7a5
+                    // \ud45c\uc2dc\uc6a9 action \ubb38\uc790\uc5f4\uc740 UI \uce21\uc5d0\uc11c LookupWinXMenu\ub85c \ub2e4\uc2dc \uc870\ud68c
+                    result.hotkeys.back().submenuKey = normKey;
                 }
                 continue; // 서브메뉴 선택키는 문자로 출력하지 않음
             }
@@ -155,7 +157,7 @@ namespace KeyNormalizer
                 auto def = KeyShortcutRef::Lookup(mods, vk);
                 std::wstring combo = def ? def->combo
                                          : BuildComboFallback(winDown, ctrlDown, altDown, shiftDown, vk);
-                result.hotkeys.push_back({ combo, result.lines.size() - 1 });
+                result.hotkeys.push_back({ combo, 0, result.lines.size() - 1 });
 
                 // Win+X 감지 → 다음 키를 서브메뉴 선택으로 처리
                 if (KeyShortcutRef::IsWinXEntry(mods, vk))
