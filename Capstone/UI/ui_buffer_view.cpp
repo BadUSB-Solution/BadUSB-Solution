@@ -2,6 +2,7 @@
 #include "keyboard_hook.h"
 #include "key_decoder.h"
 #include "keyboard_shortcuts_ref.h"
+#include "shell_detector.h"
 #include <string>
 
 // --- 가상 키코드 → 문자열 변환 ---
@@ -574,7 +575,26 @@ namespace BufferViewUI
             if (!hasUrl)
                 normText += L"(없음)\r\n";
 
-            // Parsed Commands
+            // Shell Detection
+            auto sh = ShellDetector::Detect(decoded);
+            {
+                normText += L"\r\n=== Shell ===\r\n";
+                const wchar_t* name =
+                    sh.shell == ShellDetector::SHELL_CMD        ? L"SHELL_CMD"        :
+                    sh.shell == ShellDetector::SHELL_POWERSHELL ? L"SHELL_POWERSHELL" :
+                                                                  L"SHELL_NONE";
+                wchar_t buf[96];
+                wsprintfW(buf, L"%s  (line %d, elevated=%s)\r\n",
+                          name, (int)sh.lineIndex, sh.elevated ? L"true" : L"false");
+                normText += buf;
+            }
+
+            // Parsed Commands - 셸 종류에 따라 라벨 변경
+            const wchar_t* cmdLabel =
+                sh.shell == ShellDetector::SHELL_CMD        ? L"CMD" :
+                sh.shell == ShellDetector::SHELL_POWERSHELL ? L"PS"  :
+                                                              L"CMD";  // SHELL_NONE 기본값
+
             normText += L"\r\n=== Parsed Commands ===\r\n";
             if (decoded.commands.empty()) {
                 normText += L"(없음)\r\n";
@@ -583,7 +603,9 @@ namespace BufferViewUI
                     wchar_t buf[32];
                     wsprintfW(buf, L"[line %d] ", (int)cmd.lineIndex);
                     normText += buf;
-                    normText += L"CMD: " + cmd.command;
+                    normText += cmdLabel;
+                    normText += L": ";
+                    normText += cmd.command;
                     if (!cmd.args.empty()) {
                         normText += L"  |  ARGS:";
                         for (auto& arg : cmd.args)

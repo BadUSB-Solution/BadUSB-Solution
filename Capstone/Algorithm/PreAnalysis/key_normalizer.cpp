@@ -140,8 +140,9 @@ namespace KeyNormalizer
                 winXPending = false;
                 wchar_t key = (wchar_t)vk;
                 wchar_t normKey = (key >= L'a' && key <= L'z') ? (key - L'a' + L'A') : key;
-                auto entry = KeyShortcutRef::LookupWinXMenu(normKey);
-                if (entry && !result.hotkeys.empty()) {
+                // LookupWinXMenu 결과와 무관하게 submenuKey 무조건 저장
+                // (ShellDetector가 자기 테이블로 의미 해석)
+                if (!result.hotkeys.empty()) {
                     // 마지막 HotkeyEvent(Win+X)에 서브메뉴 항목 이름 추가
                     // combo\ub294 "Win+X" \uc601\ubb38 \uc2dd\ubcc4\uc790 \uadf8\ub300\ub85c \ub450\uace0, \uba54\ub274 \ud0a4\ub9cc \ubcc4\ub3c4 \ud544\ub4dc\uc5d0 \uc800\uc7a5
                     // \ud45c\uc2dc\uc6a9 action \ubb38\uc790\uc5f4\uc740 UI \uce21\uc5d0\uc11c LookupWinXMenu\ub85c \ub2e4\uc2dc \uc870\ud68c
