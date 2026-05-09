@@ -37,6 +37,9 @@
     <Filter Include="Algorithm\Analysis\CompoundScorer">
       <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-4444555566CC}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ThirdParty">
+      <UniqueIdentifier>{B7E80000-1234-5678-9ABC-DEF012345678}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core\framework.h">
@@ -114,11 +117,17 @@
     <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.h">
       <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
     </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_db_connect.h">
+      <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
+    </ClInclude>
     <ClInclude Include="Algorithm\Analysis\UrlClassifier\url_classifier.h">
       <Filter>Algorithm\Analysis\UrlClassifier</Filter>
     </ClInclude>
     <ClInclude Include="Algorithm\Analysis\CompoundScorer\compound_scorer.h">
       <Filter>Algorithm\Analysis\CompoundScorer</Filter>
+    </ClInclude>
+    <ClInclude Include="ThirdParty\sqlite3.h">
+      <Filter>ThirdParty</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -174,11 +183,17 @@
     <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.cpp">
       <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
     </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_db_connect.cpp">
+      <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
+    </ClCompile>
     <ClCompile Include="Algorithm\Analysis\UrlClassifier\url_classifier.cpp">
       <Filter>Algorithm\Analysis\UrlClassifier</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\Analysis\CompoundScorer\compound_scorer.cpp">
       <Filter>Algorithm\Analysis\CompoundScorer</Filter>
+    </ClCompile>
+    <ClCompile Include="ThirdParty\sqlite3.c">
+      <Filter>ThirdParty</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
