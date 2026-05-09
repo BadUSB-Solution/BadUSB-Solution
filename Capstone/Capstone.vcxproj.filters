@@ -84,7 +84,7 @@
     <ClInclude Include="Detect\hid_fingerprint.h">
       <Filter>Detect</Filter>
     </ClInclude>
-    <ClInclude Include="Detect\hid_initialScan.h">
+    <ClInclude Include="Detect\hid_scan.h">
       <Filter>Detect</Filter>
     </ClInclude>
     <ClInclude Include="Core\usb_item.h">
@@ -97,6 +97,9 @@
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClInclude>
     <ClInclude Include="Algorithm\PreAnalysis\key_normalizer.h">
+      <Filter>Algorithm\PreAnalysis</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\PreAnalysis\url_extractor.h">
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClInclude>
     <ClInclude Include="Algorithm\PreAnalysis\keyboard_shortcuts_ref.h">
@@ -147,7 +150,7 @@
     <ClCompile Include="Detect\hid_fingerprint.cpp">
       <Filter>Detect</Filter>
     </ClCompile>
-    <ClCompile Include="Detect\hid_initialScan.cpp">
+    <ClCompile Include="Detect\hid_scan.cpp">
       <Filter>Detect</Filter>
     </ClCompile>
     <ClCompile Include="UI\ui_buffer_view.cpp">
@@ -157,6 +160,9 @@
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\PreAnalysis\key_normalizer.cpp">
+      <Filter>Algorithm\PreAnalysis</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\PreAnalysis\url_extractor.cpp">
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\PreAnalysis\typing_analyzer.cpp">

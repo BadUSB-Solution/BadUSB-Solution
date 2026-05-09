@@ -1,6 +1,8 @@
 #include "ui_buffer_view.h"
 #include "keyboard_hook.h"
 #include "key_decoder.h"
+#include "keyboard_shortcuts_ref.h"
+#include "shell_detector.h"
 #include <string>
 
 // --- 가상 키코드 → 문자열 변환 ---
@@ -536,19 +538,82 @@ namespace BufferViewUI
                 normText += L"(없음)\r\n";
             } else {
                 for (auto& h : decoded.hotkeys) {
-                    wchar_t buf[64];
-                    wsprintfW(buf, L"%s  @ line[%d]\r\n", h.combo.c_str(), (int)h.lineIndex);
+                    // 기본 표시: combo
+                    normText += h.combo;
+                    // Win+X 서브메뉴면 action 설명 추가 표시
+                    if (h.submenuKey != 0) {
+                        auto entry = KeyShortcutRef::LookupWinXMenu(h.submenuKey);
+                        if (entry) {
+                            normText += L" → ";
+                            normText += entry->action;
+                        }
+                    }
+                    wchar_t buf[32];
+                    wsprintfW(buf, L"  @ line[%d]\r\n", (int)h.lineIndex);
                     normText += buf;
                 }
             }
 
-            // URL 목록 (UrlExtractor 구현 후 채워짐)
+            // URL 목록
             normText += L"\r\n=== URLs ===\r\n";
             bool hasUrl = false;
-            for (auto& line : decoded.lines)
-                if (!line.urls.empty()) hasUrl = true;
+            for (auto& line : decoded.lines) {
+                for (auto& url : line.urls) {
+                    hasUrl = true;
+                    wchar_t buf[32];
+                    wsprintfW(buf, L"[line %d] ", (int)url.lineIndex);
+                    normText += buf;
+                    // raw != resolved 이면 인코딩 있었음을 표시
+                    if (url.raw != url.resolved) {
+                        normText += L"raw:  " + url.raw + L"\r\n";
+                        normText += L"          decoded: " + url.resolved + L"\r\n";
+                    } else {
+                        normText += url.resolved + L"\r\n";
+                    }
+                }
+            }
             if (!hasUrl)
-                normText += L"(없음 -- UrlExtractor 미구현)\r\n";
+                normText += L"(없음)\r\n";
+
+            // Shell Detection
+            auto sh = ShellDetector::Detect(decoded);
+            {
+                normText += L"\r\n=== Shell ===\r\n";
+                const wchar_t* name =
+                    sh.shell == ShellDetector::SHELL_CMD        ? L"SHELL_CMD"        :
+                    sh.shell == ShellDetector::SHELL_POWERSHELL ? L"SHELL_POWERSHELL" :
+                                                                  L"SHELL_NONE";
+                wchar_t buf[96];
+                wsprintfW(buf, L"%s  (line %d, elevated=%s)\r\n",
+                          name, (int)sh.lineIndex, sh.elevated ? L"true" : L"false");
+                normText += buf;
+            }
+
+            // Parsed Commands - 셸 종류에 따라 라벨 변경
+            const wchar_t* cmdLabel =
+                sh.shell == ShellDetector::SHELL_CMD        ? L"CMD" :
+                sh.shell == ShellDetector::SHELL_POWERSHELL ? L"PS"  :
+                                                              L"CMD";  // SHELL_NONE 기본값
+
+            normText += L"\r\n=== Parsed Commands ===\r\n";
+            if (decoded.commands.empty()) {
+                normText += L"(없음)\r\n";
+            } else {
+                for (auto& cmd : decoded.commands) {
+                    wchar_t buf[32];
+                    wsprintfW(buf, L"[line %d] ", (int)cmd.lineIndex);
+                    normText += buf;
+                    normText += cmdLabel;
+                    normText += L": ";
+                    normText += cmd.command;
+                    if (!cmd.args.empty()) {
+                        normText += L"  |  ARGS:";
+                        for (auto& arg : cmd.args)
+                            normText += L"  " + arg;
+                    }
+                    normText += L"\r\n";
+                }
+            }
 
             SetWindowTextW(hNorm, normText.c_str());
         }

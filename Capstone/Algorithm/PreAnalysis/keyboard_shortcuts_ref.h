@@ -299,6 +299,7 @@ static constexpr WinXMenuEntry WIN_X_MENU[] = {
     { 'G', L"컴퓨터 관리",                    false },
     { 'J', L"터미널",                         false },
     { 'A', L"터미널 (관리자)",                true  }, // BadUSB 핵심: 관리자 PowerShell 즉시 열기
+    { 'I', L"Windows PowerShell",             false }, // 구버전 Win10 (J/A 도입 이전)
     { 'T', L"작업 관리자",                    false },
     { 'N', L"설정",                           false },
     { 'E', L"파일 탐색기",                    false },
