@@ -1,0 +1,4 @@
+C:/Users/black/Desktop/BadUSB-Sample/BadUSB-Solution/build-cmake/CMakeFiles/CapstoneCore.dir
+C:/Users/black/Desktop/BadUSB-Sample/BadUSB-Solution/build-cmake/CMakeFiles/RUN_TESTS.dir
+C:/Users/black/Desktop/BadUSB-Sample/BadUSB-Solution/build-cmake/CMakeFiles/ALL_BUILD.dir
+C:/Users/black/Desktop/BadUSB-Sample/BadUSB-Solution/build-cmake/CMakeFiles/ZERO_CHECK.dir

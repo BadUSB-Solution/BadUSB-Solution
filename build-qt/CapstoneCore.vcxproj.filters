@@ -1,0 +1,52 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Core\logger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Core\policy.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Hook\keyboard_hook.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Detect\hid_scan.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Detect\hid_fingerprint.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Algorithm\PreAnalysis\key_decoder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Algorithm\PreAnalysis\key_normalizer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Algorithm\PreAnalysis\url_extractor.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Algorithm\PreAnalysis\typing_analyzer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Algorithm\Analysis\ShellDetector\shell_detector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Algorithm\Analysis\ThreatMatcher\threat_matcher.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Algorithm\Analysis\UrlClassifier\url_classifier.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\Capstone\Algorithm\Analysis\CompoundScorer\compound_scorer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\black\Desktop\BadUSB-Sample\BadUSB-Solution\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{D6E3CD8D-5141-3D7E-9179-304D0EB9F50A}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
