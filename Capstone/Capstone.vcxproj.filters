@@ -96,6 +96,9 @@
     <ClInclude Include="UI\ui_buffer_view.h">
       <Filter>UI</Filter>
     </ClInclude>
+    <ClInclude Include="UI\ui_compound_scorer.h">
+      <Filter>UI</Filter>
+    </ClInclude>
     <ClInclude Include="Algorithm\PreAnalysis\key_decoder.h">
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClInclude>
@@ -124,6 +127,9 @@
       <Filter>Algorithm\Analysis\UrlClassifier</Filter>
     </ClInclude>
     <ClInclude Include="Algorithm\Analysis\CompoundScorer\compound_scorer.h">
+      <Filter>Algorithm\Analysis\CompoundScorer</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\CompoundScorer\hotkey_scorer.h">
       <Filter>Algorithm\Analysis\CompoundScorer</Filter>
     </ClInclude>
     <ClInclude Include="ThirdParty\sqlite3.h">
@@ -165,6 +171,9 @@
     <ClCompile Include="UI\ui_buffer_view.cpp">
       <Filter>UI</Filter>
     </ClCompile>
+    <ClCompile Include="UI\ui_compound_scorer.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
     <ClCompile Include="Algorithm\PreAnalysis\key_decoder.cpp">
       <Filter>Algorithm\PreAnalysis</Filter>
     </ClCompile>
@@ -190,6 +199,9 @@
       <Filter>Algorithm\Analysis\UrlClassifier</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\Analysis\CompoundScorer\compound_scorer.cpp">
+      <Filter>Algorithm\Analysis\CompoundScorer</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\CompoundScorer\hotkey_scorer.cpp">
       <Filter>Algorithm\Analysis\CompoundScorer</Filter>
     </ClCompile>
     <ClCompile Include="ThirdParty\sqlite3.c">

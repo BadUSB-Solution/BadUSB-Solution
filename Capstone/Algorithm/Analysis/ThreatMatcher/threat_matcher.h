@@ -29,13 +29,19 @@ namespace ThreatMatcher
         double       token_score;  // max(0, base + enum_adjust)
         bool         from_common;  // common_parameters 에서 매칭됐나
         bool         matched;      // 정규 태그 매칭 성공 (axis ≠ X)
+        bool         in_db;        // parameters/common_parameters 에 존재 (axis 무관)
     };
 
     // 명령어 단위 결과
+    //   phase: 어느 분석 단계에서 추가됐는지 (FormatLog 표시용)
+    //     1 = Phase 1   — KeyDecoder 가 line 별로 추출한 정상 명령
+    //     4 = Phase 4   — fullText 정규식 보완 스캔 (SPEC §5.5)
+    //     5 = Phase 5   — cmd /c "..." / powershell -Command "..." 안 unquote 후 재분석
     struct CommandMatch {
         std::wstring command;
         size_t       lineIndex;
         bool         in_db;         // commands 또는 alias 에서 매칭됨
+        int          phase;         // 1 / 4 / 5
         std::vector<TokenMatch> tokens;
         double       cmd_raw;       // Σ token_score (cap 적용 안 함)
     };

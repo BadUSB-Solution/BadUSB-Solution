@@ -23,8 +23,15 @@ namespace ThreatMatcher { namespace DB {
     // ─── lookup 함수들 ──────────────────────────────────────────────
     // shell_id 우선 시도, 미스 시 다른 shell fallback.
     // commands → command_aliases 순.
+    //
+    // multi-word 명령 지원 (reg add, sc query 등 23개):
+    //   next_token 이 비어있지 않으면 "cmd_name + ' ' + next_token" 도 시도.
+    //   매칭되면 *used_next = true 로 caller 에 알림 (caller 가 args[0] 소비 처리).
+    //
     // 반환: command_id (-1 = 미발견)
-    int LookupCommand(const std::wstring& cmd_name, int shell_id);
+    int LookupCommand(const std::wstring& cmd_name, int shell_id,
+                      const std::wstring& next_token = L"",
+                      bool* used_next = nullptr);
 
     // command_id + 매개변수 → ParamRow (매칭 인자 우선, 없으면 미매칭)
     ParamRow LookupParameter(int command_id, const std::wstring& param);

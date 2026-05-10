@@ -164,6 +164,7 @@
     <ClInclude Include="UI\ui_tabs.h" />
     <ClInclude Include="UI\ui_approval.h" />
     <ClInclude Include="UI\ui_buffer_view.h" />
+    <ClInclude Include="UI\ui_compound_scorer.h" />
     <ClInclude Include="Algorithm\PreAnalysis\key_decoder.h" />
     <ClInclude Include="Algorithm\PreAnalysis\key_normalizer.h" />
     <ClInclude Include="Algorithm\PreAnalysis\url_extractor.h" />
@@ -174,6 +175,7 @@
     <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_db_connect.h" />
     <ClInclude Include="Algorithm\Analysis\UrlClassifier\url_classifier.h" />
     <ClInclude Include="Algorithm\Analysis\CompoundScorer\compound_scorer.h" />
+    <ClInclude Include="Algorithm\Analysis\CompoundScorer\hotkey_scorer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Detect\hid_approval_flow.cpp" />
@@ -193,6 +195,7 @@
     <ClCompile Include="UI\ui_approval.cpp" />
     <ClCompile Include="Hook\keyboard_hook.cpp" />
     <ClCompile Include="UI\ui_buffer_view.cpp" />
+    <ClCompile Include="UI\ui_compound_scorer.cpp" />
     <ClCompile Include="Algorithm\PreAnalysis\key_decoder.cpp" />
     <ClCompile Include="Algorithm\PreAnalysis\key_normalizer.cpp" />
     <ClCompile Include="Algorithm\PreAnalysis\url_extractor.cpp" />
@@ -205,6 +208,7 @@
     </ClCompile>
     <ClCompile Include="Algorithm\Analysis\UrlClassifier\url_classifier.cpp" />
     <ClCompile Include="Algorithm\Analysis\CompoundScorer\compound_scorer.cpp" />
+    <ClCompile Include="Algorithm\Analysis\CompoundScorer\hotkey_scorer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource\Capstone.rc" />

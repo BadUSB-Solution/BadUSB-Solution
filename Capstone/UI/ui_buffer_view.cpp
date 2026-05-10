@@ -5,6 +5,10 @@
 #include "shell_detector.h"
 #include <string>
 
+// >>> CompoundScorer UI 통합 시작 (이 줄 + 아래 마커 사이 블록 모두 제거 가능)
+#include "ui_compound_scorer.h"
+// <<< CompoundScorer UI 통합 끝
+
 // --- 가상 키코드 → 문자열 변환 ---
 
 static std::wstring VkCodeToString(DWORD vk)
@@ -123,6 +127,10 @@ static const UINT_PTR IDC_TIMER_REFRESH   = 2006;
 static const UINT_PTR IDC_BTN_COPY        = 2007;
 static const UINT_PTR IDC_BTN_NORMALIZE   = 2008;
 
+// >>> CompoundScorer UI 통합 (제거 가능) — Analyze 버튼 ID
+static const UINT_PTR IDC_BTN_ANALYZE     = 2009;
+// <<< CompoundScorer UI 통합 끝
+
 // --- 정규화 디버그 창 전용 ---
 static const wchar_t* NORMDEBUG_CLASS     = L"BadUSB_NormDebug";
 static HWND           g_hNormDebugWnd     = nullptr;
@@ -165,6 +173,12 @@ static LRESULT CALLBACK ViewerProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lP
             BufferViewUI::OpenNormalizeDebug();
             return 0;
         }
+        // >>> CompoundScorer UI 통합 (제거 가능) — Analyze 버튼 핸들러
+        if (LOWORD(wParam) == IDC_BTN_ANALYZE) {
+            CompoundScorerUI::Show(hWnd);
+            return 0;
+        }
+        // <<< CompoundScorer UI 통합 끝
         break;
 
     case WM_TIMER:
@@ -387,7 +401,9 @@ namespace BufferViewUI
         HINSTANCE hInst = (HINSTANCE)GetWindowLongPtrW(hParent, GWLP_HINSTANCE);
         RegisterViewerClass(hInst);
 
-        const int W = 480, H = 280;
+        // >>> CompoundScorer UI 통합 (제거 가능) — Analyze 버튼 위해 너비 확장 (480 → 620)
+        const int W = 620, H = 280;
+        // <<< 원래값: const int W = 480, H = 280;
 
         // 화면 오른쪽 상단 배치 (승인 다이얼로그와 겹치지 않게)
         int sx = GetSystemMetrics(SM_CXSCREEN);
@@ -438,6 +454,12 @@ namespace BufferViewUI
         CreateWindowExW(0, L"BUTTON", L"Normalize",
             WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
             255, 215, 145, 30, hWnd, (HMENU)IDC_BTN_NORMALIZE, hInst, nullptr);
+
+        // >>> CompoundScorer UI 통합 (제거 가능) — Analyze 버튼
+        CreateWindowExW(0, L"BUTTON", L"Analyze",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            420, 215, 165, 30, hWnd, (HMENU)IDC_BTN_ANALYZE, hInst, nullptr);
+        // <<< CompoundScorer UI 통합 끝
 
         SetTimer(hWnd, IDC_TIMER_REFRESH, 200, nullptr);
 
