@@ -57,6 +57,7 @@ private:
     void appendNewLogRows();
     void refreshUsbTable();
     void applyUsbDetailPanel(int row);
+    void showUsbActionFeedback(const QString& message, const QString& color = "#62748E");
     void switchPage(int pageIndex);
     void refreshNavState();
 
@@ -94,4 +95,8 @@ private:
     QLabel* usbDetTypeV_ = nullptr;
     QLabel* usbDetVidV_ = nullptr;
     QLabel* usbDetLastV_ = nullptr;
+    QLabel* usbActionFeedback_ = nullptr;
+    QPushButton* usbAllowBtn_ = nullptr;
+    QPushButton* usbBlockBtn_ = nullptr;
+    QPushButton* usbRemoveRuleBtn_ = nullptr;
 };

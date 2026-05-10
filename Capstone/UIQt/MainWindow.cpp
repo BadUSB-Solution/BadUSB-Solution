@@ -49,10 +49,14 @@
 #include "TrayWidget.h"
 #include "hid_fingerprint.h"
 #include "hid_scan.h"
+#include "compound_scorer.h"
+#include "hotkey_scorer.h"
 #include "key_decoder.h"
 #include "keyboard_hook.h"
 #include "logger.h"
 #include "policy.h"
+#include "shell_detector.h"
+#include "threat_matcher.h"
 
 #include <QPointer>
 #include <QSystemTrayIcon>
@@ -76,10 +80,92 @@ static constexpr UINT WM_APP_NEWLOG = WM_APP + 1;
 // Both are written/read only on the main thread, so no lock is needed.
 static QPointer<QDialog>      g_activeBufferDlg;
 static std::shared_ptr<UsbItem> g_dlgSharedDevice;
+static QVector<double>        g_threatScoreTrend;
 
 namespace
 {
     enum class FontRole { Regular, Medium, SemiBold, Bold };
+
+    struct LiveAnalysisSnapshot {
+        bool hasInput = false;
+        int keyDownCount = 0;
+        double averageIntervalMs = 0.0;
+        KeyDecoder::DecodeResult decoded;
+        ShellDetector::Result shell{};
+        ThreatMatcher::ThreatResult threat{};
+        HotkeyScorer::HotkeyResult hotkey{};
+        CompoundScorer::Verdict verdict{};
+    };
+
+    QString scoreText(double score, double maxScore = 10.0)
+    {
+        return QString("%1 / %2")
+            .arg(score, 0, 'f', 1)
+            .arg(maxScore, 0, 'f', 1);
+    }
+
+    QString levelText(CompoundScorer::Level level)
+    {
+        switch (level) {
+        case CompoundScorer::SAFE:   return QStringLiteral("SAFE");
+        case CompoundScorer::NORMAL: return QStringLiteral("NORMAL");
+        case CompoundScorer::WARN:   return QStringLiteral("WARN");
+        case CompoundScorer::DANGER: return QStringLiteral("DANGER");
+        default:                     return QStringLiteral("-");
+        }
+    }
+
+    bool settingEnabled(const QString& key, bool fallback = true)
+    {
+        QSettings settings("Abang-All", "Abang-All");
+        return settings.value(key, fallback).toBool();
+    }
+
+    LiveAnalysisSnapshot buildLiveAnalysisSnapshot()
+    {
+        LiveAnalysisSnapshot snapshot;
+        const auto keys = KeyboardHook::GetBufferedKeys();
+        snapshot.hasInput = !keys.empty();
+        if (!snapshot.hasInput) {
+            snapshot.verdict = CompoundScorer::Combine(0.0, 0.0, 0.0, 0.0);
+            return snapshot;
+        }
+
+        DWORD prevDownTime = 0;
+        double intervalSum = 0.0;
+        int intervalCount = 0;
+        for (const auto& key : keys) {
+            if ((key.flags & LLKHF_UP) != 0)
+                continue;
+            snapshot.keyDownCount++;
+            if (prevDownTime != 0 && key.time >= prevDownTime) {
+                intervalSum += static_cast<double>(key.time - prevDownTime);
+                intervalCount++;
+            }
+            prevDownTime = key.time;
+        }
+        if (intervalCount > 0)
+            snapshot.averageIntervalMs = intervalSum / intervalCount;
+
+        snapshot.decoded = KeyDecoder::Decode(keys);
+        snapshot.shell = ShellDetector::Detect(snapshot.decoded);
+        snapshot.threat = ThreatMatcher::Analyze(snapshot.decoded, static_cast<int>(snapshot.shell.shell));
+        snapshot.hotkey = HotkeyScorer::Analyze(snapshot.decoded.hotkeys);
+        snapshot.verdict = CompoundScorer::Combine(
+            snapshot.threat.session_score,
+            0.0,
+            0.0,
+            snapshot.hotkey.final_score
+        );
+        return snapshot;
+    }
+
+    void appendThreatTrendSample(double score)
+    {
+        g_threatScoreTrend.append(std::clamp(score, 0.0, 10.0));
+        while (g_threatScoreTrend.size() > 36)
+            g_threatScoreTrend.removeFirst();
+    }
 
     QString fromWString(const std::wstring& value)
     {
@@ -556,6 +642,13 @@ namespace
         explicit LineChartWidget(QWidget* parent = nullptr) : QWidget(parent)
         {
             setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+            data_ = g_threatScoreTrend;
+        }
+
+        void setData(const QVector<double>& data)
+        {
+            data_ = data;
+            update();
         }
     protected:
         void paintEvent(QPaintEvent*) override
@@ -563,17 +656,9 @@ namespace
             QPainter p(this);
             p.setRenderHint(QPainter::Antialiasing);
 
-            // 36 points: 13:50 to 14:20 at 50-second intervals
-            const QVector<double> data = {
-                0.0, 0.1, 0.3, 0.6, 1.0, 1.5,
-                2.1, 2.8, 3.6, 4.5, 5.4, 6.3,
-                7.0, 7.5, 7.9, 8.2, 8.5, 8.7,
-                8.9, 9.0, 9.1, 9.2, 9.3, 9.3,
-                9.4, 9.5, 9.5, 9.6, 9.5, 9.6,
-                9.6, 9.7, 9.6, 9.7, 9.8, 9.8,
-            };
+            const QVector<double> data = data_;
             const double maxV = 12.0;
-            const int lm = 40, rm = 58, tm = 12, bm = 28;
+            const int lm = 48, rm = 18, tm = 12, bm = 10;
             const int cw = width() - lm - rm;
             const int ch = height() - tm - bm;
 
@@ -594,9 +679,6 @@ namespace
                 const int ty = tm + ch - static_cast<int>((8.0 / maxV) * ch);
                 p.setPen(QPen(QColor("#F97316"), 1.5, Qt::DashLine));
                 p.drawLine(lm, ty, lm + cw, ty);
-                p.setPen(QColor("#F97316"));
-                QFont lf("Inter", 9); p.setFont(lf);
-                p.drawText(lm + cw + 4, ty - 7, rm - 8, 14, Qt::AlignLeft | Qt::AlignVCenter, "임계값 8.0");
             }
 
             // Build polyline points
@@ -604,7 +686,7 @@ namespace
             QVector<QPointF> pts;
             pts.reserve(n);
             for (int i = 0; i < n; ++i) {
-                const double x = lm + (static_cast<double>(i) / (n - 1)) * cw;
+                const double x = lm + (n > 1 ? (static_cast<double>(i) / (n - 1)) * cw : 0.0);
                 const double y = tm + ch - (data[i] / maxV) * ch;
                 pts.append(QPointF(x, y));
             }
@@ -615,26 +697,24 @@ namespace
                 p.drawLine(pts[i-1], pts[i]);
 
             // Crossing dot near index 15 (14:05)
-            {
-                const QPointF& cp = pts[15];
+            if (!pts.isEmpty() && *std::max_element(data.cbegin(), data.cend()) > 0.05) {
+                const int cpIndex = std::distance(data.cbegin(), std::max_element(data.cbegin(), data.cend()));
+                const QPointF& cp = pts[std::clamp(cpIndex, 0, static_cast<int>(pts.size()) - 1)];
                 p.setPen(QPen(QColor("#FFFFFF"), 2));
                 p.setBrush(QColor("#F97316"));
                 p.drawEllipse(cp, 5.0, 5.0);
             }
 
-            // X-axis labels
-            const QStringList xLbls = {"13:50","13:55","14:00","14:05","14:10","14:15","14:20"};
-            p.setPen(QColor("#94A3B8"));
-            QFont xf("Inter", 9); p.setFont(xf);
-            for (int i = 0; i < xLbls.size(); ++i) {
-                const double x = lm + (i / 6.0) * cw;
-                p.drawText(static_cast<int>(x) - 20, tm + ch + 6, 40, 16, Qt::AlignCenter, xLbls[i]);
-            }
         }
+
+    private:
+        QVector<double> data_;
     };
 
     // ---- Buffer Monitor Dialog ----
-    void showBufferMonitorDialog(QWidget* parent, const UsbItem& device = UsbItem(), std::function<void()> onPolicyChanged = {})
+    void showBufferMonitorDialog(QWidget* parent, const UsbItem& device = UsbItem(),
+                                 std::function<void()> onPolicyChanged = {},
+                                 std::function<void()> onOpenAnalytics = {})
     {
         const bool hasDevice = device.fingerprint != 0;
         const QString deviceName = hasDevice
@@ -691,35 +771,18 @@ namespace
         g_dlgSharedDevice = std::make_shared<UsbItem>(device);
         auto sharedDevice = g_dlgSharedDevice;
 
-        // On dialog close (any reason: ✕, allow, deny), decide whether to release the hook.
-        // g_dlgSharedDevice may have been filled with the real fingerprint after the dialog
-        // was initially shown without device info, so use it (not the original `device` value).
+        // 기존 Win32 UX에 맞춰 버퍼 모니터를 닫으면 키 입력을 즉시 복구한다.
+        // 차단/승인대기 장치가 아직 꽂혀 있더라도 사용자가 팝업을 닫은 것은
+        // 디버그/시연 흐름에서 "모니터링 종료"로 간주한다.
         g_activeBufferDlg = dlg;
         QObject::connect(dlg, &QObject::destroyed, [hookStartedByDialog, sharedDevice] {
             g_activeBufferDlg = nullptr;
-
-            if (!hookStartedByDialog) {
-                g_dlgSharedDevice = nullptr;
-                return;
-            }
-
-            Policy::Load();
-            bool keepHook = false;
-            const auto capturedDev = g_dlgSharedDevice;  // snapshot before clear
             g_dlgSharedDevice = nullptr;
 
-            const auto devicePaths = HidScan::EnumeratePresentHidDevicePaths();
-            for (const auto& path : devicePaths) {
-                const UsbItem item = HidFingerprint::BuildUsbItemFromPath(path);
-                if (item.fingerprint == 0) continue;
-                if (Policy::IsBlacklisted(item.fingerprint)) { keepHook = true; break; }
-                if (capturedDev && item.fingerprint == capturedDev->fingerprint &&
-                    !Policy::IsWhitelisted(item.fingerprint))
-                    keepHook = true;
-            }
-
-            if (!keepHook)
+            if (hookStartedByDialog && KeyboardHook::IsActive()) {
                 KeyboardHook::Uninstall();
+                Logger::Add(L"[Qt] Buffer monitor closed; keyboard input restored.");
+            }
         });
 
         auto* root = new QVBoxLayout(dlg);
@@ -975,25 +1038,6 @@ namespace
             });
             cl->addWidget(bufText, 1);
 
-            // Checkbox row
-            auto* cbRow = new QWidget;
-            cbRow->setStyleSheet("background: #F8FAFC; border-top: 1px solid #E2E8F0;");
-            auto* cbL = new QHBoxLayout(cbRow);
-            cbL->setContentsMargins(16, 10, 16, 10);
-            cbL->setSpacing(20);
-            auto* cbLabel = new QLabel("표시 항목:");
-            cbLabel->setFont(pretendardFont(FontRole::Medium));
-            cbLabel->setStyleSheet("color: #62748E; font-size: 12px;");
-            cbL->addWidget(cbLabel);
-            for (const auto& txt : {"메타정보", "키코드", "키시스템", "휠시간/기타"}) {
-                auto* cb = new QCheckBox(txt);
-                cb->setFont(pretendardFont(FontRole::Regular));
-                cb->setChecked(true);
-                cbL->addWidget(cb);
-            }
-            cbL->addStretch();
-            cl->addWidget(cbRow);
-
             bodyL->addWidget(card, 1);
         }
 
@@ -1020,9 +1064,11 @@ namespace
         auto* copyBtn = mkFooterBtn("복사");
         auto* normalizeBtn = mkFooterBtn("정규화");
         auto* formatBtn = mkFooterBtn("콘솔 16진수 ▾");
+        auto* analyticsBtn = mkFooterBtn("행위 분석 보기");
         fl->addWidget(copyBtn);
         fl->addWidget(normalizeBtn);
         fl->addWidget(formatBtn);
+        fl->addWidget(analyticsBtn);
         fl->addStretch();
 
         QObject::connect(copyBtn, &QPushButton::clicked, dlg, [bufText] {
@@ -1046,6 +1092,12 @@ namespace
                 formatBtn->setText(*hexMode ? "원본 보기 ▾" : "콘솔 16진수 ▾");
                 updateBufferText();
             });
+
+        QObject::connect(analyticsBtn, &QPushButton::clicked, dlg, [dlg, onOpenAnalytics] {
+            if (onOpenAnalytics)
+                onOpenAnalytics();
+            dlg->showMinimized();
+        });
 
         // Action buttons as clickable QWidget (QPushButton can't host child labels reliably)
         auto mkActionBtn = [dlg](const QString& text, const QString& sub,
@@ -1465,10 +1517,15 @@ QWidget* MainWindow::createDashboardPage()
         bufferButton->setFont(pretendardFont(FontRole::Medium));
         bufferButton->setIcon(QIcon(":/icons/brand-shield.svg"));
         bufferButton->setIconSize(QSize(16, 16));
-        connect(bufferButton, &QPushButton::clicked, page, [] {
+        connect(bufferButton, &QPushButton::clicked, page, [this] {
             // nullptr parent: the dialog is a fully independent OS window,
             // not constrained to the main window bounds.
-            showBufferMonitorDialog(nullptr);
+            showBufferMonitorDialog(nullptr, UsbItem{}, {}, [this] {
+                showNormal();
+                raise();
+                activateWindow();
+                switchPage(3);
+            });
         });
         header->addWidget(bufferButton);
         layout->addLayout(header);
@@ -1920,18 +1977,27 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         auto* btn = new QPushButton(text);
         btn->setFont(pretendardFont(FontRole::Medium));
         btn->setFixedHeight(36);
-        btn->setStyleSheet(QString("QPushButton { background: %1; color: %2; border-radius: 8px; border: %3; font-size: 14px; }")
-            .arg(bg, fg, border));
+        btn->setStyleSheet(QString(
+            "QPushButton { background: %1; color: %2; border-radius: 8px; border: %3; font-size: 14px; }"
+            "QPushButton:disabled { background: #F1F5F9; color: #90A1B9; border: 1px solid #E2E8F0; }"
+        ).arg(bg, fg, border));
         return btn;
     };
-    auto* allowDeviceBtn = makeActionBtn("이 장치 허용",   "#FF6900", "#FFFFFF", "none");
-    auto* blockDeviceBtn = makeActionBtn("이 장치 차단",   "#EC003F", "#FFFFFF", "none");
-    auto* removeRuleBtn  = makeActionBtn("예외 규칙 삭제", "#FFFFFF", "#62748E", "1px solid #E2E8F0");
-    dcBL->addWidget(allowDeviceBtn);
+    usbAllowBtn_      = makeActionBtn("이 장치 허용",   "#FF6900", "#FFFFFF", "none");
+    usbBlockBtn_      = makeActionBtn("이 장치 차단",   "#EC003F", "#FFFFFF", "none");
+    usbRemoveRuleBtn_ = makeActionBtn("예외 규칙 삭제", "#FFFFFF", "#62748E", "1px solid #E2E8F0");
+    dcBL->addWidget(usbAllowBtn_);
     dcBL->addSpacing(8);
-    dcBL->addWidget(blockDeviceBtn);
+    dcBL->addWidget(usbBlockBtn_);
     dcBL->addSpacing(8);
-    dcBL->addWidget(removeRuleBtn);
+    dcBL->addWidget(usbRemoveRuleBtn_);
+    dcBL->addSpacing(10);
+    usbActionFeedback_ = new QLabel;
+    usbActionFeedback_->setFont(pretendardFont(FontRole::Medium));
+    usbActionFeedback_->setWordWrap(true);
+    usbActionFeedback_->setStyleSheet("QLabel { color: #62748E; font-size: 12px; background: transparent; border: none; }");
+    usbActionFeedback_->setMinimumHeight(18);
+    dcBL->addWidget(usbActionFeedback_);
 
     dcL->addWidget(dcBody, 1);
 
@@ -1955,7 +2021,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         applyUsbDetailPanel(row);
     });
 
-    connect(allowDeviceBtn, &QPushButton::clicked, this, [this] {
+    connect(usbAllowBtn_, &QPushButton::clicked, this, [this] {
         if (usbSelectedRow_ < 0 || usbSelectedRow_ >= usbRows_.size()) return;
         auto& r = usbRows_[usbSelectedRow_];
         if (r.fingerprint == 0) return;
@@ -1972,9 +2038,10 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         r.policy = "허용";
         usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("허용", "successBadge"));
         applyUsbDetailPanel(usbSelectedRow_);
+        showUsbActionFeedback("허용 목록에 저장했습니다.", "#008236");
     });
 
-    connect(blockDeviceBtn, &QPushButton::clicked, this, [this] {
+    connect(usbBlockBtn_, &QPushButton::clicked, this, [this] {
         if (usbSelectedRow_ < 0 || usbSelectedRow_ >= usbRows_.size()) return;
         auto& r = usbRows_[usbSelectedRow_];
         if (r.fingerprint == 0) return;
@@ -1991,9 +2058,10 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         r.policy = "차단";
         usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("차단", "dangerBadge"));
         applyUsbDetailPanel(usbSelectedRow_);
+        showUsbActionFeedback("차단 목록에 저장하고 입력 차단 상태를 갱신했습니다.", "#C10007");
     });
 
-    connect(removeRuleBtn, &QPushButton::clicked, this, [this] {
+    connect(usbRemoveRuleBtn_, &QPushButton::clicked, this, [this] {
         if (usbSelectedRow_ < 0 || usbSelectedRow_ >= usbRows_.size()) return;
         auto& r = usbRows_[usbSelectedRow_];
         if (r.fingerprint == 0) return;
@@ -2025,6 +2093,11 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
                 showBufferMonitorDialog(nullptr, hookItem, [this] {
                     enforceBlockedDeviceHook();
                     refreshLiveDataPages();
+                }, [this] {
+                    showNormal();
+                    raise();
+                    activateWindow();
+                    switchPage(3);
                 });
             });
         }
@@ -2032,6 +2105,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         r.policy = "승인 대기";
         usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("승인 대기", "warningBadge"));
         applyUsbDetailPanel(usbSelectedRow_);
+        showUsbActionFeedback("예외 규칙을 삭제했습니다. 연결 중인 장치는 다시 검토합니다.", "#CA3500");
     });
 
     // Initial data fill
@@ -2168,6 +2242,20 @@ void MainWindow::applyUsbDetailPanel(int row)
     usbDetVidV_->setText(r.vidpid.left(4) + " : " + r.vidpid.mid(5));
     usbDetLastV_->setText(r.lastSeen);
 
+    const bool hasDevice = r.fingerprint != 0;
+    if (usbAllowBtn_) {
+        usbAllowBtn_->setEnabled(hasDevice && r.policy != "허용");
+        usbAllowBtn_->setToolTip(r.policy == "허용" ? "이미 허용된 장치입니다." : "이 장치를 허용 목록에 등록합니다.");
+    }
+    if (usbBlockBtn_) {
+        usbBlockBtn_->setEnabled(hasDevice && r.policy != "차단");
+        usbBlockBtn_->setToolTip(r.policy == "차단" ? "이미 차단된 장치입니다." : "이 장치를 차단 목록에 등록합니다.");
+    }
+    if (usbRemoveRuleBtn_) {
+        usbRemoveRuleBtn_->setEnabled(hasDevice && r.policy != "승인 대기");
+        usbRemoveRuleBtn_->setToolTip(r.policy == "승인 대기" ? "삭제할 허용/차단 규칙이 없습니다." : "이 장치의 허용/차단 규칙을 삭제합니다.");
+    }
+
     // Row highlight
     const QColor hi(255, 247, 237);
     for (int rr = 0; rr < usbRows_.size(); ++rr) {
@@ -2177,6 +2265,20 @@ void MainWindow::applyUsbDetailPanel(int row)
                 setCellWidgetBackground(w, bg);
         }
     }
+}
+
+void MainWindow::showUsbActionFeedback(const QString& message, const QString& color)
+{
+    if (!usbActionFeedback_) return;
+    usbActionFeedback_->setText(message);
+    usbActionFeedback_->setStyleSheet(QString(
+        "QLabel { color: %1; font-size: 12px; background: transparent; border: none; }"
+    ).arg(color));
+
+    QTimer::singleShot(3500, this, [this, message] {
+        if (usbActionFeedback_ && usbActionFeedback_->text() == message)
+            usbActionFeedback_->clear();
+    });
 }
 
 
@@ -2476,13 +2578,21 @@ QWidget* MainWindow::createLogPage()
         bodyL->setSpacing(0);
 
         // Mutable widgets for dynamic update
+        auto borderForLogBadge = [](const QString& badge) {
+            if (badge == "blockBadge")   return QStringLiteral("border: 1px solid #FFCCD3;");
+            if (badge == "warningBadge") return QStringLiteral("border: 1px solid #FDE68A;");
+            if (badge == "successBadge") return QStringLiteral("border: 1px solid #ABEFC6;");
+            return QStringLiteral("border: 1px solid #BFDBFE;");
+        };
+
         auto* detIconLabel = new QLabel;
         detIconLabel->setFixedSize(16, 16);
         detIconLabel->setPixmap(QIcon(logRows[0].eventIcon).pixmap(16, 16));
 
         auto* detIconBox = new QFrame;
         detIconBox->setFixedSize(34, 34);
-        detIconBox->setStyleSheet("QFrame { background: white; border: 1px solid #FFCCD3; border-radius: 4px; }");
+        detIconBox->setStyleSheet(QString(
+            "QFrame { background: white; %1 border-radius: 4px; }").arg(borderForLogBadge(logRows[0].badge)));
         {
             auto* ibl = new QHBoxLayout(detIconBox);
             ibl->setContentsMargins(8, 8, 8, 8);
@@ -2640,7 +2750,7 @@ QWidget* MainWindow::createLogPage()
         // Metadata is read from QObject properties on the column-0 cell widget.
         connect(logTable, &QTableWidget::cellClicked,
             [logTable, detIconLabel, detIconBox, detEvTitle, detEvTime,
-             detDevBadge, detDesc, detResultBadge, actionCard, descMap]
+             detDevBadge, detDesc, detResultBadge, actionCard, descMap, borderForLogBadge]
             (int row, int) {
                 auto* w = logTable->cellWidget(row, 0);
                 if (!w) return;
@@ -2654,12 +2764,8 @@ QWidget* MainWindow::createLogPage()
 
                 detIconLabel->setPixmap(QIcon(icon).pixmap(16, 16));
 
-                QString border = "border: 1px solid #E2E8F0;";
-                if (badge == "blockBadge")        border = "border: 1px solid #FFCCD3;";
-                else if (badge == "warningBadge") border = "border: 1px solid #FDE68A;";
-                else if (badge == "successBadge") border = "border: 1px solid #ABEFC6;";
                 detIconBox->setStyleSheet(QString(
-                    "QFrame { background: white; %1 border-radius: 4px; }").arg(border));
+                    "QFrame { background: white; %1 border-radius: 4px; }").arg(borderForLogBadge(badge)));
 
                 detEvTitle->setText(event);
                 detEvTime->setText(time);
@@ -2721,6 +2827,16 @@ QWidget* MainWindow::createAnalyticsPage()
     auto* leftL = new QVBoxLayout(leftPanel);
     leftL->setContentsMargins(0, 0, 0, 0);
     leftL->setSpacing(16);
+    LineChartWidget* threatTrendChart = nullptr;
+    QLabel* sessionStartValue = nullptr;
+    QLabel* durationValue = nullptr;
+    QLabel* totalInputValue = nullptr;
+    QLabel* avgSpeedValue = nullptr;
+    QLabel* commandCountValue = nullptr;
+    QLabel* hotkeyCountValue = nullptr;
+    QLabel* threatScoreValue = nullptr;
+    QLabel* levelValue = nullptr;
+    const QDateTime analyticsSessionStart = QDateTime::currentDateTime();
 
     // Legend helper
     auto mkLegendItem = [](const QString& color, const QString& text, bool dashed = false) {
@@ -2790,6 +2906,7 @@ QWidget* MainWindow::createAnalyticsPage()
         lbL->addLayout(subHeader2);
 
         auto* lineChart = new LineChartWidget;
+        threatTrendChart = lineChart;
         lineChart->setMinimumHeight(180);
         lbL->addWidget(lineChart, 1);
 
@@ -2831,20 +2948,20 @@ QWidget* MainWindow::createAnalyticsPage()
         // WARNING banner
         {
             auto* warn = new QFrame;
-            warn->setStyleSheet("QFrame { background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; }");
+            warn->setStyleSheet("QFrame { background: transparent; border: none; }");
             auto* wl = new QHBoxLayout(warn);
-            wl->setContentsMargins(12, 10, 12, 10);
+            wl->setContentsMargins(0, 0, 0, 0);
             wl->setSpacing(8);
             auto* wIcon = new QLabel("⚠");
-            wIcon->setStyleSheet("color: #F59E0B; font-size: 14px;");
+            wIcon->setStyleSheet("color: #F59E0B; font-size: 14px; background: transparent; border: none;");
             auto* wText = new QVBoxLayout;
             wText->setSpacing(2);
             auto* wTitle = new QLabel("WARNING");
             wTitle->setFont(pretendardFont(FontRole::Bold));
-            wTitle->setStyleSheet("color: #B45309; font-size: 13px;");
+            wTitle->setStyleSheet("color: #B45309; font-size: 13px; background: transparent; border: none;");
             auto* wDesc = new QLabel("불필요한 명령 시퀀스가 감지되었습니다.");
             wDesc->setFont(pretendardFont(FontRole::Regular));
-            wDesc->setStyleSheet("color: #92400E; font-size: 12px;");
+            wDesc->setStyleSheet("color: #92400E; font-size: 12px; background: transparent; border: none;");
             wText->addWidget(wTitle);
             wText->addWidget(wDesc);
             wl->addWidget(wIcon);
@@ -2863,7 +2980,7 @@ QWidget* MainWindow::createAnalyticsPage()
             bL->addSpacing(6);
         };
 
-        auto addRow = [&](const QString& key, const QString& val, bool valRed = false) {
+        auto addRow = [&](const QString& key, const QString& val, bool valRed = false) -> QLabel* {
             auto* row = new QHBoxLayout;
             auto* k = new QLabel(key);
             k->setFont(pretendardFont(FontRole::Regular));
@@ -2876,33 +2993,75 @@ QWidget* MainWindow::createAnalyticsPage()
             row->addWidget(v);
             bL->addLayout(row);
             bL->addSpacing(8);
+            return v;
         };
 
         // 세션 정보
         addSection("세션 정보");
         addRow("장치 유형",  "Keyboard (HID)");
-        addRow("시작 시각",  "2026-04-23 13:45:12");
-        addRow("지속 시간",  "00:37:21");
+        sessionStartValue = addRow("시작 시각", analyticsSessionStart.toString("yyyy-MM-dd HH:mm:ss"));
+        durationValue = addRow("지속 시간", "00:00:00");
         bL->addWidget(makeDivider());
         bL->addSpacing(12);
 
         // 입력 지표
         addSection("입력 지표");
-        addRow("총 키 입력 수",   "1,234,567");
-        addRow("평균 입력 속도",  "3.2 keys/sec");
-        addRow("최대 입력 속도",  "11.6 keys/sec");
+        totalInputValue = addRow("총 키 입력 수", "0");
+        avgSpeedValue = addRow("평균 입력 간격", "-");
+        commandCountValue = addRow("감지 명령", "0");
+        hotkeyCountValue = addRow("핫키 이벤트", "0");
         bL->addWidget(makeDivider());
         bL->addSpacing(12);
 
         // 위험 평가
         addSection("위험 평가");
-        addRow("누적 위험 점수", "9.5 / 12.0", true);
+        threatScoreValue = addRow("현재 위협 점수", "0.0 / 10.0", true);
+        levelValue = addRow("판정 등급",  "SAFE");
         addRow("설정된 임계값",  "8.0");
 
         bL->addStretch();
         scL->addWidget(body, 1);
         contentRow->addWidget(sessionCard);
     }
+
+    auto* analyticsTimer = new QTimer(page);
+    auto updateThreatTrend = [threatTrendChart, analyticsSessionStart, durationValue,
+                              totalInputValue, avgSpeedValue, commandCountValue,
+                              hotkeyCountValue, threatScoreValue, levelValue,
+                              lastKeyDownCount = -1]() mutable {
+        const auto snapshot = buildLiveAnalysisSnapshot();
+        if (snapshot.keyDownCount > 0 && snapshot.keyDownCount != lastKeyDownCount) {
+            lastKeyDownCount = snapshot.keyDownCount;
+            appendThreatTrendSample(snapshot.verdict.final_score);
+            if (threatTrendChart)
+                threatTrendChart->setData(g_threatScoreTrend);
+        }
+        const qint64 elapsed = analyticsSessionStart.secsTo(QDateTime::currentDateTime());
+        if (durationValue) {
+            durationValue->setText(QString("%1:%2:%3")
+                .arg(elapsed / 3600, 2, 10, QChar('0'))
+                .arg((elapsed / 60) % 60, 2, 10, QChar('0'))
+                .arg(elapsed % 60, 2, 10, QChar('0')));
+        }
+        if (totalInputValue)
+            totalInputValue->setText(QString::number(snapshot.keyDownCount));
+        if (avgSpeedValue) {
+            avgSpeedValue->setText(snapshot.averageIntervalMs > 0.0
+                ? QString("%1 ms/key").arg(snapshot.averageIntervalMs, 0, 'f', 1)
+                : QStringLiteral("-"));
+        }
+        if (commandCountValue)
+            commandCountValue->setText(QString::number(static_cast<int>(snapshot.threat.commands.size())));
+        if (hotkeyCountValue)
+            hotkeyCountValue->setText(QString::number(static_cast<int>(snapshot.hotkey.matches.size())));
+        if (threatScoreValue)
+            threatScoreValue->setText(scoreText(snapshot.verdict.final_score));
+        if (levelValue)
+            levelValue->setText(levelText(snapshot.verdict.level));
+    };
+    updateThreatTrend();
+    QObject::connect(analyticsTimer, &QTimer::timeout, page, updateThreatTrend);
+    analyticsTimer->start(1000);
 
     layout->addLayout(contentRow, 1);
     return page;
@@ -2925,7 +3084,6 @@ QWidget* MainWindow::createSettingsPage()
     QCheckBox*        cbAutostart = nullptr;
     QCheckBox*        cbMinimize  = nullptr;
     QCheckBox*        cbNotif     = nullptr;
-    QCheckBox*        cbSound     = nullptr;
 
     QPushButton* saveBtn = nullptr;
 
@@ -3022,25 +3180,6 @@ QWidget* MainWindow::createSettingsPage()
             cbMinimize->setFont(pretendardFont(FontRole::Medium));
             wl->addWidget(cbMinimize);
             wl->addSpacing(16);
-            wl->addSpacing(8);
-            wl->addWidget(makeDivider());
-            wl->addSpacing(32);
-
-            addSection("에이전트 보호");
-            auto* cb2 = new QCheckBox("설정 변경 시 관리자 비밀번호 요구");
-            cb2->setObjectName("settingsCheck");
-            cb2->setFont(pretendardFont(FontRole::Medium));
-            wl->addWidget(cb2);
-            wl->addSpacing(12);
-            auto* pwdBtn = new QPushButton("비밀번호 변경");
-            pwdBtn->setObjectName("secondaryButton");
-            pwdBtn->setFont(pretendardFont(FontRole::Medium));
-            pwdBtn->setFixedSize(99, 36);
-            auto* pwdRow = new QHBoxLayout;
-            pwdRow->setContentsMargins(28, 0, 0, 0);
-            pwdRow->addWidget(pwdBtn);
-            pwdRow->addStretch();
-            wl->addLayout(pwdRow);
             wl->addStretch();
             tabStack->addWidget(w);
         }
@@ -3159,12 +3298,6 @@ QWidget* MainWindow::createSettingsPage()
             cbNotif->setChecked(true);
             wl->addWidget(cbNotif);
             wl->addSpacing(16);
-            cbSound = new QCheckBox("경고음 소리 재생");
-            cbSound->setObjectName("settingsCheck");
-            cbSound->setFont(pretendardFont(FontRole::Medium));
-            cbSound->setChecked(true);
-            wl->addWidget(cbSound);
-            wl->addSpacing(16);
             wl->addStretch();
             tabStack->addWidget(w);
         }
@@ -3269,13 +3402,12 @@ QWidget* MainWindow::createSettingsPage()
         if (toggleSw)     toggleSw->setChecked(s.value("policy/behaviorMonitor", true).toBool());
         if (threshSpin)   threshSpin->setValue(s.value("policy/thresholdMs", 50).toInt());
         if (cbNotif)      cbNotif->setChecked(s.value("alert/popup", true).toBool());
-        if (cbSound)      cbSound->setChecked(s.value("alert/sound", true).toBool());
     }
 
     // Wire Save button
     if (saveBtn) {
         connect(saveBtn, &QPushButton::clicked, this,
-            [this, cbAutostart, cbMinimize, comboDev, toggleSw, threshSpin, cbNotif, cbSound] {
+            [this, cbAutostart, cbMinimize, comboDev, toggleSw, threshSpin, cbNotif] {
                 QSettings s("Abang-All", "Abang-All");
                 if (cbAutostart)  s.setValue("general/autostart",  cbAutostart->isChecked());
                 if (cbMinimize)   s.setValue("general/minimize",   cbMinimize->isChecked());
@@ -3287,7 +3419,6 @@ QWidget* MainWindow::createSettingsPage()
                 if (toggleSw)   s.setValue("policy/behaviorMonitor", toggleSw->isChecked());
                 if (threshSpin) s.setValue("policy/thresholdMs",     threshSpin->value());
                 if (cbNotif)    s.setValue("alert/popup", cbNotif->isChecked());
-                if (cbSound)    s.setValue("alert/sound", cbSound->isChecked());
                 s.sync();
             });
     }
@@ -3403,7 +3534,7 @@ QWidget* MainWindow::createHelpPage()
             "좌측 메뉴에서 USB 목록으로 이동합니다.",
             "상태가 [승인 대기]인 장치를 찾아 클릭합니다.",
             "우측 장치 상세 정보 패널에서 하단의 [이 장치 허용] 버튼을 클릭합니다.",
-            "관리자 비밀번호를 입력하면 해당 장치(VID/PID 기준)가 영구 허용 목록에 추가됩니다.",
+            "확인 후 해당 장치(VID/PID 기준)가 영구 허용 목록에 추가됩니다.",
         }) makeBullet(b, cl);
         cl->addStretch();
         contentStack->addWidget(card);
@@ -3464,8 +3595,8 @@ QWidget* MainWindow::createHelpPage()
             {"기능 가이드","행위 분석(BadUSB 차단) 원리",          2},
         };
 
-        QVector<QWidget*> navItems;
-        QVector<QLabel*> titleLabels;
+        auto navItems = std::make_shared<QVector<QWidget*>>();
+        auto titleLabels = std::make_shared<QVector<QLabel*>>();
 
         for (const auto& item : items) {
             auto* itemW = new QWidget;
@@ -3500,8 +3631,8 @@ QWidget* MainWindow::createHelpPage()
             iL->addWidget(chevron);
 
             navL->addWidget(itemW);
-            navItems.push_back(itemW);
-            titleLabels.push_back(titleLbl);
+            navItems->push_back(itemW);
+            titleLabels->push_back(titleLbl);
 
             const int idx = item.index;
             auto* mouseFilter = new QObject(itemW);
@@ -3511,20 +3642,24 @@ QWidget* MainWindow::createHelpPage()
             class NavFilter : public QObject {
                 int idx_;
                 QStackedWidget* stack_;
-                QVector<QWidget*>& navItems_;
-                QVector<QLabel*>& titleLabels_;
+                std::shared_ptr<QVector<QWidget*>> navItems_;
+                std::shared_ptr<QVector<QLabel*>> titleLabels_;
             public:
-                NavFilter(int i, QStackedWidget* s, QVector<QWidget*>& ni, QVector<QLabel*>& tl, QObject* parent)
-                    : QObject(parent), idx_(i), stack_(s), navItems_(ni), titleLabels_(tl) {}
+                NavFilter(int i, QStackedWidget* s,
+                          std::shared_ptr<QVector<QWidget*>> ni,
+                          std::shared_ptr<QVector<QLabel*>> tl,
+                          QObject* parent)
+                    : QObject(parent), idx_(i), stack_(s),
+                      navItems_(std::move(ni)), titleLabels_(std::move(tl)) {}
                 bool eventFilter(QObject*, QEvent* e) override {
                     if (e->type() == QEvent::MouseButtonRelease) {
                         stack_->setCurrentIndex(idx_);
-                        for (int i = 0; i < navItems_.size(); ++i) {
+                        for (int i = 0; i < navItems_->size(); ++i) {
                             const bool sel = (i == idx_);
-                            navItems_[i]->setStyleSheet(sel
+                            navItems_->at(i)->setStyleSheet(sel
                                 ? "QWidget { background: #FFF7ED; border-radius: 8px; }"
                                 : "QWidget { background: transparent; border-radius: 8px; }");
-                            titleLabels_[i]->setStyleSheet(sel
+                            titleLabels_->at(i)->setStyleSheet(sel
                                 ? "color: #CA3500; font-size: 14px;"
                                 : "color: #45556C; font-size: 14px;");
                         }
@@ -3718,6 +3853,10 @@ void MainWindow::enforceBlockedDeviceHook()
             KeyboardHook::Uninstall();
         blockedDeviceHookActive_ = false;
         Logger::Add(L"[Qt] Keyboard hook released; no blocked HID devices present.");
+    } else if (!KeyboardHook::IsActive()) {
+        // The user may have closed the buffer monitor while a blocked device is
+        // still connected. Keep our cached state aligned with the actual hook.
+        blockedDeviceHookActive_ = false;
     }
 }
 
@@ -3830,6 +3969,7 @@ void MainWindow::appendNewLogRows()
         auto mkText = [&](const QString& text, const QString& color) -> QWidget* {
             auto* w = new QWidget;
             w->setAttribute(Qt::WA_TransparentForMouseEvents);
+            setCellWidgetBackground(w, Qt::white);
             auto* l = new QHBoxLayout(w);
             l->setContentsMargins(20, 0, 8, 0);
             auto* lbl = new QLabel(text);
@@ -3843,6 +3983,7 @@ void MainWindow::appendNewLogRows()
         auto mkEvent = [&](const QString& iconRes, const QString& text) -> QWidget* {
             auto* w = new QWidget;
             w->setAttribute(Qt::WA_TransparentForMouseEvents);
+            setCellWidgetBackground(w, Qt::white);
             auto* l = new QHBoxLayout(w);
             l->setContentsMargins(20, 0, 8, 0);
             l->setSpacing(8);
@@ -3910,6 +4051,11 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                             showBufferMonitorDialog(nullptr, UsbItem{}, [this] {
                                 enforceBlockedDeviceHook();
                                 refreshLiveDataPages();
+                            }, [this] {
+                                showNormal();
+                                raise();
+                                activateWindow();
+                                switchPage(3);
                             });
                         }
 
@@ -3953,6 +4099,14 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                     } else if (Policy::IsBlacklisted(item.fingerprint)) {
                                         Logger::Add(L"[Qt] Blocked HID device; hook active: " + item.name);
                                         updateDlgInfo();
+                                        if (settingEnabled("alert/popup") && trayIcon_) {
+                                            trayIcon_->showMessage(
+                                                "Abang-All",
+                                                QString("차단된 장치가 연결되었습니다.\n%1").arg(fromWString(item.name)),
+                                                QSystemTrayIcon::Warning,
+                                                4000
+                                            );
+                                        }
                                         if (!KeyboardHook::IsActive()) KeyboardHook::Install();
                                         blockedDeviceHookActive_ = true;
                                     } else {
@@ -3962,6 +4116,14 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                             // Auto-block
                                             Policy::AddBlacklist(item);
                                             Logger::Add(L"[Qt] Auto-blocked (설정): " + item.name);
+                                            if (settingEnabled("alert/popup") && trayIcon_) {
+                                                trayIcon_->showMessage(
+                                                    "Abang-All",
+                                                    QString("위험 장치가 자동 차단되었습니다.\n%1").arg(fromWString(item.name)),
+                                                    QSystemTrayIcon::Critical,
+                                                    4000
+                                                );
+                                            }
                                             if (g_activeBufferDlg) g_activeBufferDlg->close();
                                             if (!KeyboardHook::IsActive()) KeyboardHook::Install();
                                             blockedDeviceHookActive_ = true;
@@ -3973,6 +4135,14 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                             enforceBlockedDeviceHook();
                                         } else {
                                             updateDlgInfo();
+                                            if (settingEnabled("alert/popup") && trayIcon_) {
+                                                trayIcon_->showMessage(
+                                                    "Abang-All",
+                                                    QString("승인 대기 장치가 연결되었습니다.\n%1").arg(fromWString(item.name)),
+                                                    QSystemTrayIcon::Warning,
+                                                    4000
+                                                );
+                                            }
                                             lastPromptFingerprint_ = item.fingerprint;
                                         }
                                     }

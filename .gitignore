@@ -366,8 +366,14 @@ FodyWeavers.xsd
 RC[a-z]*
 
 # CMake build directories
-build-cmake/
 build-qt/
+build-cmake/
+CMakeFiles/
+.vs/
+Debug/
+x64/
+*.user
+*.zip
 
 # Claude Code
 CLAUDE.md

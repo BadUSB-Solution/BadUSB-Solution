@@ -224,4 +224,9 @@
       <Filter>Resource</Filter>
     </Image>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Core\matchingDB.db">
+      <Filter>Core</Filter>
+    </None>
+  </ItemGroup>
 </Project>

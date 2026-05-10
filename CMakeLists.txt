@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(BadUSBSolution LANGUAGES CXX)
+project(BadUSBSolution LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,8 +20,11 @@ add_library(CapstoneCore STATIC
     Capstone/Algorithm/PreAnalysis/typing_analyzer.cpp
     Capstone/Algorithm/Analysis/ShellDetector/shell_detector.cpp
     Capstone/Algorithm/Analysis/ThreatMatcher/threat_matcher.cpp
+    Capstone/Algorithm/Analysis/ThreatMatcher/threat_db_connect.cpp
     Capstone/Algorithm/Analysis/UrlClassifier/url_classifier.cpp
     Capstone/Algorithm/Analysis/CompoundScorer/compound_scorer.cpp
+    Capstone/Algorithm/Analysis/CompoundScorer/hotkey_scorer.cpp
+    Capstone/ThirdParty/sqlite3.c
 )
 
 target_include_directories(CapstoneCore PUBLIC
@@ -33,6 +36,7 @@ target_include_directories(CapstoneCore PUBLIC
     Capstone/Algorithm/Analysis/ThreatMatcher
     Capstone/Algorithm/Analysis/UrlClassifier
     Capstone/Algorithm/Analysis/CompoundScorer
+    Capstone/ThirdParty
 )
 
 target_compile_definitions(CapstoneCore PUBLIC
@@ -49,6 +53,7 @@ target_link_libraries(CapstoneCore PUBLIC
     Hid
     Shell32
     Setupapi
+    Crypt32
 )
 
 enable_testing()
@@ -78,5 +83,11 @@ if(BUILD_QT_UI)
 
     target_include_directories(CapstoneQtApp PRIVATE
         Capstone/UIQt
+    )
+
+    add_custom_command(TARGET CapstoneQtApp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_SOURCE_DIR}/Capstone/Core/matchingDB.db
+            $<TARGET_FILE_DIR:CapstoneQtApp>/matchingDB.db
     )
 endif()

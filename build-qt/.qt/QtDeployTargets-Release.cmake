@@ -1,5 +1,0 @@
-set(__QT_DEPLOY_TARGET_CapstoneCore_FILE C:/Users/black/Desktop/BadUSB-Sample/BadUSB-Solution/build-qt/Release/CapstoneCore.lib)
-set(__QT_DEPLOY_TARGET_CapstoneCore_TYPE STATIC_LIBRARY)
-set(__QT_DEPLOY_TARGET_CapstoneQtApp_FILE C:/Users/black/Desktop/BadUSB-Sample/BadUSB-Solution/build-qt/Release/CapstoneQtApp.exe)
-set(__QT_DEPLOY_TARGET_CapstoneQtApp_TYPE EXECUTABLE)
-set(__QT_DEPLOY_TARGET_CapstoneQtApp_RUNTIME_DLLS C:/Qt/6.11.0/msvc2022_64/bin/Qt6Svg.dll;C:/Qt/6.11.0/msvc2022_64/bin/Qt6Widgets.dll;C:/Qt/6.11.0/msvc2022_64/bin/Qt6Gui.dll;C:/Qt/6.11.0/msvc2022_64/bin/Qt6Core.dll)
