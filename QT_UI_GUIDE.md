@@ -22,6 +22,81 @@ Qt UI는 기존 Win32 UI와 별도의 실행 파일로 구성되어 있다.
 
 Qt 설치 경로가 다르면 빌드 명령의 `Qt6_DIR` 경로를 환경에 맞게 수정해야 한다.
 
+## 개발 환경 설치
+
+### 1. Visual Studio C++ 빌드 도구
+
+MSVC 컴파일러와 Windows SDK가 필요하다.
+
+설치 방법 중 하나를 선택한다.
+
+#### 방법 A: winget 사용
+
+```powershell
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e
+```
+
+설치 화면에서 아래 workload 또는 개별 구성요소를 선택한다.
+
+- Desktop development with C++
+- MSVC v143 C++ build tools
+- Windows 10/11 SDK
+- C++ CMake tools for Windows
+
+#### 방법 B: 공식 페이지에서 설치
+
+- Visual Studio / Build Tools 다운로드: https://visualstudio.microsoft.com/downloads/
+- Windows 개발 도구: https://developer.microsoft.com/windows/downloads/
+
+### 2. CMake
+
+#### winget 사용
+
+```powershell
+winget install --id Kitware.CMake -e
+```
+
+설치 후 새 PowerShell을 열고 확인한다.
+
+```powershell
+cmake --version
+```
+
+공식 다운로드:
+
+- https://cmake.org/download/
+
+### 3. Qt
+
+Qt Online Installer로 설치한다.
+
+공식 다운로드:
+
+- https://download.qt.io/official_releases/online_installers/
+
+Windows x64 환경에서는 `qt-online-installer-windows-x64-online.exe`를 사용한다.
+
+설치 시 아래 구성요소를 선택한다.
+
+- Qt 6.11.0
+- MSVC 2022 64-bit
+- Qt Widgets
+- Qt SVG
+
+설치 후 기본 경로 예시:
+
+```text
+C:\Qt\6.11.0\msvc2022_64
+```
+
+다른 경로에 설치했다면 빌드 명령의 `Qt6_DIR`을 해당 경로로 수정한다.
+
+예시:
+
+```powershell
+-DQt6_DIR="D:\Qt\6.11.0\msvc2022_64\lib\cmake\Qt6"
+```
+
 ## Qt UI 빌드 방법
 
 아래 명령은 저장소 루트에서 실행한다.
@@ -78,20 +153,6 @@ Compress-Archive -Path .\build-qt\Release -DestinationPath .\build-qt\Abang-All-
 - `Release/Qt6Widgets.dll`
 - `Release/platforms/qwindows.dll`
 - `Release/matchingDB.db`
-
-## GitHub 업로드 방식
-
-소스 코드는 일반 commit/push로 올린다.
-
-배포용 ZIP 파일은 commit에 포함하지 말고 GitHub Releases에 첨부한다.
-
-권장 방식:
-
-1. 소스 코드 commit/push
-2. GitHub Repository의 `Releases` 메뉴로 이동
-3. `Draft a new release`
-4. tag 예시: `v0.1.0-ui`
-5. `Abang-All-Qt-Release.zip` 첨부
 
 ## 주요 Qt UI 파일
 
@@ -172,4 +233,3 @@ Qt UI 빌드는 아래 옵션으로 켠다.
 - `TypingAnalyzer`는 아직 실질 구현이 부족하다.
 - 입력속도 기반 완전한 행위 분석 차트는 추가 구현이 필요하다.
 - URL 분석도 현재 완전 구현 상태는 아니다.
-
