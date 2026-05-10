@@ -76,7 +76,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>Core;Detect;Hook;UI;Algorithm\PreAnalysis;Algorithm\Analysis\ShellDetector;Algorithm\Analysis\ThreatMatcher;Algorithm\Analysis\UrlClassifier;Algorithm\Analysis\CompoundScorer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>ThirdParty;Core;Detect;Hook;UI;Algorithm\PreAnalysis;Algorithm\Analysis\ShellDetector;Algorithm\Analysis\ThreatMatcher;Algorithm\Analysis\UrlClassifier;Algorithm\Analysis\CompoundScorer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -95,7 +95,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>Core;Detect;Hook;UI;Algorithm\PreAnalysis;Algorithm\Analysis\ShellDetector;Algorithm\Analysis\ThreatMatcher;Algorithm\Analysis\UrlClassifier;Algorithm\Analysis\CompoundScorer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>ThirdParty;Core;Detect;Hook;UI;Algorithm\PreAnalysis;Algorithm\Analysis\ShellDetector;Algorithm\Analysis\ThreatMatcher;Algorithm\Analysis\UrlClassifier;Algorithm\Analysis\CompoundScorer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
@@ -112,8 +112,9 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>Core;Detect;Hook;UI;Algorithm\PreAnalysis;Algorithm\Analysis\ShellDetector;Algorithm\Analysis\ThreatMatcher;Algorithm\Analysis\UrlClassifier;Algorithm\Analysis\CompoundScorer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>ThirdParty;Core;Detect;Hook;UI;Algorithm\PreAnalysis;Algorithm\Analysis\ShellDetector;Algorithm\Analysis\ThreatMatcher;Algorithm\Analysis\UrlClassifier;Algorithm\Analysis\CompoundScorer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -131,8 +132,9 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>Core;Detect;Hook;UI;Algorithm\PreAnalysis;Algorithm\Analysis\ShellDetector;Algorithm\Analysis\ThreatMatcher;Algorithm\Analysis\UrlClassifier;Algorithm\Analysis\CompoundScorer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>ThirdParty;Core;Detect;Hook;UI;Algorithm\PreAnalysis;Algorithm\Analysis\ShellDetector;Algorithm\Analysis\ThreatMatcher;Algorithm\Analysis\UrlClassifier;Algorithm\Analysis\CompoundScorer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -157,10 +159,12 @@
     <ClInclude Include="Detect\hid_scan.h" />
     <ClInclude Include="Hook\badusb.h" />
     <ClInclude Include="Hook\keyboard_hook.h" />
+    <ClInclude Include="ThirdParty\sqlite3.h" />
     <ClInclude Include="UI\ui_tray.h" />
     <ClInclude Include="UI\ui_tabs.h" />
     <ClInclude Include="UI\ui_approval.h" />
     <ClInclude Include="UI\ui_buffer_view.h" />
+    <ClInclude Include="UI\ui_compound_scorer.h" />
     <ClInclude Include="Algorithm\PreAnalysis\key_decoder.h" />
     <ClInclude Include="Algorithm\PreAnalysis\key_normalizer.h" />
     <ClInclude Include="Algorithm\PreAnalysis\url_extractor.h" />
@@ -168,8 +172,10 @@
     <ClInclude Include="Algorithm\PreAnalysis\typing_analyzer.h" />
     <ClInclude Include="Algorithm\Analysis\ShellDetector\shell_detector.h" />
     <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.h" />
+    <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_db_connect.h" />
     <ClInclude Include="Algorithm\Analysis\UrlClassifier\url_classifier.h" />
     <ClInclude Include="Algorithm\Analysis\CompoundScorer\compound_scorer.h" />
+    <ClInclude Include="Algorithm\Analysis\CompoundScorer\hotkey_scorer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Detect\hid_approval_flow.cpp" />
@@ -179,19 +185,30 @@
     <ClCompile Include="Core\logger.cpp" />
     <ClCompile Include="Core\policy.cpp" />
     <ClCompile Include="Detect\hid_monitor.cpp" />
+    <ClCompile Include="ThirdParty\sqlite3.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <DisableSpecificWarnings>4244;4267;4996;4146;4101;4133;4090;4477;4055</DisableSpecificWarnings>
+      <CompileAs>CompileAsC</CompileAs>
+    </ClCompile>
     <ClCompile Include="UI\ui_tray.cpp" />
     <ClCompile Include="UI\ui_tabs.cpp" />
     <ClCompile Include="UI\ui_approval.cpp" />
     <ClCompile Include="Hook\keyboard_hook.cpp" />
     <ClCompile Include="UI\ui_buffer_view.cpp" />
+    <ClCompile Include="UI\ui_compound_scorer.cpp" />
     <ClCompile Include="Algorithm\PreAnalysis\key_decoder.cpp" />
     <ClCompile Include="Algorithm\PreAnalysis\key_normalizer.cpp" />
     <ClCompile Include="Algorithm\PreAnalysis\url_extractor.cpp" />
     <ClCompile Include="Algorithm\PreAnalysis\typing_analyzer.cpp" />
     <ClCompile Include="Algorithm\Analysis\ShellDetector\shell_detector.cpp" />
     <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.cpp" />
+    <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_db_connect.cpp">
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</LanguageStandard>
+      <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Default</LanguageStandard>
+    </ClCompile>
     <ClCompile Include="Algorithm\Analysis\UrlClassifier\url_classifier.cpp" />
     <ClCompile Include="Algorithm\Analysis\CompoundScorer\compound_scorer.cpp" />
+    <ClCompile Include="Algorithm\Analysis\CompoundScorer\hotkey_scorer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource\Capstone.rc" />
