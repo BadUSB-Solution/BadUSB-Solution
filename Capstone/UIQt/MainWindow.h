@@ -12,8 +12,10 @@ class QFrame;
 class QLabel;
 class QPushButton;
 class QStackedWidget;
+class QSystemTrayIcon;
 class QTableWidget;
 class QWidget;
+class TrayWidget;
 
 class MainWindow final : public QMainWindow
 {
@@ -25,6 +27,7 @@ public:
 
 protected:
     bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
+    void closeEvent(QCloseEvent* event) override;
 
 private:
     struct UsbRowData {
@@ -65,10 +68,19 @@ private:
     bool blockedDeviceHookActive_ = false;
     int currentPage_ = 0;
     int unknownDeviceAction_ = 0;  // 0=dialog, 1=auto-block, 2=auto-allow
+    // Incremented on every DBT_DEVICEREMOVECOMPLETE so background fingerprint
+    // threads that complete after a removal can detect they are stale.
+    int removalSerial_ = 0;
     QTableWidget* logTable_ = nullptr;
     int lastLogLineCount_ = 0;
     bool dashboardStale_ = false;
     bool usbListStale_ = false;
+
+    // System tray
+    QSystemTrayIcon* trayIcon_   = nullptr;
+    TrayWidget*      trayWidget_ = nullptr;
+    void setupTray();
+    void refreshTrayWidget();
 
     // USB list persistent state
     QTableWidget* usbTable_ = nullptr;

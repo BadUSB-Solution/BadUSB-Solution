@@ -65,6 +65,9 @@ int main(int argc, char* argv[])
     app.setFont(appFont);
     app.setStyleSheet(UiTheme::AppStyle);
 
+    // Keep the app alive when the main window is closed/hidden to tray
+    app.setQuitOnLastWindowClosed(false);
+
     MainWindow window;
     window.show();
 

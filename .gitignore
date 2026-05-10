@@ -365,6 +365,10 @@ FodyWeavers.xsd
 # Resource Compiler temp files
 RC[a-z]*
 
+# CMake build directories
+build-cmake/
+build-qt/
+
 # Claude Code
 CLAUDE.md
 .claude/

@@ -64,6 +64,8 @@ if(BUILD_QT_UI)
         Capstone/UIQt/main_qt.cpp
         Capstone/UIQt/MainWindow.h
         Capstone/UIQt/MainWindow.cpp
+        Capstone/UIQt/TrayWidget.h
+        Capstone/UIQt/TrayWidget.cpp
         Capstone/UIQt/Theme.h
         Capstone/UIQt/Assets/ui.qrc
     )

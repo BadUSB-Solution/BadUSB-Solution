@@ -21,6 +21,7 @@
 #include <QAbstractItemView>
 #include <QHash>
 #include <QList>
+#include <QCloseEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPaintEvent>
@@ -45,6 +46,7 @@
 #include <hidsdi.h>
 #endif
 
+#include "TrayWidget.h"
 #include "hid_fingerprint.h"
 #include "hid_scan.h"
 #include "key_decoder.h"
@@ -52,6 +54,8 @@
 #include "logger.h"
 #include "policy.h"
 
+#include <QPointer>
+#include <QSystemTrayIcon>
 #include <algorithm>
 #include <cstdint>
 #include <functional>
@@ -59,12 +63,19 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <chrono>
+#include <thread>
 #include <utility>
 #include <vector>
 
 #ifdef Q_OS_WIN
 static constexpr UINT WM_APP_NEWLOG = WM_APP + 1;
 #endif
+
+// Tracks the currently open input buffer monitor dialog and the device being analysed.
+// Both are written/read only on the main thread, so no lock is needed.
+static QPointer<QDialog>      g_activeBufferDlg;
+static std::shared_ptr<UsbItem> g_dlgSharedDevice;
 
 namespace
 {
@@ -143,21 +154,21 @@ namespace
         for (int i = start; i < static_cast<int>(keys.size()); ++i) {
             const auto& k = keys[i];
             const bool keyUp = (k.flags & LLKHF_UP) != 0;
-            const QString action = keyUp ? "KEY_UP  " : "KEY_DOWN";
 
-            if (!keyUp) {
-                if (prevDownTime != 0 && k.time >= prevDownTime) {
-                    intervalSum += static_cast<double>(k.time - prevDownTime);
-                    downIntervals++;
-                }
-                prevDownTime = k.time;
+            // Skip KEY_UP events — they duplicate KEY_DOWN entries and add noise.
+            // Timing analysis only uses KEY_DOWN intervals anyway.
+            if (keyUp) continue;
+
+            if (prevDownTime != 0 && k.time >= prevDownTime) {
+                intervalSum += static_cast<double>(k.time - prevDownTime);
+                downIntervals++;
             }
+            prevDownTime = k.time;
 
             const qint64 msOffset = static_cast<qint64>(k.time) - nowTick;
-            const QString ts = nowWall.addMSecs(msOffset).toString("yyyy-MM-dd HH:mm:ss.zzz");
-            lines << QString("%1  %2  VK=0x%3  SC=0x%4  %5")
+            const QString ts = nowWall.addMSecs(msOffset).toString("yyyy-MM-dd HH:mm:ss");
+            lines << QString("%1  KEY_DOWN  VK=0x%2  SC=0x%3  %4")
                 .arg(ts)
-                .arg(action)
                 .arg(k.vkCode, 2, 16, QChar('0')).toUpper()
                 .arg(k.scanCode, 2, 16, QChar('0')).toUpper()
                 .arg(keyNameForRecord(k));
@@ -628,10 +639,10 @@ namespace
         const bool hasDevice = device.fingerprint != 0;
         const QString deviceName = hasDevice
             ? fromWString(device.name.empty() ? L"Unknown USB Device" : device.name)
-            : QStringLiteral("Unknown USB Device");
+            : QStringLiteral("장치 확인 중...");
         const QString vidPid = hasDevice
             ? QString("0x%1 / 0x%2").arg(hex4(device.vid), hex4(device.pid))
-            : QStringLiteral("0x1234 / 0x5678");
+            : QStringLiteral("분석 중...");
         const QString detectedAt = nowTimestamp();
 
         auto* dlg = new QDialog(parent, Qt::Dialog | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
@@ -675,22 +686,39 @@ namespace
                 Logger::Add(L"[Qt] Buffer monitor: taking ownership of stuck hook.");
             }
         }
-        QObject::connect(dlg, &QObject::destroyed, [hookStartedByDialog] {
-            if (!hookStartedByDialog)
+        // Shared device state — filled immediately if fingerprint is known, or injected
+        // later by nativeEvent after background fingerprinting completes.
+        g_dlgSharedDevice = std::make_shared<UsbItem>(device);
+        auto sharedDevice = g_dlgSharedDevice;
+
+        // On dialog close (any reason: ✕, allow, deny), decide whether to release the hook.
+        // g_dlgSharedDevice may have been filled with the real fingerprint after the dialog
+        // was initially shown without device info, so use it (not the original `device` value).
+        g_activeBufferDlg = dlg;
+        QObject::connect(dlg, &QObject::destroyed, [hookStartedByDialog, sharedDevice] {
+            g_activeBufferDlg = nullptr;
+
+            if (!hookStartedByDialog) {
+                g_dlgSharedDevice = nullptr;
                 return;
+            }
 
             Policy::Load();
-            bool hasBlockedDevice = false;
+            bool keepHook = false;
+            const auto capturedDev = g_dlgSharedDevice;  // snapshot before clear
+            g_dlgSharedDevice = nullptr;
+
             const auto devicePaths = HidScan::EnumeratePresentHidDevicePaths();
             for (const auto& path : devicePaths) {
                 const UsbItem item = HidFingerprint::BuildUsbItemFromPath(path);
-                if (item.fingerprint != 0 && Policy::IsBlacklisted(item.fingerprint)) {
-                    hasBlockedDevice = true;
-                    break;
-                }
+                if (item.fingerprint == 0) continue;
+                if (Policy::IsBlacklisted(item.fingerprint)) { keepHook = true; break; }
+                if (capturedDev && item.fingerprint == capturedDev->fingerprint &&
+                    !Policy::IsWhitelisted(item.fingerprint))
+                    keepHook = true;
             }
 
-            if (!hasBlockedDevice)
+            if (!keepHook)
                 KeyboardHook::Uninstall();
         });
 
@@ -763,7 +791,8 @@ namespace
                 cbl->setContentsMargins(16, 12, 16, 12);
                 cbl->setSpacing(0);
 
-                auto addDevRow = [&](const QString& key, const QString& val, bool last = false) {
+                auto addDevRow = [&](const QString& key, const QString& val,
+                             const QString& objName = {}, bool last = false) -> QLabel* {
                     auto* row = new QFrame;
                     row->setObjectName("dlgInfoRow");
                     if (last) row->setStyleSheet("QFrame#dlgInfoRow { border: none; }");
@@ -777,14 +806,16 @@ namespace
                     auto* v = new QLabel(val);
                     v->setFont(pretendardFont(FontRole::Medium));
                     v->setStyleSheet("color: #1D293D; font-size: 13px;");
+                    if (!objName.isEmpty()) v->setObjectName(objName);
                     rl->addWidget(k);
                     rl->addWidget(v, 1);
                     cbl->addWidget(row);
+                    return v;
                 };
 
-                addDevRow("장치 이름",  deviceName);
+                addDevRow("장치 이름",  deviceName, "dlg_device_name");
                 addDevRow("장치 유형",  "HID (Human Interface Device)");
-                addDevRow("VID / PID",  vidPid);
+                addDevRow("VID / PID",  vidPid, "dlg_vid_pid");
                 addDevRow("연결 포트",  "HID Interface");
                 addDevRow("첫 감지 시간", detectedAt);
 
@@ -1049,22 +1080,24 @@ namespace
 
         class ClickFilter : public QObject {
             QDialog* dlg_;
-            UsbItem device_;
+            std::shared_ptr<UsbItem> device_;
             bool allow_;
             std::function<void()> onPolicyChanged_;
         public:
-            ClickFilter(QDialog* d, const UsbItem& device, bool allow, std::function<void()> onPolicyChanged, QObject* parent)
-                : QObject(parent), dlg_(d), device_(device), allow_(allow), onPolicyChanged_(std::move(onPolicyChanged)) {}
+            ClickFilter(QDialog* d, std::shared_ptr<UsbItem> device, bool allow,
+                        std::function<void()> onPolicyChanged, QObject* parent)
+                : QObject(parent), dlg_(d), device_(std::move(device)),
+                  allow_(allow), onPolicyChanged_(std::move(onPolicyChanged)) {}
             bool eventFilter(QObject*, QEvent* e) override {
                 if (e->type() == QEvent::MouseButtonRelease) {
-                    if (device_.fingerprint != 0) {
-                        device_.allow = allow_;
+                    if (device_ && device_->fingerprint != 0) {
+                        device_->allow = allow_;
                         if (allow_) {
-                            Policy::AddWhitelist(device_);
-                            Logger::Add(L"[Qt] Buffer monitor allow: " + device_.name);
+                            Policy::AddWhitelist(*device_);
+                            Logger::Add(L"[Qt] Buffer monitor allow: " + device_->name);
                         } else {
-                            Policy::AddBlacklist(device_);
-                            Logger::Add(L"[Qt] Buffer monitor block: " + device_.name);
+                            Policy::AddBlacklist(*device_);
+                            Logger::Add(L"[Qt] Buffer monitor block: " + device_->name);
                         }
                         if (onPolicyChanged_) onPolicyChanged_();
                     }
@@ -1074,8 +1107,8 @@ namespace
                 return false;
             }
         };
-        allowBtn->installEventFilter(new ClickFilter(dlg, device, true, onPolicyChanged, allowBtn));
-        denyBtn->installEventFilter(new ClickFilter(dlg, device, false, onPolicyChanged, denyBtn));
+        allowBtn->installEventFilter(new ClickFilter(dlg, sharedDevice, true,  onPolicyChanged, allowBtn));
+        denyBtn->installEventFilter(new ClickFilter(dlg, sharedDevice,  false, onPolicyChanged, denyBtn));
 
         fl->addWidget(allowBtn);
         fl->addSpacing(8);
@@ -1083,10 +1116,19 @@ namespace
 
         root->addWidget(footer);
 
+        // show() only — no exec(). exec() would create a nested event loop which can
+        // delay WH_KEYBOARD_LL callbacks past LowLevelHooksTimeout, causing keystrokes to
+        // bypass the hook. Non-blocking show() is consistent with setModal(false) above and
+        // keeps the main event loop free to dispatch hook callbacks promptly.
         dlg->show();
         dlg->raise();
         dlg->activateWindow();
-        dlg->exec();
+        // Center on the primary screen so it's always fully visible regardless of
+        // where the main window is positioned (or whether it's hidden to tray).
+        {
+            const QRect screen = QApplication::primaryScreen()->availableGeometry();
+            dlg->move(screen.center() - dlg->rect().center());
+        }
     }
 
 } // namespace
@@ -1185,11 +1227,6 @@ MainWindow::MainWindow(QWidget* parent)
     userLayout->addWidget(iconLabel(":/icons/ui-user.svg", 16));
     userLayout->addWidget(label("관리자"));
     topbarLayout->addLayout(userLayout);
-    topbarLayout->addSpacing(10);
-    auto* localBadge = label("Abang-All (로컬)", "roleBadge");
-    localBadge->setMinimumHeight(38);
-    localBadge->setAlignment(Qt::AlignCenter);
-    topbarLayout->addWidget(localBadge);
 
     pages_ = new QStackedWidget;
     pages_->addWidget(createDashboardPage());      // 0
@@ -1219,6 +1256,149 @@ MainWindow::MainWindow(QWidget* parent)
 #ifdef Q_OS_WIN
     Logger::SetNotifyWindow(reinterpret_cast<HWND>(winId()), WM_APP_NEWLOG);
 #endif
+
+    setupTray();
+}
+
+// ---------------------------------------------------------------------------
+// System tray + TrayWidget setup
+// ---------------------------------------------------------------------------
+void MainWindow::setupTray()
+{
+    if (!QSystemTrayIcon::isSystemTrayAvailable())
+        return;
+
+    trayWidget_ = new TrayWidget(this);
+
+    // Connect expand button → show main window
+    connect(trayWidget_, &TrayWidget::expandRequested, this, [this] {
+        trayWidget_->hide();
+        showNormal();
+        raise();
+        activateWindow();
+    });
+
+    // Tray icon
+    trayIcon_ = new QSystemTrayIcon(QIcon(":/icons/brand-shield.svg"), this);
+    trayIcon_->setToolTip("Abang-All 보안 위젯");
+
+    // Context menu
+    auto* menu = new QMenu(this);
+    menu->addAction("대시보드 열기", this, [this] {
+        trayWidget_->hide();
+        showNormal();
+        raise();
+        activateWindow();
+    });
+    menu->addAction("위젯 보기", this, [this] {
+        trayWidget_->positionNearTray();
+        trayWidget_->show();
+        trayWidget_->raise();
+    });
+    menu->addSeparator();
+    menu->addAction("종료", qApp, &QApplication::quit);
+    trayIcon_->setContextMenu(menu);
+
+    // Left-click: toggle mini widget
+    connect(trayIcon_, &QSystemTrayIcon::activated, this,
+        [this](QSystemTrayIcon::ActivationReason reason) {
+            if (reason == QSystemTrayIcon::Trigger) {
+                if (trayWidget_->isVisible()) {
+                    trayWidget_->hide();
+                } else {
+                    trayWidget_->positionNearTray();
+                    trayWidget_->show();
+                    trayWidget_->raise();
+                }
+            }
+        });
+
+    trayIcon_->show();
+    refreshTrayWidget();
+}
+
+// ---------------------------------------------------------------------------
+// Refresh tray widget with real backend data
+// ---------------------------------------------------------------------------
+void MainWindow::refreshTrayWidget()
+{
+    if (!trayWidget_) return;
+
+    // ---- USB count (dedup by display name, same logic as USB list page) ----
+    Policy::Load();
+    const auto paths = HidScan::EnumeratePresentHidDevicePaths();
+    QSet<QString> seenKeys;
+    int blacklistConnected = 0;
+    int pendingCount = 0;
+    for (const auto& path : paths) {
+        const UsbItem item = HidFingerprint::BuildUsbItemFromPath(path);
+        const QString name = fromWString(item.name.empty() ? L"Unknown HID Device" : item.name);
+        QString key = name.trimmed().toLower();
+        if (key.isEmpty() || key == "unknown hid device")
+            key = fromWString(item.name) + QString::number(item.vid) + QString::number(item.pid);
+        if (seenKeys.contains(key)) continue;
+        seenKeys.insert(key);
+
+        if (Policy::IsBlacklisted(item.fingerprint))      ++blacklistConnected;
+        else if (!Policy::IsWhitelisted(item.fingerprint)) ++pendingCount;
+    }
+    trayWidget_->setUsbCount(static_cast<int>(seenKeys.size()));
+
+    // ---- Threat level ----
+    // Danger:  blacklisted device connected
+    // Warning: unknown (pending) device connected, or recent anomaly in log
+    // Normal:  all clear
+    TrayWidget::ThreatLevel level = TrayWidget::ThreatLevel::Normal;
+    if (blacklistConnected > 0) {
+        level = TrayWidget::ThreatLevel::Danger;
+    } else if (pendingCount > 0) {
+        level = TrayWidget::ThreatLevel::Warning;
+    } else {
+        // Also check log for anomaly/warning keywords
+        const auto allLogs = Logger::GetAll();
+        const auto lines = QString::fromStdWString(allLogs).split('\n', Qt::SkipEmptyParts);
+        for (int i = lines.size() - 1; i >= qMax(0, lines.size() - 10); --i) {
+            const QString& l = lines[i];
+            if (l.contains("anomaly", Qt::CaseInsensitive) ||
+                l.contains("block",   Qt::CaseInsensitive) ||
+                l.contains("차단",    Qt::CaseInsensitive) ||
+                l.contains("warning", Qt::CaseInsensitive)) {
+                level = TrayWidget::ThreatLevel::Warning;
+                break;
+            }
+        }
+    }
+    trayWidget_->setThreatLevel(level);
+
+    // ---- Most recent log event ----
+    const auto allLogs = Logger::GetAll();
+    const auto lines = QString::fromStdWString(allLogs).split('\n', Qt::SkipEmptyParts);
+    if (!lines.isEmpty()) {
+        const QString& last = lines.last();
+        // Try to extract [HH:mm:ss] or [YYYY-MM-DD HH:mm:ss]
+        static const QRegularExpression tsRe(R"(\[(\d{4}-\d{2}-\d{2} )?(\d{2}:\d{2}:\d{2})\])");
+        const auto m = tsRe.match(last);
+        const QString timeStr = m.hasMatch() ? m.captured(2) : nowTime();
+        // Strip leading timestamp bracket for display
+        QString msg = last;
+        if (m.hasMatch()) msg = last.mid(m.capturedEnd()).trimmed();
+        // Strip "[Qt]" prefix
+        if (msg.startsWith("[Qt]")) msg = msg.mid(4).trimmed();
+        trayWidget_->setRecentEvent(timeStr, msg);
+    } else {
+        trayWidget_->setRecentEvent(nowTime(), "이벤트 없음");
+    }
+}
+
+void MainWindow::closeEvent(QCloseEvent* event)
+{
+    // X 버튼으로 닫아도 HWND를 살려야 WM_DEVICECHANGE + 키보드 훅이 유지됨.
+    // 트레이로 숨기고 이벤트를 무시해 실제 파괴를 막는다.
+    event->ignore();
+    hide();
+    if (trayIcon_)
+        trayIcon_->showMessage("Abang-All", "백그라운드에서 계속 모니터링 중입니다.",
+                               QSystemTrayIcon::Information, 2000);
 }
 
 MainWindow::~MainWindow()
@@ -1285,8 +1465,10 @@ QWidget* MainWindow::createDashboardPage()
         bufferButton->setFont(pretendardFont(FontRole::Medium));
         bufferButton->setIcon(QIcon(":/icons/brand-shield.svg"));
         bufferButton->setIconSize(QSize(16, 16));
-        connect(bufferButton, &QPushButton::clicked, page, [page] {
-            showBufferMonitorDialog(page);
+        connect(bufferButton, &QPushButton::clicked, page, [] {
+            // nullptr parent: the dialog is a fully independent OS window,
+            // not constrained to the main window bounds.
+            showBufferMonitorDialog(nullptr);
         });
         header->addWidget(bufferButton);
         layout->addLayout(header);
@@ -1777,11 +1959,15 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         if (usbSelectedRow_ < 0 || usbSelectedRow_ >= usbRows_.size()) return;
         auto& r = usbRows_[usbSelectedRow_];
         if (r.fingerprint == 0) return;
-        for (const auto& path : r.devicePaths) {
-            auto item = HidFingerprint::BuildUsbItemFromPath(path);
-            item.allow = true;
-            Policy::AddWhitelist(item);
-        }
+        // Use stored fingerprint — re-fingerprinting from paths fails for disconnected devices
+        UsbItem item;
+        item.fingerprint = r.fingerprint;
+        item.name        = toWString(r.name);
+        item.vid         = r.vid;
+        item.pid         = r.pid;
+        item.allow       = true;
+        Policy::AddWhitelist(item);
+        enforceBlockedDeviceHook();
         Logger::Add(L"[Qt] Policy allow: " + toWString(r.name));
         r.policy = "허용";
         usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("허용", "successBadge"));
@@ -1792,11 +1978,15 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         if (usbSelectedRow_ < 0 || usbSelectedRow_ >= usbRows_.size()) return;
         auto& r = usbRows_[usbSelectedRow_];
         if (r.fingerprint == 0) return;
-        for (const auto& path : r.devicePaths) {
-            auto item = HidFingerprint::BuildUsbItemFromPath(path);
-            item.allow = false;
-            Policy::AddBlacklist(item);
-        }
+        // Use stored fingerprint — re-fingerprinting from paths fails for disconnected devices
+        UsbItem item;
+        item.fingerprint = r.fingerprint;
+        item.name        = toWString(r.name);
+        item.vid         = r.vid;
+        item.pid         = r.pid;
+        item.allow       = false;
+        Policy::AddBlacklist(item);
+        enforceBlockedDeviceHook();
         Logger::Add(L"[Qt] Policy block: " + toWString(r.name));
         r.policy = "차단";
         usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("차단", "dangerBadge"));
@@ -1807,11 +1997,38 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         if (usbSelectedRow_ < 0 || usbSelectedRow_ >= usbRows_.size()) return;
         auto& r = usbRows_[usbSelectedRow_];
         if (r.fingerprint == 0) return;
-        for (const auto& path : r.devicePaths) {
-            const auto item = HidFingerprint::BuildUsbItemFromPath(path);
-            Policy::Remove(item.fingerprint);
-        }
+
+        // Use the stored fingerprint directly — re-fingerprinting from paths is unreliable
+        // when the device may already be disconnected.
+        Policy::Remove(r.fingerprint);
         Logger::Add(L"[Qt] Policy removed: " + toWString(r.name));
+
+        // CRITICAL: if the device is still physically connected it becomes "unknown" right now,
+        // but no WM_DEVICECHANGE arrives to trigger a new hook install + approval dialog.
+        // We must handle this case inline: lock the keyboard and re-prompt.
+        if (r.status == "연결됨" && r.fingerprint != 0) {
+            Logger::Add(L"[Qt] Rule deleted while device connected — installing hook for safety.");
+            if (!KeyboardHook::IsActive()) {
+                KeyboardHook::ClearBuffer();
+                KeyboardHook::Install();
+            }
+            // Reset so the dialog will appear even if this fingerprint was already seen
+            lastPromptFingerprint_ = 0;
+            // Build a minimal UsbItem from cached row data for the dialog
+            UsbItem hookItem;
+            hookItem.fingerprint = r.fingerprint;
+            hookItem.name        = toWString(r.name);
+            hookItem.vid         = r.vid;
+            hookItem.pid         = r.pid;
+            hookItem.devicePath  = r.devicePaths.empty() ? L"" : r.devicePaths.front();
+            QTimer::singleShot(0, this, [this, hookItem] {
+                showBufferMonitorDialog(nullptr, hookItem, [this] {
+                    enforceBlockedDeviceHook();
+                    refreshLiveDataPages();
+                });
+            });
+        }
+
         r.policy = "승인 대기";
         usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("승인 대기", "warningBadge"));
         applyUsbDetailPanel(usbSelectedRow_);
@@ -2074,39 +2291,57 @@ QWidget* MainWindow::createLogPage()
         layout->addLayout(headerRow);
     }
 
-    // Hoist row data + table pointer so both panels can reference them
-    struct LogRow {
-        QString time, event, eventIcon, device, result, badge;
-        bool highlight;
+    // ── Per-row helpers shared by initial fill and appendNewLogRows() ───────────
+    // Classify a log line → (icon resource, result label, badge objectName)
+    auto classifyLine = [](const QString& line)
+        -> std::tuple<QString,QString,QString>
+    {
+        if (line.contains("block", Qt::CaseInsensitive) ||
+            line.contains("blacklist", Qt::CaseInsensitive) || line.contains("차단"))
+            return {":/icons/status-blocked.svg", "차단", "blockBadge"};
+        if (line.contains("allow", Qt::CaseInsensitive) ||
+            line.contains("whitelist", Qt::CaseInsensitive) || line.contains("허용"))
+            return {":/icons/status-allowed.svg", "허용", "successBadge"};
+        if (line.contains("warning", Qt::CaseInsensitive) ||
+            line.contains("anomaly", Qt::CaseInsensitive) ||
+            line.contains("unknown", Qt::CaseInsensitive))
+            return {":/icons/status-warning.svg", "확인 필요", "warningBadge"};
+        return {":/icons/status-info.svg", "기록", "neutralBadge"};
     };
+
+    // Extract a device name from the log line (text after known ": " prefixes)
+    auto extractDevice = [](const QString& line) -> QString {
+        static const QStringList kPrefixes = {
+            "approval: ", "hook active: ", "hook state: ",
+            "block: ", "allow: ",
+            "Policy removed: ", "Policy allow: ", "Policy block: ",
+            "Auto-blocked (설정): ", "Auto-allowed (설정): ",
+            "Buffer monitor allow: ", "Buffer monitor block: ",
+        };
+        for (const auto& p : kPrefixes) {
+            const int idx = line.indexOf(p, 0, Qt::CaseInsensitive);
+            if (idx != -1) {
+                const QString candidate = line.mid(idx + p.length()).trimmed();
+                if (!candidate.isEmpty()) return candidate;
+            }
+        }
+        return "-";
+    };
+
+    struct LogRow { QString time, event, eventIcon, device, result, badge; };
+
     QList<LogRow> logRows;
     const QString allLogs = fromWString(Logger::GetAll());
     for (QString line : allLogs.split('\n', Qt::SkipEmptyParts)) {
         line = line.trimmed();
         if (line.isEmpty()) continue;
-
-        QString icon = ":/icons/status-info.svg";
-        QString result = "기록";
-        QString badge = "neutralBadge";
-        if (line.contains("block", Qt::CaseInsensitive) || line.contains("blacklist", Qt::CaseInsensitive) || line.contains("차단")) {
-            icon = ":/icons/status-blocked.svg";
-            result = "차단";
-            badge = "blockBadge";
-        } else if (line.contains("allow", Qt::CaseInsensitive) || line.contains("whitelist", Qt::CaseInsensitive) || line.contains("허용")) {
-            icon = ":/icons/status-allowed.svg";
-            result = "허용";
-            badge = "successBadge";
-        } else if (line.contains("warning", Qt::CaseInsensitive) || line.contains("anomaly", Qt::CaseInsensitive) || line.contains("unknown", Qt::CaseInsensitive)) {
-            icon = ":/icons/status-warning.svg";
-            result = "확인 필요";
-            badge = "warningBadge";
-        }
-
-        logRows.push_back({nowTimestamp(), line, icon, "-", result, badge, logRows.isEmpty()});
+        auto [icon, result, badge] = classifyLine(line);
+        logRows.push_back({nowTimestamp(), line, icon, extractDevice(line), result, badge});
     }
-    if (logRows.isEmpty()) {
-        logRows.push_back({nowTimestamp(), "아직 기록된 로그가 없습니다.", ":/icons/status-info.svg", "-", "대기", "neutralBadge", true});
-    }
+    if (logRows.isEmpty())
+        logRows.push_back({nowTimestamp(), "아직 기록된 로그가 없습니다.",
+                           ":/icons/status-info.svg", "-", "대기", "neutralBadge"});
+
     QTableWidget* logTable = nullptr;
 
     auto* contentRow = new QHBoxLayout;
@@ -2125,6 +2360,8 @@ QWidget* MainWindow::createLogPage()
         lastLogLineCount_ = logRows.size();
         table->setHorizontalHeaderLabels({"시간", "이벤트", "장치", "처리 결과"});
         configureTable(table);
+        // Same as USB table: NoSelection + WA_TransparentForMouseEvents on all
+        // cell widgets → clicks pass through to the viewport → cellClicked fires.
         table->setSelectionMode(QAbstractItemView::NoSelection);
         table->setFocusPolicy(Qt::NoFocus);
         table->horizontalHeader()->setStyleSheet(
@@ -2183,13 +2420,23 @@ QWidget* MainWindow::createLogPage()
 
         for (int r = 0; r < logRows.size(); ++r) {
             const auto& row = logRows[r];
+            const bool hi = (r == 0);
 
-            table->setCellWidget(r, 0, mkTextCell(row.time, "#62748E", row.highlight));
-            table->setCellWidget(r, 1, mkEventCell(row.eventIcon, row.event, row.highlight));
-            table->setCellWidget(r, 2, mkTextCell(row.device, "#45556C", row.highlight));
+            // Store metadata as QObject properties on the column-0 cell widget.
+            // No setItem() needed — identical to how USB table stores data in usbRows_[row].
+            // cellClicked reads properties via logTable->cellWidget(row, 0)->property(...).
+            auto* timeW = mkTextCell(row.time, "#62748E", hi);
+            timeW->setProperty("log_icon",   row.eventIcon);
+            timeW->setProperty("log_event",  row.event);
+            timeW->setProperty("log_time",   row.time);
+            timeW->setProperty("log_device", row.device);
+            timeW->setProperty("log_result", row.result);
+            timeW->setProperty("log_badge",  row.badge);
+            table->setCellWidget(r, 0, timeW);
+            table->setCellWidget(r, 1, mkEventCell(row.eventIcon, row.event, hi));
+            table->setCellWidget(r, 2, mkTextCell(row.device, "#45556C", hi));
             auto* badgeW = makeBadgeCell(row.result, row.badge.toUtf8().constData());
-            if (row.highlight)
-                setCellWidgetBackground(badgeW, QColor(255, 247, 237));
+            if (hi) setCellWidgetBackground(badgeW, QColor(255, 247, 237));
             table->setCellWidget(r, 3, badgeW);
         }
 
@@ -2382,45 +2629,54 @@ QWidget* MainWindow::createLogPage()
         contentRow->addWidget(detailCard);
 
         // Wire up row click → update detail panel
-        static const QMap<QString,QString> descMap = {
+        const QMap<QString,QString> descMap = {
             {"blockBadge",   "등록되지 않은 장치의 연결이 차단되었습니다."},
             {"warningBadge", "비정상적인 행위가 탐지되어 경고 알림이 발송되었습니다."},
             {"successBadge", "허용된 장치가 정상적으로 연결되었습니다."},
             {"neutralBadge", "시스템 이벤트가 기록되었습니다."},
         };
 
+        // Same pattern as USB table: NoSelection + cellClicked.
+        // Metadata is read from QObject properties on the column-0 cell widget.
         connect(logTable, &QTableWidget::cellClicked,
-            [logRows, logTable, detIconLabel, detIconBox, detEvTitle, detEvTime,
-             detDevBadge, detDesc, detResultBadge, actionCard](int row, int) {
-                if (row < 0 || row >= logRows.size()) return;
-                const auto& r = logRows[row];
+            [logTable, detIconLabel, detIconBox, detEvTitle, detEvTime,
+             detDevBadge, detDesc, detResultBadge, actionCard, descMap]
+            (int row, int) {
+                auto* w = logTable->cellWidget(row, 0);
+                if (!w) return;
 
-                detIconLabel->setPixmap(QIcon(r.eventIcon).pixmap(16, 16));
+                const QString icon   = w->property("log_icon").toString();
+                const QString event  = w->property("log_event").toString();
+                const QString time   = w->property("log_time").toString();
+                const QString device = w->property("log_device").toString();
+                const QString result = w->property("log_result").toString();
+                const QString badge  = w->property("log_badge").toString();
+
+                detIconLabel->setPixmap(QIcon(icon).pixmap(16, 16));
 
                 QString border = "border: 1px solid #E2E8F0;";
-                if (r.badge == "blockBadge")        border = "border: 1px solid #FFCCD3;";
-                else if (r.badge == "warningBadge") border = "border: 1px solid #FDE68A;";
-                else if (r.badge == "successBadge") border = "border: 1px solid #ABEFC6;";
+                if (badge == "blockBadge")        border = "border: 1px solid #FFCCD3;";
+                else if (badge == "warningBadge") border = "border: 1px solid #FDE68A;";
+                else if (badge == "successBadge") border = "border: 1px solid #ABEFC6;";
                 detIconBox->setStyleSheet(QString(
                     "QFrame { background: white; %1 border-radius: 4px; }").arg(border));
 
-                detEvTitle->setText(r.event);
-                detEvTime->setText(r.time);
-                detDevBadge->setText(r.device == "-" ? "N/A" : r.device);
-                detDesc->setText(descMap.value(r.badge, "이벤트가 기록되었습니다."));
+                detEvTitle->setText(event);
+                detEvTime->setText(time);
+                detDevBadge->setText(device == "-" ? "N/A" : device);
+                detDesc->setText(descMap.value(badge, "이벤트가 기록되었습니다."));
 
-                detResultBadge->setText(r.result);
-                detResultBadge->setObjectName(r.badge.toUtf8().constData());
+                detResultBadge->setText(result);
+                detResultBadge->setObjectName(badge.toUtf8().constData());
                 detResultBadge->style()->unpolish(detResultBadge);
                 detResultBadge->style()->polish(detResultBadge);
 
-                actionCard->setVisible(r.badge == "blockBadge");
+                actionCard->setVisible(badge == "blockBadge");
 
-                // Re-apply row highlight tint
-                const QColor hi(255, 247, 237);
-                for (int rr = 0; rr < logRows.size(); ++rr) {
-                    const bool sel = (rr == row);
-                    const QColor bg = sel ? hi : Qt::white;
+                // Re-apply row highlight tint across ALL rows
+                const QColor hiColor(255, 247, 237);
+                for (int rr = 0; rr < logTable->rowCount(); ++rr) {
+                    const QColor bg = (rr == row) ? hiColor : Qt::white;
                     setCellWidgetBackground(logTable->cellWidget(rr, 0), bg);
                     setCellWidgetBackground(logTable->cellWidget(rr, 1), bg);
                     setCellWidgetBackground(logTable->cellWidget(rr, 2), bg);
@@ -3487,6 +3743,9 @@ void MainWindow::refreshLiveDataPages()
     // Log: always use incremental append — never recreate the full page here.
     appendNewLogRows();
 
+    // Tray widget: always sync with latest data (lightweight, no widget recreation)
+    refreshTrayWidget();
+
     // Dashboard and USB list: only rebuild if currently visible.
     // If not visible, mark stale so switchPage() rebuilds on demand.
     if (visiblePage == 0) {
@@ -3538,19 +3797,43 @@ void MainWindow::appendNewLogRows()
     const int startRow = logTable_->rowCount();
     logTable_->setRowCount(startRow + (total - lastLogLineCount_));
 
+    // Extract device name using same logic as createLogPage()
+    auto extractDeviceAppend = [](const QString& line) -> QString {
+        static const QStringList kPrefixes = {
+            "approval: ", "hook active: ", "hook state: ",
+            "block: ", "allow: ",
+            "Policy removed: ", "Policy allow: ", "Policy block: ",
+            "Auto-blocked (설정): ", "Auto-allowed (설정): ",
+            "Buffer monitor allow: ", "Buffer monitor block: ",
+        };
+        for (const auto& p : kPrefixes) {
+            const int idx = line.indexOf(p, 0, Qt::CaseInsensitive);
+            if (idx != -1) {
+                const QString candidate = line.mid(idx + p.length()).trimmed();
+                if (!candidate.isEmpty()) return candidate;
+            }
+        }
+        return "-";
+    };
+
     int insertRow = startRow;
     for (int i = lastLogLineCount_; i < total; ++i) {
         const QString line = allLines[i].trimmed();
         if (line.isEmpty()) continue;
         const QString icon = iconForLine(line);
         const auto [result, badge] = badgeForLine(line);
-        const QString ts = nowTimestamp();
+        const QString ts     = nowTimestamp();
+        const QString device = extractDeviceAppend(line);
 
+        // Same contract as createLogPage(): store metadata as QObject properties
+        // on the column-0 cell widget. No setItem() needed (matches USB table pattern).
         auto mkText = [&](const QString& text, const QString& color) -> QWidget* {
             auto* w = new QWidget;
+            w->setAttribute(Qt::WA_TransparentForMouseEvents);
             auto* l = new QHBoxLayout(w);
             l->setContentsMargins(20, 0, 8, 0);
             auto* lbl = new QLabel(text);
+            lbl->setAttribute(Qt::WA_TransparentForMouseEvents);
             lbl->setFont(pretendardFont(FontRole::Regular));
             lbl->setStyleSheet(QString("font-size: 14px; color: %1; background: transparent; border: none;").arg(color));
             l->addWidget(lbl);
@@ -3559,15 +3842,18 @@ void MainWindow::appendNewLogRows()
         };
         auto mkEvent = [&](const QString& iconRes, const QString& text) -> QWidget* {
             auto* w = new QWidget;
+            w->setAttribute(Qt::WA_TransparentForMouseEvents);
             auto* l = new QHBoxLayout(w);
             l->setContentsMargins(20, 0, 8, 0);
             l->setSpacing(8);
             auto* ico = new QLabel;
+            ico->setAttribute(Qt::WA_TransparentForMouseEvents);
             ico->setFixedSize(16, 16);
             ico->setPixmap(QIcon(iconRes).pixmap(16, 16));
             ico->setStyleSheet("background: transparent;");
             l->addWidget(ico);
             auto* txt = new QLabel(text);
+            txt->setAttribute(Qt::WA_TransparentForMouseEvents);
             txt->setFont(pretendardFont(FontRole::Medium));
             txt->setStyleSheet("font-size: 14px; color: #1D293D; background: transparent;");
             l->addWidget(txt);
@@ -3575,9 +3861,16 @@ void MainWindow::appendNewLogRows()
             return w;
         };
 
-        logTable_->setCellWidget(insertRow, 0, mkText(ts, "#62748E"));
+        auto* timeW = mkText(ts, "#62748E");
+        timeW->setProperty("log_icon",   icon);
+        timeW->setProperty("log_event",  line);
+        timeW->setProperty("log_time",   ts);
+        timeW->setProperty("log_device", device);
+        timeW->setProperty("log_result", result);
+        timeW->setProperty("log_badge",  badge);
+        logTable_->setCellWidget(insertRow, 0, timeW);
         logTable_->setCellWidget(insertRow, 1, mkEvent(icon, line));
-        logTable_->setCellWidget(insertRow, 2, mkText("-", "#45556C"));
+        logTable_->setCellWidget(insertRow, 2, mkText(device, "#45556C"));
         logTable_->setCellWidget(insertRow, 3, makeBadgeCell(result, badge.toUtf8().constData()));
         ++insertRow;
     }
@@ -3603,64 +3896,91 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                     auto* di = reinterpret_cast<PDEV_BROADCAST_DEVICEINTERFACE_W>(msg->lParam);
                     const std::wstring path = di->dbcc_name ? di->dbcc_name : L"";
                     if (!path.empty()) {
-                        // Install hook immediately BEFORE fingerprinting to eliminate any
-                        // input window. Windows fires WM_DEVICECHANGE before the device is
-                        // fully enumerable, so re-enumeration via enforceBlockedDeviceHook()
-                        // would fail. We install now and release if the device is trusted.
-                        const bool preInstalled = !KeyboardHook::IsActive();
-                        if (preInstalled) {
+                        // 1) Install hook immediately — captures keystrokes from the first moment.
+                        if (!KeyboardHook::IsActive()) {
                             KeyboardHook::ClearBuffer();
                             KeyboardHook::Install();
                             Logger::Add(L"[Qt] Hook pre-installed; awaiting fingerprint.");
                         }
 
-                        Policy::Load();
-                        const UsbItem item = HidFingerprint::BuildUsbItemFromPath(path);
-                        if (item.fingerprint != 0) {
-                            if (Policy::IsWhitelisted(item.fingerprint)) {
-                                // Trusted device — always release hook (not just when we pre-installed it).
-                                // A hook from a previous session might still be active.
-                                Logger::Add(L"[Qt] Whitelisted device; enforcing hook state: " + item.name);
-                                QTimer::singleShot(0, this, [this] { enforceBlockedDeviceHook(); });
-                            } else if (Policy::IsBlacklisted(item.fingerprint)) {
-                                Logger::Add(L"[Qt] Blocked HID device; hook active: " + item.name);
-                                if (!KeyboardHook::IsActive())
-                                    KeyboardHook::Install();
-                                blockedDeviceHookActive_ = true;
-                            } else if (item.fingerprint != lastPromptFingerprint_) {
-                                lastPromptFingerprint_ = item.fingerprint;
-                                Logger::Add(L"[Qt] Unknown HID device requires approval: " + item.name);
-                                if (unknownDeviceAction_ == 1) {
-                                    // Auto-block
-                                    Policy::AddBlacklist(item);
-                                    Logger::Add(L"[Qt] Auto-blocked (설정): " + item.name);
-                                    if (!KeyboardHook::IsActive())
-                                        KeyboardHook::Install();
-                                    blockedDeviceHookActive_ = true;
-                                } else if (unknownDeviceAction_ == 2) {
-                                    // Auto-allow
-                                    Policy::AddWhitelist(item);
-                                    Logger::Add(L"[Qt] Auto-allowed (설정): " + item.name);
-                                    QTimer::singleShot(0, this, [this] { enforceBlockedDeviceHook(); });
-                                } else {
-                                    // Dialog (default) — defer to after nativeEvent returns
-                                    // so the Windows message pump is not blocked during widget creation.
-                                    QTimer::singleShot(0, this, [this, item] {
-                                        showBufferMonitorDialog(this, item, [this] {
-                                            enforceBlockedDeviceHook();
-                                            refreshLiveDataPages();
-                                        });
-                                    });
-                                }
-                            } else {
-                                // Duplicate arrival for already-prompting device — enforce correct state
-                                if (!blockedDeviceHookActive_)
-                                    QTimer::singleShot(0, this, [this] { enforceBlockedDeviceHook(); });
-                            }
-                        } else {
-                            // Could not fingerprint — enforce correct hook state
-                            QTimer::singleShot(0, this, [this] { enforceBlockedDeviceHook(); });
+                        // 2) Show input buffer dialog immediately (before fingerprinting)
+                        //    so the user sees captured keystrokes with no delay.
+                        //    Device info shows "장치 확인 중..." until fingerprinting completes.
+                        if (!g_activeBufferDlg && unknownDeviceAction_ == 0) {
+                            showBufferMonitorDialog(nullptr, UsbItem{}, [this] {
+                                enforceBlockedDeviceHook();
+                                refreshLiveDataPages();
+                            });
                         }
+
+                        // 3) Fingerprint in background. 150 ms sleep: DBT_DEVICEARRIVAL fires
+                        //    before SetupAPI finishes registering the device; we need a brief
+                        //    delay before HID descriptor queries succeed.
+                        const int mySerial = removalSerial_;
+                        std::thread([this, path, mySerial] {
+                            std::this_thread::sleep_for(std::chrono::milliseconds(150));
+                            Policy::Load();
+                            const UsbItem item = HidFingerprint::BuildUsbItemFromPath(path);
+                            QMetaObject::invokeMethod(this, [this, item, mySerial] {
+                                if (mySerial != removalSerial_) {
+                                    // Device removed while thread slept — close any open dialog.
+                                    if (g_activeBufferDlg) g_activeBufferDlg->close();
+                                    enforceBlockedDeviceHook();
+                                    return;
+                                }
+
+                                // Helper: push real device info into the already-open dialog.
+                                auto updateDlgInfo = [&] {
+                                    if (g_activeBufferDlg) {
+                                        const QString name = fromWString(
+                                            item.name.empty() ? L"Unknown USB Device" : item.name);
+                                        const QString vp = QString("0x%1 / 0x%2")
+                                                               .arg(hex4(item.vid), hex4(item.pid));
+                                        if (auto* l = g_activeBufferDlg->findChild<QLabel*>("dlg_device_name"))
+                                            l->setText(name);
+                                        if (auto* l = g_activeBufferDlg->findChild<QLabel*>("dlg_vid_pid"))
+                                            l->setText(vp);
+                                    }
+                                    if (g_dlgSharedDevice) *g_dlgSharedDevice = item;
+                                };
+
+                                if (item.fingerprint != 0) {
+                                    if (Policy::IsWhitelisted(item.fingerprint)) {
+                                        // Trusted — silently close the pre-opened dialog.
+                                        Logger::Add(L"[Qt] Whitelisted; closing immediate dialog: " + item.name);
+                                        if (g_activeBufferDlg) g_activeBufferDlg->close();
+                                        enforceBlockedDeviceHook();
+                                    } else if (Policy::IsBlacklisted(item.fingerprint)) {
+                                        Logger::Add(L"[Qt] Blocked HID device; hook active: " + item.name);
+                                        updateDlgInfo();
+                                        if (!KeyboardHook::IsActive()) KeyboardHook::Install();
+                                        blockedDeviceHookActive_ = true;
+                                    } else {
+                                        // Unknown device — dialog is already open; just update info.
+                                        Logger::Add(L"[Qt] Unknown HID device: " + item.name);
+                                        if (unknownDeviceAction_ == 1) {
+                                            // Auto-block
+                                            Policy::AddBlacklist(item);
+                                            Logger::Add(L"[Qt] Auto-blocked (설정): " + item.name);
+                                            if (g_activeBufferDlg) g_activeBufferDlg->close();
+                                            if (!KeyboardHook::IsActive()) KeyboardHook::Install();
+                                            blockedDeviceHookActive_ = true;
+                                        } else if (unknownDeviceAction_ == 2) {
+                                            // Auto-allow
+                                            Policy::AddWhitelist(item);
+                                            Logger::Add(L"[Qt] Auto-allowed (설정): " + item.name);
+                                            if (g_activeBufferDlg) g_activeBufferDlg->close();
+                                            enforceBlockedDeviceHook();
+                                        } else {
+                                            updateDlgInfo();
+                                            lastPromptFingerprint_ = item.fingerprint;
+                                        }
+                                    }
+                                } else {
+                                    enforceBlockedDeviceHook();
+                                }
+                            }, Qt::QueuedConnection);
+                        }).detach();
                     }
                 }
             }
@@ -3673,6 +3993,9 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
         if (msg->wParam == DBT_DEVICEREMOVECOMPLETE) {
             Logger::Add(L"[Qt] HID device removal detected.");
             lastPromptFingerprint_ = 0;
+            // Increment serial so any background fingerprint thread that was started
+            // before this removal can detect it is now stale and skip showing a dialog.
+            ++removalSerial_;
             // Single deferred rebuild — 300ms gives the OS time to fully remove the device
             // before we re-enumerate HID paths and check the hook state.
             QTimer::singleShot(300, this, [this] {
