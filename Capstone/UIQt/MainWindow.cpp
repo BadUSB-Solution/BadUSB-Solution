@@ -121,6 +121,17 @@ namespace
         return settings.value(key, fallback).toBool();
     }
 
+    int currentBufferedKeyDownCount()
+    {
+        int count = 0;
+        const auto keys = KeyboardHook::GetBufferedKeys();
+        for (const auto& key : keys) {
+            if ((key.flags & LLKHF_UP) == 0)
+                ++count;
+        }
+        return count;
+    }
+
     LiveAnalysisSnapshot buildLiveAnalysisSnapshot()
     {
         LiveAnalysisSnapshot snapshot;
@@ -657,15 +668,15 @@ namespace
             p.setRenderHint(QPainter::Antialiasing);
 
             const QVector<double> data = data_;
-            const double maxV = 12.0;
+            const double maxV = 10.0;
             const int lm = 48, rm = 18, tm = 12, bm = 10;
             const int cw = width() - lm - rm;
             const int ch = height() - tm - bm;
 
             // Grid + Y labels
-            const QStringList yLbls = {"0.0", "4.0", "8.0", "12.0"};
-            for (int i = 0; i < 4; ++i) {
-                const double ratio = i / 3.0;
+            const QStringList yLbls = {"0.0", "2.5", "5.0", "7.5", "10.0"};
+            for (int i = 0; i < yLbls.size(); ++i) {
+                const double ratio = i / static_cast<double>(yLbls.size() - 1);
                 const int y = tm + ch - static_cast<int>(ratio * ch);
                 p.setPen(QPen(QColor("#E2E8F0"), 1));
                 p.drawLine(lm, y, lm + cw, y);
@@ -820,7 +831,6 @@ namespace
         bodyL->setSpacing(16);
         QTextEdit* bufText = nullptr;
         auto normalizedMode = std::make_shared<bool>(false);
-        auto hexMode = std::make_shared<bool>(false);
         std::function<void()> updateBufferText;
 
         // Top: two info cards side by side
@@ -1009,16 +1019,18 @@ namespace
                 "QScrollBar::handle:vertical { background: #334155; border-radius: 6px; min-height: 28px; }"
                 "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
             );
-            updateBufferText = [bufText, normalizedMode, hexMode] {
+            auto lastBufferText = std::make_shared<QString>();
+            updateBufferText = [bufText, normalizedMode, lastBufferText] {
                 const QScrollBar* sb = bufText->verticalScrollBar();
                 const bool atBottom = !sb || sb->value() >= sb->maximum() - 4;
                 QString text;
-                if (*hexMode)
-                    text = formatHexKeysForView();
-                else if (*normalizedMode)
+                if (*normalizedMode)
                     text = formatNormalizedKeysForView();
                 else
                     text = formatBufferedKeysForView();
+                if (text == *lastBufferText)
+                    return;
+                *lastBufferText = text;
                 bufText->setPlainText(text);
                 if (atBottom)
                     bufText->moveCursor(QTextCursor::End);
@@ -1030,9 +1042,8 @@ namespace
             QObject::connect(bufferTimer, &QTimer::timeout, dlg, updateBufferText);
             bufferTimer->start();
 
-            QObject::connect(clearBtn, &QPushButton::clicked, dlg, [updateBufferText, normalizedMode, hexMode] {
+            QObject::connect(clearBtn, &QPushButton::clicked, dlg, [updateBufferText, normalizedMode] {
                 *normalizedMode = false;
-                *hexMode = false;
                 KeyboardHook::ClearBuffer();
                 updateBufferText();
             });
@@ -1063,11 +1074,9 @@ namespace
 
         auto* copyBtn = mkFooterBtn("복사");
         auto* normalizeBtn = mkFooterBtn("정규화");
-        auto* formatBtn = mkFooterBtn("콘솔 16진수 ▾");
         auto* analyticsBtn = mkFooterBtn("행위 분석 보기");
         fl->addWidget(copyBtn);
         fl->addWidget(normalizeBtn);
-        fl->addWidget(formatBtn);
         fl->addWidget(analyticsBtn);
         fl->addStretch();
 
@@ -1077,19 +1086,9 @@ namespace
         });
 
         QObject::connect(normalizeBtn, &QPushButton::clicked, dlg,
-            [normalizedMode, hexMode, normalizeBtn, updateBufferText] {
-                *hexMode = false;
+            [normalizedMode, normalizeBtn, updateBufferText] {
                 *normalizedMode = !*normalizedMode;
                 normalizeBtn->setText(*normalizedMode ? "원본 보기" : "정규화");
-                updateBufferText();
-            });
-
-        QObject::connect(formatBtn, &QPushButton::clicked, dlg,
-            [hexMode, normalizedMode, normalizeBtn, formatBtn, updateBufferText] {
-                *normalizedMode = false;
-                normalizeBtn->setText("정규화");
-                *hexMode = !*hexMode;
-                formatBtn->setText(*hexMode ? "원본 보기 ▾" : "콘솔 16진수 ▾");
                 updateBufferText();
             });
 
@@ -2836,6 +2835,9 @@ QWidget* MainWindow::createAnalyticsPage()
     QLabel* hotkeyCountValue = nullptr;
     QLabel* threatScoreValue = nullptr;
     QLabel* levelValue = nullptr;
+    QFrame* warningBanner = nullptr;
+    QLabel* warningTitle = nullptr;
+    QLabel* warningDesc = nullptr;
     const QDateTime analyticsSessionStart = QDateTime::currentDateTime();
 
     // Legend helper
@@ -2948,6 +2950,7 @@ QWidget* MainWindow::createAnalyticsPage()
         // WARNING banner
         {
             auto* warn = new QFrame;
+            warningBanner = warn;
             warn->setStyleSheet("QFrame { background: transparent; border: none; }");
             auto* wl = new QHBoxLayout(warn);
             wl->setContentsMargins(0, 0, 0, 0);
@@ -2957,9 +2960,11 @@ QWidget* MainWindow::createAnalyticsPage()
             auto* wText = new QVBoxLayout;
             wText->setSpacing(2);
             auto* wTitle = new QLabel("WARNING");
+            warningTitle = wTitle;
             wTitle->setFont(pretendardFont(FontRole::Bold));
             wTitle->setStyleSheet("color: #B45309; font-size: 13px; background: transparent; border: none;");
             auto* wDesc = new QLabel("불필요한 명령 시퀀스가 감지되었습니다.");
+            warningDesc = wDesc;
             wDesc->setFont(pretendardFont(FontRole::Regular));
             wDesc->setStyleSheet("color: #92400E; font-size: 12px; background: transparent; border: none;");
             wText->addWidget(wTitle);
@@ -2969,6 +2974,7 @@ QWidget* MainWindow::createAnalyticsPage()
             wl->addStretch();
             bL->addWidget(warn);
             bL->addSpacing(16);
+            warn->setVisible(false);
         }
 
         // Info rows helper
@@ -3028,14 +3034,21 @@ QWidget* MainWindow::createAnalyticsPage()
     auto updateThreatTrend = [threatTrendChart, analyticsSessionStart, durationValue,
                               totalInputValue, avgSpeedValue, commandCountValue,
                               hotkeyCountValue, threatScoreValue, levelValue,
+                              warningBanner, warningTitle, warningDesc,
+                              lastSnapshot = LiveAnalysisSnapshot{},
                               lastKeyDownCount = -1]() mutable {
-        const auto snapshot = buildLiveAnalysisSnapshot();
-        if (snapshot.keyDownCount > 0 && snapshot.keyDownCount != lastKeyDownCount) {
-            lastKeyDownCount = snapshot.keyDownCount;
-            appendThreatTrendSample(snapshot.verdict.final_score);
-            if (threatTrendChart)
-                threatTrendChart->setData(g_threatScoreTrend);
+        const int bufferedKeyDownCount = currentBufferedKeyDownCount();
+        const bool inputChanged = bufferedKeyDownCount != lastKeyDownCount;
+        if (inputChanged) {
+            lastKeyDownCount = bufferedKeyDownCount;
+            lastSnapshot = buildLiveAnalysisSnapshot();
+            if (lastSnapshot.keyDownCount > 0) {
+                appendThreatTrendSample(lastSnapshot.verdict.final_score);
+                if (threatTrendChart)
+                    threatTrendChart->setData(g_threatScoreTrend);
+            }
         }
+        const auto& snapshot = lastSnapshot;
         const qint64 elapsed = analyticsSessionStart.secsTo(QDateTime::currentDateTime());
         if (durationValue) {
             durationValue->setText(QString("%1:%2:%3")
@@ -3058,6 +3071,20 @@ QWidget* MainWindow::createAnalyticsPage()
             threatScoreValue->setText(scoreText(snapshot.verdict.final_score));
         if (levelValue)
             levelValue->setText(levelText(snapshot.verdict.level));
+        if (warningBanner) {
+            const bool showWarning = snapshot.verdict.level == CompoundScorer::WARN
+                || snapshot.verdict.level == CompoundScorer::DANGER;
+            warningBanner->setVisible(showWarning);
+            if (showWarning && warningTitle && warningDesc) {
+                if (snapshot.verdict.level == CompoundScorer::DANGER) {
+                    warningTitle->setText("DANGER");
+                    warningDesc->setText(QStringLiteral("고위험 명령 시퀀스가 감지되었습니다."));
+                } else {
+                    warningTitle->setText("WARNING");
+                    warningDesc->setText(QStringLiteral("불필요한 명령 시퀀스가 감지되었습니다."));
+                }
+            }
+        }
     };
     updateThreatTrend();
     QObject::connect(analyticsTimer, &QTimer::timeout, page, updateThreatTrend);
