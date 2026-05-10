@@ -10,8 +10,25 @@ namespace DB {
 namespace {
 
     sqlite3*     g_db   = nullptr;
-    std::wstring g_path = L"C:\\Users\\hanwoo\\Desktop\\mapping\\matchingDB.db";
+    // 기본 DB 경로 — 비어 있으면 Open() 시 ResolveDefaultPath() 가 채움.
+    // 배포 시에는 SetPath() 또는 EnsureDatabaseInstalled() 로 재지정 가능.
+    std::wstring g_path;
     std::mutex   g_mutex;
+
+    // exe 가 있는 폴더 + "matchingDB.db" 를 default 경로로 사용.
+    //   - 빌드 후 출력 폴더 (예: x64/Debug/) 에 matchingDB.db 가 같이 있어야 함.
+    //   - 개발 중에는 vcxproj post-build event 로 Core\matchingDB.db 를 출력 폴더로 복사.
+    //   - 배포 시에는 exe 와 같은 폴더에 함께 패키징.
+    std::wstring ResolveDefaultPath()
+    {
+        wchar_t buf[MAX_PATH];
+        DWORD n = GetModuleFileNameW(nullptr, buf, MAX_PATH);
+        if (n == 0 || n >= MAX_PATH) return L"matchingDB.db";  // CWD fallback
+        std::wstring path(buf, n);
+        auto pos = path.find_last_of(L"\\/");
+        if (pos == std::wstring::npos) return L"matchingDB.db";
+        return path.substr(0, pos + 1) + L"matchingDB.db";
+    }
 
     // ─── UTF-16 ↔ UTF-8 ─────────────────────────────────────────
     std::string WideToUtf8(const std::wstring& w)
@@ -69,6 +86,8 @@ bool Open()
 {
     std::lock_guard<std::mutex> lock(g_mutex);
     if (g_db) return true;
+    // SetPath() 으로 미리 지정 안 했으면 exe 옆 matchingDB.db 사용
+    if (g_path.empty()) g_path = ResolveDefaultPath();
     std::string utf8 = WideToUtf8(g_path);
     int rc = sqlite3_open_v2(utf8.c_str(), &g_db,
                               SQLITE_OPEN_READONLY, nullptr);

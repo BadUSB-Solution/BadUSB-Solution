@@ -83,6 +83,10 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D /Q "$(ProjectDir)Core\matchingDB.db" "$(OutDir)" &gt; nul</Command>
+      <Message>Copy matchingDB.db -&gt; $(OutDir)</Message>
+    </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>Core;Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
@@ -102,6 +106,10 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D /Q "$(ProjectDir)Core\matchingDB.db" "$(OutDir)" &gt; nul</Command>
+      <Message>Copy matchingDB.db -&gt; $(OutDir)</Message>
+    </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>Core;Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
@@ -120,6 +128,10 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D /Q "$(ProjectDir)Core\matchingDB.db" "$(OutDir)" &gt; nul</Command>
+      <Message>Copy matchingDB.db -&gt; $(OutDir)</Message>
+    </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>Core;Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
@@ -140,6 +152,10 @@
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /Y /D /Q "$(ProjectDir)Core\matchingDB.db" "$(OutDir)" &gt; nul</Command>
+      <Message>Copy matchingDB.db -&gt; $(OutDir)</Message>
+    </PostBuildEvent>
     <ResourceCompile>
       <AdditionalIncludeDirectories>Core;Resource;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
@@ -217,6 +233,13 @@
   <ItemGroup>
     <Image Include="Resource\Capstone.ico" />
     <Image Include="Resource\small.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 데이터 파일: 빌드 시 출력 폴더로 자동 복사. ThreatMatcher 가 exe 옆 matchingDB.db 를 찾음 -->
+    <None Include="Core\matchingDB.db">
+      <DeploymentContent>true</DeploymentContent>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
