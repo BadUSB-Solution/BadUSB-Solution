@@ -6,13 +6,16 @@ namespace UrlExtractor
 {
     // ── 헬퍼 ──────────────────────────────────────────────────────────────────
 
-    // Chr(N) 패턴을 문자로 치환 (case-insensitive, ASCII 1-127만)
+    // Chr(N) / [char]N 패턴을 문자로 치환 (case-insensitive, ASCII 1-127만)
+    //   - VBScript: Chr(58)  → ':'
+    //   - PowerShell: [char]58 → ':'
     static std::wstring ExpandChrTokens(const std::wstring& s)
     {
         std::wstring out;
         out.reserve(s.size());
         size_t i = 0;
         while (i < s.size()) {
+            // Chr(N) - VBScript
             if (i + 4 <= s.size() &&
                 towlower(s[i])   == L'c' &&
                 towlower(s[i+1]) == L'h' &&
@@ -28,24 +31,48 @@ namespace UrlExtractor
                     continue;
                 }
             }
+
+            // [char]N - PowerShell
+            if (i + 6 <= s.size() &&
+                s[i] == L'[' &&
+                towlower(s[i+1]) == L'c' &&
+                towlower(s[i+2]) == L'h' &&
+                towlower(s[i+3]) == L'a' &&
+                towlower(s[i+4]) == L'r' &&
+                s[i+5] == L']')
+            {
+                size_t j = i + 6;
+                while (j < s.size() && iswdigit(s[j])) ++j;
+                if (j > i + 6) {  // 숫자 1자 이상
+                    int code = _wtoi(s.c_str() + i + 6);
+                    if (code >= 1 && code <= 127) out += (wchar_t)code;
+                    i = j;
+                    continue;
+                }
+            }
+
             out += s[i++];
         }
         return out;
     }
 
-    // 표현식을 & 또는 + 로 토큰화 (따옴표 내부 무시)
+    // 표현식을 & 또는 + 로 토큰화 (따옴표 내부 무시, 큰/작은따옴표 둘 다)
     static std::vector<std::wstring> TokenizeExpr(const std::wstring& expr)
     {
         std::vector<std::wstring> tokens;
         std::wstring cur;
-        bool inQuote = false;
+        bool inDouble = false;
+        bool inSingle = false;
 
         for (size_t i = 0; i < expr.size(); ++i) {
             wchar_t c = expr[i];
-            if (c == L'"') {
-                inQuote = !inQuote;
+            if (c == L'"' && !inSingle) {
+                inDouble = !inDouble;
                 cur += c;
-            } else if (!inQuote && (c == L'&' || c == L'+')) {
+            } else if (c == L'\'' && !inDouble) {
+                inSingle = !inSingle;
+                cur += c;
+            } else if (!inDouble && !inSingle && (c == L'&' || c == L'+')) {
                 size_t s = 0, e = cur.size();
                 while (s < e && iswspace(cur[s])) ++s;
                 while (e > s && iswspace(cur[e-1])) --e;
@@ -70,8 +97,10 @@ namespace UrlExtractor
     {
         if (tok.empty()) return L"";
 
-        // 문자열 리터럴 "..."
-        if (tok.size() >= 2 && tok.front() == L'"' && tok.back() == L'"')
+        // 문자열 리터럴 "..." (VBScript/일반) 또는 '...' (PowerShell)
+        if (tok.size() >= 2 &&
+            ((tok.front() == L'"'  && tok.back() == L'"') ||
+             (tok.front() == L'\'' && tok.back() == L'\'')))
             return tok.substr(1, tok.size() - 2);
 
         // Chr() 치환
@@ -214,6 +243,106 @@ namespace UrlExtractor
         return false;
     }
 
+    // 한 위치에서 토큰(리터럴/[char]N/Chr(N))이 끝나는 다음 위치 반환.
+    // 토큰 매칭 실패 시 startPos 그대로 반환.
+    static size_t MatchTokenAt(const std::wstring& s, size_t startPos)
+    {
+        if (startPos >= s.size()) return startPos;
+        wchar_t c = s[startPos];
+
+        // '...' 또는 "..." 문자열 리터럴
+        if (c == L'\'' || c == L'"') {
+            wchar_t quote = c;
+            size_t j = startPos + 1;
+            while (j < s.size() && s[j] != quote) ++j;
+            if (j < s.size()) return j + 1;  // 닫는 따옴표 포함
+            return startPos;  // 닫는 따옴표 없음 → 매칭 실패
+        }
+
+        // [char]N - PowerShell
+        if (c == L'[' && startPos + 6 <= s.size() &&
+            towlower(s[startPos+1]) == L'c' &&
+            towlower(s[startPos+2]) == L'h' &&
+            towlower(s[startPos+3]) == L'a' &&
+            towlower(s[startPos+4]) == L'r' &&
+            s[startPos+5] == L']')
+        {
+            size_t j = startPos + 6;
+            while (j < s.size() && iswdigit(s[j])) ++j;
+            if (j > startPos + 6) return j;
+            return startPos;
+        }
+
+        // Chr(N) - VBScript
+        if (startPos + 4 < s.size() &&
+            towlower(s[startPos])   == L'c' &&
+            towlower(s[startPos+1]) == L'h' &&
+            towlower(s[startPos+2]) == L'r' &&
+            s[startPos+3] == L'(')
+        {
+            size_t j = startPos + 4;
+            while (j < s.size() && iswdigit(s[j])) ++j;
+            if (j < s.size() && s[j] == L')' && j > startPos + 4) return j + 1;
+            return startPos;
+        }
+
+        return startPos;
+    }
+
+    // 텍스트에서 'lit'+[char]N+'lit'+... 형태의 연결 체인을 모두 찾음.
+    // 최소 2개 토큰 이상으로 구성된 체인만 반환.
+    // 큰따옴표/작은따옴표로 감싸진 구역은 안쪽도 재귀적으로 스캔
+    // (PowerShell -c "..." 인자 안에 인라인 URL 조립이 있는 케이스 대응).
+    static void FindConcatExpressionsImpl(const std::wstring& text,
+                                           std::vector<std::wstring>& exprs,
+                                           int depth = 0)
+    {
+        if (depth > 4) return;  // 무한 재귀 방지
+
+        size_t i = 0;
+        while (i < text.size()) {
+            size_t firstEnd = MatchTokenAt(text, i);
+            if (firstEnd == i) { ++i; continue; }
+
+            size_t lastEnd = firstEnd;
+            int    tokenCount = 1;
+            size_t j = firstEnd;
+
+            while (j < text.size()) {
+                size_t k = j;
+                while (k < text.size() && iswspace(text[k])) ++k;
+                if (k >= text.size() || (text[k] != L'+' && text[k] != L'&')) break;
+                ++k;
+                while (k < text.size() && iswspace(text[k])) ++k;
+
+                size_t nextEnd = MatchTokenAt(text, k);
+                if (nextEnd == k) break;
+                lastEnd = nextEnd;
+                tokenCount++;
+                j = nextEnd;
+            }
+
+            if (tokenCount >= 2)
+                exprs.push_back(text.substr(i, lastEnd - i));
+
+            // 따옴표로 감싼 토큰 안에도 부분식이 있을 수 있으므로 재귀
+            wchar_t firstChar = text[i];
+            if ((firstChar == L'"' || firstChar == L'\'') && firstEnd > i + 2) {
+                std::wstring inner = text.substr(i + 1, firstEnd - i - 2);
+                FindConcatExpressionsImpl(inner, exprs, depth + 1);
+            }
+
+            i = lastEnd;
+        }
+    }
+
+    static std::vector<std::wstring> FindConcatExpressions(const std::wstring& text)
+    {
+        std::vector<std::wstring> exprs;
+        FindConcatExpressionsImpl(text, exprs);
+        return exprs;
+    }
+
     // ── 메인 ──────────────────────────────────────────────────────────────────
 
     void Extract(std::vector<KeyDecoder::DecodedLine>& lines)
@@ -258,6 +387,18 @@ namespace UrlExtractor
                         if (!HasUrl(dl.urls, resolved))
                             dl.urls.push_back({ rhs, resolved, lineIdx });
                     }
+                }
+            }
+
+            // ④ 줄 어디에 있든 'lit'+[char]N+'lit'+... 형태 연결 체인 탐색
+            //    PowerShell/VBScript의 인라인 URL 조립 패턴 대응
+            for (auto& expr : FindConcatExpressions(text)) {
+                std::wstring evaluated = EvalExpr(expr, vars);
+                if (evaluated.empty()) continue;
+                for (auto& raw : FindDirectUrls(evaluated)) {
+                    std::wstring resolved = CleanUrl(raw);
+                    if (!HasUrl(dl.urls, resolved))
+                        dl.urls.push_back({ expr, resolved, lineIdx });
                 }
             }
         }
