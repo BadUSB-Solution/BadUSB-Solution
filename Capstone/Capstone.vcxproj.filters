@@ -126,6 +126,30 @@
     <ClInclude Include="Algorithm\Analysis\UrlClassifier\url_classifier.h">
       <Filter>Algorithm\Analysis\UrlClassifier</Filter>
     </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\url_parser.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\ip_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\shortener_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\executable_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\entropy_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\scheme_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\port_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\hosting_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
     <ClInclude Include="Algorithm\Analysis\CompoundScorer\compound_scorer.h">
       <Filter>Algorithm\Analysis\CompoundScorer</Filter>
     </ClInclude>
@@ -196,6 +220,30 @@
       <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\Analysis\UrlClassifier\url_classifier.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\url_parser.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\ip_filter.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\shortener_filter.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\executable_filter.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\entropy_filter.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\scheme_filter.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\port_filter.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\hosting_filter.cpp">
       <Filter>Algorithm\Analysis\UrlClassifier</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\Analysis\CompoundScorer\compound_scorer.cpp">
