@@ -22,6 +22,18 @@
     <Filter Include="Algorithm\PreAnalysis">
       <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556677}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Algorithm\PreAnalysis\KeyDecoder">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556701}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm\PreAnalysis\KeyNormalizer">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556702}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm\PreAnalysis\UrlExtractor">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556703}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm\PreAnalysis\TypingAnalyzer">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556704}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Algorithm\Analysis">
       <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556688}</UniqueIdentifier>
     </Filter>
@@ -99,20 +111,20 @@
     <ClInclude Include="UI\ui_compound_scorer.h">
       <Filter>UI</Filter>
     </ClInclude>
-    <ClInclude Include="Algorithm\PreAnalysis\key_decoder.h">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClInclude Include="Algorithm\PreAnalysis\KeyDecoder\key_decoder.h">
+      <Filter>Algorithm\PreAnalysis\KeyDecoder</Filter>
     </ClInclude>
-    <ClInclude Include="Algorithm\PreAnalysis\key_normalizer.h">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClInclude Include="Algorithm\PreAnalysis\KeyNormalizer\key_normalizer.h">
+      <Filter>Algorithm\PreAnalysis\KeyNormalizer</Filter>
     </ClInclude>
-    <ClInclude Include="Algorithm\PreAnalysis\url_extractor.h">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClInclude Include="Algorithm\PreAnalysis\UrlExtractor\url_extractor.h">
+      <Filter>Algorithm\PreAnalysis\UrlExtractor</Filter>
     </ClInclude>
-    <ClInclude Include="Algorithm\PreAnalysis\keyboard_shortcuts_ref.h">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClInclude Include="Algorithm\PreAnalysis\KeyNormalizer\keyboard_shortcuts_ref.h">
+      <Filter>Algorithm\PreAnalysis\KeyNormalizer</Filter>
     </ClInclude>
-    <ClInclude Include="Algorithm\PreAnalysis\typing_analyzer.h">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClInclude Include="Algorithm\PreAnalysis\TypingAnalyzer\typing_analyzer.h">
+      <Filter>Algorithm\PreAnalysis\TypingAnalyzer</Filter>
     </ClInclude>
     <ClInclude Include="Algorithm\Analysis\ShellDetector\shell_detector.h">
       <Filter>Algorithm\Analysis\ShellDetector</Filter>
@@ -198,17 +210,17 @@
     <ClCompile Include="UI\ui_compound_scorer.cpp">
       <Filter>UI</Filter>
     </ClCompile>
-    <ClCompile Include="Algorithm\PreAnalysis\key_decoder.cpp">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClCompile Include="Algorithm\PreAnalysis\KeyDecoder\key_decoder.cpp">
+      <Filter>Algorithm\PreAnalysis\KeyDecoder</Filter>
     </ClCompile>
-    <ClCompile Include="Algorithm\PreAnalysis\key_normalizer.cpp">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClCompile Include="Algorithm\PreAnalysis\KeyNormalizer\key_normalizer.cpp">
+      <Filter>Algorithm\PreAnalysis\KeyNormalizer</Filter>
     </ClCompile>
-    <ClCompile Include="Algorithm\PreAnalysis\url_extractor.cpp">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClCompile Include="Algorithm\PreAnalysis\UrlExtractor\url_extractor.cpp">
+      <Filter>Algorithm\PreAnalysis\UrlExtractor</Filter>
     </ClCompile>
-    <ClCompile Include="Algorithm\PreAnalysis\typing_analyzer.cpp">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClCompile Include="Algorithm\PreAnalysis\TypingAnalyzer\typing_analyzer.cpp">
+      <Filter>Algorithm\PreAnalysis\TypingAnalyzer</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\Analysis\ShellDetector\shell_detector.cpp">
       <Filter>Algorithm\Analysis\ShellDetector</Filter>

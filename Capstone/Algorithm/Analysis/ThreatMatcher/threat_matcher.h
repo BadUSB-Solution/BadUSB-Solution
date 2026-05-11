@@ -1,6 +1,6 @@
 #pragma once
 #include "framework.h"
-#include "../../PreAnalysis/key_decoder.h"
+#include "key_decoder.h"
 #include <string>
 #include <vector>
 #include <set>

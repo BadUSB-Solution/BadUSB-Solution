@@ -4,6 +4,7 @@
 #include "keyboard_shortcuts_ref.h"
 #include "shell_detector.h"
 #include "url_classifier.h"
+#include "typing_analyzer.h"
 #include <string>
 
 // >>> CompoundScorer UI 통합 시작 (이 줄 + 아래 마커 사이 블록 모두 제거 가능)
@@ -653,6 +654,24 @@ namespace BufferViewUI
                 wchar_t buf[96];
                 wsprintfW(buf, L"%s  (line %d, elevated=%s)\r\n",
                           name, (int)sh.lineIndex, sh.elevated ? L"true" : L"false");
+                normText += buf;
+            }
+
+            // Typing Analysis
+            {
+                auto ta = TypingAnalyzer::Analyze(keys);
+                normText += L"\r\n=== Typing Analysis ===\r\n";
+                const wchar_t* cls =
+                    ta.classification == TypingAnalyzer::TYPING_AUTOMATED ? L"AUTOMATED" :
+                    ta.classification == TypingAnalyzer::TYPING_HUMAN     ? L"HUMAN"     :
+                                                                            L"UNKNOWN";
+                wchar_t buf[256];
+                wsprintfW(buf,
+                          L"Classification: %s   keys=%d  WPM=%d\r\n"
+                          L"  median=%dms  MAD=%dms  mean=%dms  range=%d..%dms\r\n",
+                          cls, (int)ta.keyCount, (int)ta.overallWpm,
+                          (int)ta.medianMs, (int)ta.madMs, (int)ta.meanMs,
+                          (int)ta.minMs, (int)ta.maxMs);
                 normText += buf;
             }
 
