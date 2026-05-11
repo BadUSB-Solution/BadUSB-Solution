@@ -1225,7 +1225,23 @@ MainWindow::MainWindow(QWidget* parent)
     sidebarLayout->addWidget(addNavButton("설정", 4, ":/icons/nav-settings.svg"));
     sidebarLayout->addStretch();
     sidebarLayout->addWidget(addNavButton("도움말", 5, ":/icons/nav-help.svg"));
-    sidebarLayout->addWidget(addNavButton("접기", 0, ":/icons/nav-collapse.svg"));
+    auto* collapseButton = new QPushButton("접기");
+    collapseButton->setObjectName("navButton");
+    collapseButton->setFont(pretendardFont(FontRole::SemiBold));
+    collapseButton->setCursor(Qt::PointingHandCursor);
+    collapseButton->setIcon(QIcon(":/icons/nav-collapse.svg"));
+    collapseButton->setIconSize(QSize(20, 20));
+    connect(collapseButton, &QPushButton::clicked, this, [this] {
+        refreshTrayWidget();
+        hide();
+        if (trayWidget_) {
+            trayWidget_->positionNearTray();
+            trayWidget_->show();
+            trayWidget_->raise();
+            trayWidget_->activateWindow();
+        }
+    });
+    sidebarLayout->addWidget(collapseButton);
 
     // ---- Content area ----
     auto* content = new QWidget;
