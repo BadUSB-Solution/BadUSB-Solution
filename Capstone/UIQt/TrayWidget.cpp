@@ -1,5 +1,6 @@
 // UTF-8
 #include "TrayWidget.h"
+#include "Theme.h"
 
 #include <QFrame>
 #include <QHBoxLayout>
@@ -76,7 +77,7 @@ TrayWidget::TrayWidget(QWidget* parent)
     // Shield icon
     auto* shieldLbl = new QLabel;
     shieldLbl->setFixedSize(18, 18);
-    shieldLbl->setPixmap(QIcon(":/icons/brand-shield.svg").pixmap(18, 18));
+    shieldLbl->setPixmap(QIcon(":/icons/brand-mark.png").pixmap(18, 18));
     shieldLbl->setStyleSheet("QLabel { background: transparent; border: none; }");
     headerL->addWidget(shieldLbl);
 
@@ -190,11 +191,10 @@ TrayWidget::TrayWidget(QWidget* parent)
     threatL->setContentsMargins(12, 10, 12, 10);
     threatL->setSpacing(8);
 
-    auto* alertIcon = new QLabel;
-    alertIcon->setFixedSize(16, 16);
-    alertIcon->setPixmap(QIcon(":/icons/status-warning.svg").pixmap(16, 16));
-    alertIcon->setStyleSheet("QLabel { background: transparent; border: none; }");
-    threatL->addWidget(alertIcon);
+    threatIconLabel_ = new QLabel;
+    threatIconLabel_->setFixedSize(16, 16);
+    threatIconLabel_->setStyleSheet("QLabel { background: transparent; border: none; }");
+    threatL->addWidget(threatIconLabel_);
 
     auto* threatInfoBox = new QVBoxLayout;
     threatInfoBox->setSpacing(2);
@@ -299,6 +299,7 @@ void TrayWidget::applyLevel()
 {
     struct Cfg {
         const char* dotColor;
+        const char* icon;
         const char* statusStr;
         const char* badgeText;
         const char* badgeStyle;
@@ -307,19 +308,19 @@ void TrayWidget::applyLevel()
     static const Cfg cfgs[3] = {
         // Normal
         {
-            "#00C950", "정상", "안전",
+            "#00C950", ":/icons/status-shield-green.svg", "정상", "안전",
             "QPushButton { font-size:11px; font-weight:600; color:#15803D;"
             " background:#DCFCE7; border:none; border-radius:6px; padding:3px 12px; }"
         },
-        // Warning
+        // Warning — color matches UiTheme::Warning
         {
-            "#F97316", "경고", "주의 필요",
+            UiTheme::Warning, ":/icons/status-warning.svg", "경고", "주의 필요",
             "QPushButton { font-size:11px; font-weight:600; color:#F97316;"
             " background:white; border:1px solid #F97316; border-radius:6px; padding:3px 12px; }"
         },
         // Danger
         {
-            "#EC003F", "위험", "즉시 대응",
+            "#EC003F", ":/icons/status-blocked.svg", "위험", "즉시 대응",
             "QPushButton { font-size:11px; font-weight:600; color:white;"
             " background:#EC003F; border:none; border-radius:6px; padding:3px 12px; }"
         },
@@ -329,6 +330,8 @@ void TrayWidget::applyLevel()
     statusDot_->setStyleSheet(
         QString("QLabel { font-size:13px; color:%1; background:transparent; border:none; }")
             .arg(cfgs[idx].dotColor));
+    if (threatIconLabel_)
+        threatIconLabel_->setPixmap(QIcon(cfgs[idx].icon).pixmap(16, 16));
     statusText_->setText(cfgs[idx].statusStr);
     statusBadge_->setText(cfgs[idx].badgeText);
     statusBadge_->setStyleSheet(cfgs[idx].badgeStyle);

@@ -39,6 +39,7 @@ signals:
 private:
     // Dynamic UI elements
     QLabel*      usbCountLabel_  = nullptr;
+    QLabel*      threatIconLabel_ = nullptr;
     QLabel*      statusDot_      = nullptr;
     QLabel*      statusText_     = nullptr;
     QPushButton* statusBadge_    = nullptr;

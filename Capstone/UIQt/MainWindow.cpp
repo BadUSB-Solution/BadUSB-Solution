@@ -563,7 +563,7 @@ namespace
             QPainter p(this);
             p.setRenderHint(QPainter::Antialiasing);
             p.setPen(Qt::NoPen);
-            p.setBrush(on_ ? QColor("#FF6900") : QColor("#CAD5E2"));
+            p.setBrush(on_ ? QColor(UiTheme::Primary) : QColor(UiTheme::BorderInput));
             p.drawRoundedRect(rect(), 12, 12);
             // White thumb circle
             const int cx = on_ ? width() - 13 : 13;
@@ -631,7 +631,7 @@ namespace
                 const double x = lm + i * barW + gap / 2.0;
                 const double y = tm + ch - bh;
                 p.fillRect(QRectF(x, y, barW - gap, bh),
-                           QColor(anom ? "#F97316" : "#BFDBFE"));
+                           QColor(anom ? UiTheme::ChartThreshold : UiTheme::ChartNormal));
             }
 
             // X-axis labels
@@ -688,7 +688,7 @@ namespace
             // Threshold dashed line at 8.0
             {
                 const int ty = tm + ch - static_cast<int>((8.0 / maxV) * ch);
-                p.setPen(QPen(QColor("#F97316"), 1.5, Qt::DashLine));
+                p.setPen(QPen(QColor(UiTheme::ChartThreshold), 1.5, Qt::DashLine));
                 p.drawLine(lm, ty, lm + cw, ty);
             }
 
@@ -703,7 +703,7 @@ namespace
             }
 
             // Draw red line
-            p.setPen(QPen(QColor("#EF4444"), 2));
+            p.setPen(QPen(QColor(UiTheme::ChartRisk), 2));
             for (int i = 1; i < pts.size(); ++i)
                 p.drawLine(pts[i-1], pts[i]);
 
@@ -712,7 +712,7 @@ namespace
                 const int cpIndex = std::distance(data.cbegin(), std::max_element(data.cbegin(), data.cend()));
                 const QPointF& cp = pts[std::clamp(cpIndex, 0, static_cast<int>(pts.size()) - 1)];
                 p.setPen(QPen(QColor("#FFFFFF"), 2));
-                p.setBrush(QColor("#F97316"));
+                p.setBrush(QColor(UiTheme::ChartThreshold));
                 p.drawEllipse(cp, 5.0, 5.0);
             }
 
@@ -744,16 +744,18 @@ namespace
         dlg->setModal(false);
         dlg->setFixedSize(1024, 752);
         dlg->setStyleSheet(
-            "QDialog { background: #FFFFFF; border-radius: 12px; }"
-            "QFrame#dlgCard { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; }"
-            "QFrame#dlgInfoRow { border-bottom: 1px solid #F1F5F9; }"
-            "QTextEdit { background: #0F172B; color: #E2E8F0; font-family: Consolas, monospace;"
-            "            font-size: 12px; border: none; padding: 12px; }"
-            "QCheckBox { color: #45556C; font-size: 13px; spacing: 6px; }"
-            "QCheckBox::indicator { width: 15px; height: 15px; border: 1.5px solid #CAD5E2;"
-            "                       border-radius: 4px; background: white; }"
-            "QCheckBox::indicator:checked { background: #FF6900; border-color: #FF6900;"
-            "                               image: url(:/icons/check-white.svg); }"
+            QString(
+                "QDialog { background: #FFFFFF; border-radius: 12px; }"
+                "QFrame#dlgCard { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; }"
+                "QFrame#dlgInfoRow { border-bottom: 1px solid #F1F5F9; }"
+                "QTextEdit { background: %2; color: #E2E8F0; font-family: Consolas, monospace;"
+                "            font-size: 12px; border: none; padding: 12px; }"
+                "QCheckBox { color: #45556C; font-size: 13px; spacing: 6px; }"
+                "QCheckBox::indicator { width: 15px; height: 15px; border: 1.5px solid #CAD5E2;"
+                "                       border-radius: 4px; background: white; }"
+                "QCheckBox::indicator:checked { background: %1; border-color: %1;"
+                "                               image: url(:/icons/check-white.svg); }"
+            ).arg(UiTheme::Primary, UiTheme::TerminalBg)
         );
 
         // Hook ownership:
@@ -807,7 +809,7 @@ namespace
         auto* hdrL = new QHBoxLayout(hdr);
         hdrL->setContentsMargins(24, 0, 16, 0);
         hdrL->setSpacing(10);
-        hdrL->addWidget(iconLabel(":/icons/brand-shield.svg", 20));
+        hdrL->addWidget(iconLabel(":/icons/brand-mark.png", 20));
         auto* title = new QLabel("장치 승인 및 버퍼 모니터");
         title->setFont(pretendardFont(FontRole::SemiBold));
         title->setStyleSheet("font-size: 16px; color: #1D293D;");
@@ -1014,10 +1016,11 @@ namespace
             bufText->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
             bufText->setFont(QFont("Consolas", 13));
             bufText->setStyleSheet(
-                "QTextEdit { background: #0F172B; color: #C8D8F0; border: none; padding: 14px; }"
-                "QScrollBar:vertical { background: #111A2D; width: 12px; margin: 0; }"
-                "QScrollBar::handle:vertical { background: #334155; border-radius: 6px; min-height: 28px; }"
-                "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+                QString("QTextEdit { background: %1; color: %2; border: none; padding: 14px; }"
+                        "QScrollBar:vertical { background: #111A2D; width: 12px; margin: 0; }"
+                        "QScrollBar::handle:vertical { background: #334155; border-radius: 6px; min-height: 28px; }"
+                        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }")
+                .arg(UiTheme::TerminalBg, UiTheme::TerminalText)
             );
             auto lastBufferText = std::make_shared<QString>();
             updateBufferText = [bufText, normalizedMode, lastBufferText] {
@@ -1126,8 +1129,8 @@ namespace
             return container;
         };
 
-        auto* allowBtn = mkActionBtn("허용", "이 장치 신뢰 등록", "#FF6900", "#E55E00", 140);
-        auto* denyBtn  = mkActionBtn("차단", "즉시 연결 종료",    "#EC003F", "#C5002F", 120);
+        auto* allowBtn = mkActionBtn("허용", "이 장치 신뢰 등록", UiTheme::Primary, UiTheme::PrimaryHover, 140);
+        auto* denyBtn  = mkActionBtn("차단", "즉시 연결 종료",    UiTheme::DangerAction, UiTheme::DangerHover, 120);
 
         class ClickFilter : public QObject {
             QDialog* dlg_;
@@ -1192,7 +1195,7 @@ MainWindow::MainWindow(QWidget* parent)
     resize(1440, 900);
     setMinimumSize(1180, 760);
     setWindowTitle("Abang-All");
-    setStyleSheet(UiTheme::AppStyle);
+    setStyleSheet(UiTheme::appStyle());
 
     auto* root = new QWidget;
     root->setObjectName("centralRoot");
@@ -1212,7 +1215,7 @@ MainWindow::MainWindow(QWidget* parent)
     auto* brandLayout = new QHBoxLayout(brand);
     brandLayout->setContentsMargins(0, 0, 24, 0);
     brandLayout->setSpacing(10);
-    brandLayout->addWidget(iconLabel(":/icons/brand-shield.svg", 24));
+    brandLayout->addWidget(iconLabel(":/icons/brand-mark.png", 24));
     brandLayout->addWidget(label("Abang-All", "brandText"));
     brandLayout->addStretch();
     sidebarLayout->addWidget(brand);
@@ -1346,7 +1349,7 @@ void MainWindow::setupTray()
     });
 
     // Tray icon
-    trayIcon_ = new QSystemTrayIcon(QIcon(":/icons/brand-shield.svg"), this);
+    trayIcon_ = new QSystemTrayIcon(QIcon(":/icons/brand-mark.png"), this);
     trayIcon_->setToolTip("Abang-All 보안 위젯");
 
     // Context menu
@@ -1530,7 +1533,7 @@ QWidget* MainWindow::createDashboardPage()
         auto* bufferButton = new QPushButton("버퍼 모니터 팝업 열기");
         bufferButton->setObjectName("secondaryButton");
         bufferButton->setFont(pretendardFont(FontRole::Medium));
-        bufferButton->setIcon(QIcon(":/icons/brand-shield.svg"));
+        bufferButton->setIcon(QIcon(":/icons/ui-lock.svg"));
         bufferButton->setIconSize(QSize(16, 16));
         connect(bufferButton, &QPushButton::clicked, page, [this] {
             // nullptr parent: the dialog is a fully independent OS window,
@@ -1998,8 +2001,8 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         ).arg(bg, fg, border));
         return btn;
     };
-    usbAllowBtn_      = makeActionBtn("이 장치 허용",   "#FF6900", "#FFFFFF", "none");
-    usbBlockBtn_      = makeActionBtn("이 장치 차단",   "#EC003F", "#FFFFFF", "none");
+    usbAllowBtn_      = makeActionBtn("이 장치 허용",   UiTheme::Primary, "#FFFFFF", "none");
+    usbBlockBtn_      = makeActionBtn("이 장치 차단",   UiTheme::DangerAction, "#FFFFFF", "none");
     usbRemoveRuleBtn_ = makeActionBtn("예외 규칙 삭제", "#FFFFFF", "#62748E", "1px solid #E2E8F0");
     dcBL->addWidget(usbAllowBtn_);
     dcBL->addSpacing(8);
@@ -2120,7 +2123,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         r.policy = "승인 대기";
         usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("승인 대기", "warningBadge"));
         applyUsbDetailPanel(usbSelectedRow_);
-        showUsbActionFeedback("예외 규칙을 삭제했습니다. 연결 중인 장치는 다시 검토합니다.", "#CA3500");
+        showUsbActionFeedback("예외 규칙을 삭제했습니다. 연결 중인 장치는 다시 검토합니다.", UiTheme::PrimaryText);
     });
 
     // Initial data fill
@@ -2597,7 +2600,7 @@ QWidget* MainWindow::createLogPage()
             if (badge == "blockBadge")   return QStringLiteral("border: 1px solid #FFCCD3;");
             if (badge == "warningBadge") return QStringLiteral("border: 1px solid #FDE68A;");
             if (badge == "successBadge") return QStringLiteral("border: 1px solid #ABEFC6;");
-            return QStringLiteral("border: 1px solid #BFDBFE;");
+            return QString("border: 1px solid %1;").arg(UiTheme::ChartNormal);
         };
 
         auto* detIconLabel = new QLabel;
@@ -2896,9 +2899,9 @@ QWidget* MainWindow::createAnalyticsPage()
 
         auto* legendRow = new QHBoxLayout;
         legendRow->addStretch();
-        legendRow->addWidget(mkLegendItem("#BFDBFE", "정상 범위"));
+        legendRow->addWidget(mkLegendItem(UiTheme::ChartNormal, "정상 범위"));
         legendRow->addSpacing(16);
-        legendRow->addWidget(mkLegendItem("#F97316", "이상 구간"));
+        legendRow->addWidget(mkLegendItem(UiTheme::ChartThreshold, "이상 구간"));
         cbL->addLayout(legendRow);
 
         leftL->addWidget(createCard("입력 속도 (keys/sec)", chartBody, rangeLabel), 1);
@@ -2930,9 +2933,9 @@ QWidget* MainWindow::createAnalyticsPage()
 
         auto* legendRow2 = new QHBoxLayout;
         legendRow2->addStretch();
-        legendRow2->addWidget(mkLegendItem("#EF4444", "누적 위험 점수"));
+        legendRow2->addWidget(mkLegendItem(UiTheme::ChartRisk, "누적 위험 점수"));
         legendRow2->addSpacing(16);
-        legendRow2->addWidget(mkLegendItem("#F97316", "임계값 (8.0)", true));
+        legendRow2->addWidget(mkLegendItem(UiTheme::ChartThreshold, "임계값 (8.0)", true));
         lbL->addLayout(legendRow2);
 
         leftL->addWidget(createCard("위험 점수 추이", lineBody, rangeLabel2), 1);
@@ -3009,7 +3012,7 @@ QWidget* MainWindow::createAnalyticsPage()
             k->setStyleSheet("QLabel { color: #62748E; font-size: 13px; }");
             auto* v = new QLabel(val);
             v->setFont(pretendardFont(FontRole::Medium));
-            v->setStyleSheet(QString("QLabel { color: %1; font-size: 13px; }").arg(valRed ? "#EF4444" : "#1D293D"));
+            v->setStyleSheet(QString("QLabel { color: %1; font-size: 13px; }").arg(valRed ? UiTheme::DangerText : UiTheme::Text));
             row->addWidget(k);
             row->addStretch();
             row->addWidget(v);
@@ -3168,7 +3171,7 @@ QWidget* MainWindow::createSettingsPage()
         struct TabInfo { QString name; QString icon; };
         const QList<TabInfo> tabInfos = {
             {"일반 환경 설정", ":/icons/action-filter.svg"},
-            {"위험 탐지 정책", ":/icons/brand-shield.svg"},
+            {"위험 탐지 정책", ":/icons/ui-lock.svg"},
             {"알림 및 리포트", ":/icons/ui-bell.svg"},
         };
 
@@ -3550,12 +3553,13 @@ QWidget* MainWindow::createHelpPage()
         }) makeBullet(b, cl);
         cl->addSpacing(8);
         auto* note = new QFrame;
-        note->setStyleSheet("QFrame { background: #FFF7ED; border: 1px solid #FFEDD4; border-radius: 8px; }");
+        note->setStyleSheet(QString("QFrame { background: %1; border: 1px solid %2; border-radius: 8px; }")
+            .arg(UiTheme::PrimarySoft, UiTheme::PrimarySoftBorder));
         auto* nl = new QHBoxLayout(note);
         nl->setContentsMargins(17, 14, 17, 14);
         auto* noteLbl = new QLabel("참고: 설치 후 트레이 아이콘이 나타나면 정상적으로 보호가 시작된 것입니다.");
         noteLbl->setFont(pretendardFont(FontRole::Medium));
-        noteLbl->setStyleSheet("color: #9F2D00; font-size: 14px;");
+        noteLbl->setStyleSheet(QString("color: %1; font-size: 14px;").arg(UiTheme::PrimaryText));
         noteLbl->setWordWrap(true);
         nl->addWidget(noteLbl);
         cl->addWidget(note);
@@ -3646,7 +3650,7 @@ QWidget* MainWindow::createHelpPage()
             itemW->setCursor(Qt::PointingHandCursor);
             const bool active = (item.index == 2);
             itemW->setStyleSheet(active
-                ? "QWidget { background: #FFF7ED; border-radius: 8px; }"
+                ? QString("QWidget { background: %1; border-radius: 8px; }").arg(UiTheme::PrimarySoft)
                 : "QWidget { background: transparent; border-radius: 8px; }");
             auto* iL = new QHBoxLayout(itemW);
             iL->setContentsMargins(12, 10, 12, 10);
@@ -3662,15 +3666,17 @@ QWidget* MainWindow::createHelpPage()
             auto* titleLbl = new QLabel(item.title);
             titleLbl->setFont(pretendardFont(FontRole::Medium));
             titleLbl->setStyleSheet(active
-                ? "color: #CA3500; font-size: 14px;"
-                : "color: #45556C; font-size: 14px;");
+                ? QString("color: %1; font-size: 14px;").arg(UiTheme::PrimaryText)
+                : QString("color: %1; font-size: 14px;").arg(UiTheme::SubtextMid));
             titleLbl->setWordWrap(true);
             textBox->addWidget(titleLbl);
             iL->addLayout(textBox, 1);
 
             // Chevron for active item
             auto* chevron = new QLabel("›");
-            chevron->setStyleSheet(active ? "color: #CA3500; font-size: 16px;" : "color: transparent; font-size: 16px;");
+            chevron->setStyleSheet(active
+                ? QString("color: %1; font-size: 16px;").arg(UiTheme::PrimaryText)
+                : "color: transparent; font-size: 16px;");
             iL->addWidget(chevron);
 
             navL->addWidget(itemW);
@@ -3700,11 +3706,11 @@ QWidget* MainWindow::createHelpPage()
                         for (int i = 0; i < navItems_->size(); ++i) {
                             const bool sel = (i == idx_);
                             navItems_->at(i)->setStyleSheet(sel
-                                ? "QWidget { background: #FFF7ED; border-radius: 8px; }"
+                                ? QString("QWidget { background: %1; border-radius: 8px; }").arg(UiTheme::PrimarySoft)
                                 : "QWidget { background: transparent; border-radius: 8px; }");
                             titleLabels_->at(i)->setStyleSheet(sel
-                                ? "color: #CA3500; font-size: 14px;"
-                                : "color: #45556C; font-size: 14px;");
+                                ? QString("color: %1; font-size: 14px;").arg(UiTheme::PrimaryText)
+                                : QString("color: %1; font-size: 14px;").arg(UiTheme::SubtextMid));
                         }
                         return true;
                     }

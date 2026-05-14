@@ -3,6 +3,7 @@
 #include <QFileInfo>
 #include <QFont>
 #include <QFontDatabase>
+#include <QIcon>
 #include <QStringList>
 
 #include "MainWindow.h"
@@ -63,7 +64,8 @@ int main(int argc, char* argv[])
     appFont.setStyleStrategy(QFont::PreferAntialias);
     appFont.setHintingPreference(QFont::PreferNoHinting);
     app.setFont(appFont);
-    app.setStyleSheet(UiTheme::AppStyle);
+    app.setStyleSheet(UiTheme::appStyle());
+    app.setWindowIcon(QIcon(":/icons/brand-mark.png"));
 
     // Keep the app alive when the main window is closed/hidden to tray
     app.setQuitOnLastWindowClosed(false);

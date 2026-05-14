@@ -6,6 +6,7 @@
         <file alias="action-filter.svg">icons/action-filter.svg</file>
         <file alias="action-refresh.svg">icons/action-refresh.svg</file>
         <file alias="action-search.svg">icons/action-search.svg</file>
+        <file alias="brand-mark.png">icons/brand-mark.png</file>
         <file alias="brand-shield.svg">icons/brand-shield.svg</file>
         <file alias="device-keyboard.svg">icons/device-keyboard.svg</file>
         <file alias="device-network.svg">icons/device-network.svg</file>
