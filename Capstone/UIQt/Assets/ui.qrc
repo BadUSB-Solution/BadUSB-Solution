@@ -20,6 +20,7 @@
         <file alias="nav-settings.svg">icons/nav-settings.svg</file>
         <file alias="nav-usb.svg">icons/nav-usb.svg</file>
         <file alias="status-allowed.svg">icons/status-allowed.svg</file>
+        <file alias="status-shield-blue.svg">icons/status-shield-blue.svg</file>
         <file alias="status-shield-grey.svg">icons/status-shield-grey.svg</file>
         <file alias="status-shield-green.svg">icons/status-shield-green.svg</file>
         <file alias="check-white.svg">icons/check-white.svg</file>

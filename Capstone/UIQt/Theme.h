@@ -36,6 +36,13 @@ namespace UiTheme
     constexpr const char* PrimarySoftBorder = "#B9DCFF";   // border on primary-soft surfaces
     constexpr const char* PrimaryText        = "#0B4EA2";   // dark primary text on PrimarySoft bg
 
+    // Sidebar brand surface
+    constexpr const char* SidebarBg          = "#061B49";
+    constexpr const char* SidebarBgDeep      = "#03112E";
+    constexpr const char* SidebarBorder      = "#12366D";
+    constexpr const char* SidebarText        = "#D7E5FF";
+    constexpr const char* SidebarMuted       = "#8FA6C7";
+
     // Semantic — intentionally fixed regardless of brand recolor
     constexpr const char* Success      = "#00BC7D";
     constexpr const char* Warning      = "#F97316";   // amber: UI-level warning badge / tray dot
@@ -78,40 +85,42 @@ namespace UiTheme
             }
 
             QWidget#sidebar {
-                background: %White%;
-                border-right: 1px solid %Border%;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                                            stop:0 %SidebarBg%, stop:1 %SidebarBgDeep%);
+                border-right: 1px solid %SidebarBorder%;
             }
 
             QLabel#brandText {
-                font-size: 19px;
-                color: %TextDark%;
+                font-size: 22px;
+                color: %White%;
             }
 
             QPushButton#navButton {
-                min-height: 48px;
-                padding: 0 20px 0 20px;
+                min-height: 56px;
+                padding: 0 20px 0 22px;
                 border: none;
-                border-radius: 0;
+                border-radius: 8px;
                 text-align: left;
-                font-size: 15px;
-                color: %Subtext%;
+                font-size: 16px;
+                color: %SidebarText%;
                 background: transparent;
             }
 
             QPushButton#navButton:hover {
-                background: %PrimarySoft%;
-                color: %Primary%;
+                background: rgba(30, 143, 255, 0.16);
+                color: %White%;
             }
 
             QPushButton#navButton[active="true"] {
-                background: %PrimarySoft%;
-                color: %Primary%;
-                border-left: 4px solid %Primary%;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                            stop:0 %PrimaryHover%, stop:1 %Primary%);
+                color: %White%;
+                border: none;
             }
 
             QPushButton#topNavButton {
                 min-height: 64px;
-                padding: 0 2px;
+                padding: 0 6px;
                 border: none;
                 border-radius: 0;
                 background: transparent;
@@ -124,8 +133,9 @@ namespace UiTheme
             }
 
             QPushButton#topNavButton[active="true"] {
-                color: %Primary%;
-                border-bottom: 2px solid %Primary%;
+                color: %PrimaryHover%;
+                font-weight: 600;
+                border-bottom: 2px solid %PrimaryHover%;
             }
 
             QPushButton#iconButton {
@@ -176,8 +186,8 @@ namespace UiTheme
 
             QFrame#statusPanel {
                 background: %White%;
-                border: 1px solid %Border%;
-                border-left: 4px solid %Success%;
+                border: 1px solid %PrimarySoftBorder%;
+                border-left: 4px solid %Primary%;
                 border-radius: 6px;
             }
 
@@ -218,15 +228,15 @@ namespace UiTheme
 
             QLabel#policySuccessText {
                 font-size: 14px;
-                color: #009966;
+                color: %Primary%;
             }
 
             QLabel#successBadge {
                 padding: 3px 8px;
                 border-radius: 6px;
-                background: #ECFDF3;
-                color: #027A48;
-                border: 1px solid #ABEFC6;
+                background: %PrimarySoft%;
+                color: %PrimaryText%;
+                border: 1px solid %PrimarySoftBorder%;
                 font-size: 11px;
             }
 
@@ -237,9 +247,9 @@ namespace UiTheme
                 max-height: 28px;
                 padding: 0;
                 border-radius: 7px;
-                background: #ECFDF3;
-                color: #027A48;
-                border: 1px solid #ABEFC6;
+                background: %PrimarySoft%;
+                color: %PrimaryText%;
+                border: 1px solid %PrimarySoftBorder%;
                 font-size: 11px;
             }
 
@@ -299,6 +309,21 @@ namespace UiTheme
                 background: %White%;
                 color: %TextMid%;
                 border: 1px solid %Border%;
+            }
+
+            QPushButton#bufferButton {
+                min-height: 40px;
+                padding: 0 18px;
+                border-radius: 8px;
+                background: %White%;
+                color: %PrimaryText%;
+                border: 1px solid %BorderInput%;
+                font-size: 14px;
+            }
+
+            QPushButton#bufferButton:hover {
+                background: %PrimarySoft%;
+                border: 1px solid %PrimarySoftBorder%;
             }
 
             QFrame#themeToggle {
@@ -463,6 +488,13 @@ namespace UiTheme
         .replace(QStringLiteral("%Primary%"),      QLatin1String(Primary))
         .replace(QStringLiteral("%PrimaryHover%"), QLatin1String(PrimaryHover))
         .replace(QStringLiteral("%PrimarySoft%"),  QLatin1String(PrimarySoft))
+        .replace(QStringLiteral("%PrimarySoftBorder%"), QLatin1String(PrimarySoftBorder))
+        .replace(QStringLiteral("%PrimaryText%"),  QLatin1String(PrimaryText))
+        .replace(QStringLiteral("%SidebarBg%"),    QLatin1String(SidebarBg))
+        .replace(QStringLiteral("%SidebarBgDeep%"), QLatin1String(SidebarBgDeep))
+        .replace(QStringLiteral("%SidebarBorder%"), QLatin1String(SidebarBorder))
+        .replace(QStringLiteral("%SidebarText%"),  QLatin1String(SidebarText))
+        .replace(QStringLiteral("%SidebarMuted%"), QLatin1String(SidebarMuted))
         .replace(QStringLiteral("%Text%"),         QLatin1String(Text))
         .replace(QStringLiteral("%Subtext%"),      QLatin1String(Subtext))
         .replace(QStringLiteral("%SubtextMid%"),   QLatin1String(SubtextMid))

@@ -1206,16 +1206,16 @@ MainWindow::MainWindow(QWidget* parent)
     // ---- Sidebar ----
     auto* sidebar = new QWidget;
     sidebar->setObjectName("sidebar");
-    sidebar->setFixedWidth(226);
+    sidebar->setFixedWidth(270);
     auto* sidebarLayout = new QVBoxLayout(sidebar);
-    sidebarLayout->setContentsMargins(28, 28, 0, 28);
-    sidebarLayout->setSpacing(4);
+    sidebarLayout->setContentsMargins(20, 24, 14, 24);
+    sidebarLayout->setSpacing(8);
 
     auto* brand = new QWidget;
     auto* brandLayout = new QHBoxLayout(brand);
-    brandLayout->setContentsMargins(0, 0, 24, 0);
-    brandLayout->setSpacing(10);
-    brandLayout->addWidget(iconLabel(":/icons/brand-mark.png", 24));
+    brandLayout->setContentsMargins(12, 4, 10, 4);
+    brandLayout->setSpacing(12);
+    brandLayout->addWidget(iconLabel(":/icons/brand-mark.png", 40));
     brandLayout->addWidget(label("Abang-All", "brandText"));
     brandLayout->addStretch();
     sidebarLayout->addWidget(brand);
@@ -1531,8 +1531,8 @@ QWidget* MainWindow::createDashboardPage()
         header->addWidget(label("마지막 업데이트: " + nowTimestamp(), "mutedText"));
         header->addSpacing(16);
         auto* bufferButton = new QPushButton("버퍼 모니터 팝업 열기");
-        bufferButton->setObjectName("secondaryButton");
-        bufferButton->setFont(pretendardFont(FontRole::Medium));
+        bufferButton->setObjectName("bufferButton");
+        bufferButton->setFont(pretendardFont(FontRole::SemiBold));
         bufferButton->setIcon(QIcon(":/icons/ui-lock.svg"));
         bufferButton->setIconSize(QSize(16, 16));
         connect(bufferButton, &QPushButton::clicked, page, [this] {
@@ -1621,7 +1621,7 @@ QWidget* MainWindow::createDashboardPage()
             auto* spL = new QHBoxLayout(statusPanel);
             spL->setContentsMargins(14, 10, 14, 10);
             spL->setSpacing(12);
-            spL->addWidget(iconLabel(":/icons/status-allowed.svg", 24));
+            spL->addWidget(iconLabel(":/icons/status-shield-blue.svg", 24));
             auto* spText = new QVBoxLayout;
             spText->setSpacing(2);
             auto* spTitle = label("시스템 보호 정상", "cardTitle");
@@ -1651,7 +1651,7 @@ QWidget* MainWindow::createDashboardPage()
                 auto* lineL = new QHBoxLayout(lineW);
                 lineL->setContentsMargins(0, 3, 10, 3);
                 lineL->setSpacing(10);
-                lineL->addWidget(iconLabel(":/icons/status-shield-green.svg", 16));
+                lineL->addWidget(iconLabel(":/icons/status-shield-blue.svg", 16));
                 lineL->addWidget(label(protRows[ri]));
                 lineL->addStretch();
                 auto* onBadge = label("ON", "protectionOnBadge");
@@ -1671,7 +1671,7 @@ QWidget* MainWindow::createDashboardPage()
                 "QScrollArea#protectionScrollArea { background: #FFFFFF; border: none; }"
                 "QScrollArea#protectionScrollArea > QWidget > QWidget { background: #FFFFFF; }"
                 "QScrollBar:vertical { background: #FFFFFF; width: 6px; margin: 0; }"
-                "QScrollBar::handle:vertical { background: #CAD5E2; border-radius: 3px; min-height: 24px; }"
+                "QScrollBar::handle:vertical { background: #B9DCFF; border-radius: 3px; min-height: 24px; }"
                 "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
                 "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: #FFFFFF; }"
             );
