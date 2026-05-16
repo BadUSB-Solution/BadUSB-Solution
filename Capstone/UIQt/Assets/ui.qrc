@@ -8,6 +8,9 @@
         <file alias="action-search.svg">icons/action-search.svg</file>
         <file alias="brand-mark.png">icons/brand-mark.png</file>
         <file alias="brand-shield.svg">icons/brand-shield.svg</file>
+        <file alias="mascot_ver2.png">icons/mascot_ver2.png</file>
+        <file alias="mascot_ver2_cut.png">icons/mascot_ver2_cut.png</file>
+        <file alias="mascot_ver3.png">icons/mascot_ver3.png</file>
         <file alias="device-keyboard.svg">icons/device-keyboard.svg</file>
         <file alias="device-network.svg">icons/device-network.svg</file>
         <file alias="device-storage.svg">icons/device-storage.svg</file>
@@ -28,6 +31,7 @@
         <file alias="status-clock.svg">icons/status-clock.svg</file>
         <file alias="status-info.svg">icons/status-info.svg</file>
         <file alias="status-warning.svg">icons/status-warning.svg</file>
+        <file alias="tray-usb.svg">icons/tray-usb.svg</file>
         <file alias="ui-alert.svg">icons/ui-alert.svg</file>
         <file alias="ui-bell.svg">icons/ui-bell.svg</file>
         <file alias="ui-lock.svg">icons/ui-lock.svg</file>

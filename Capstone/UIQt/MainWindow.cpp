@@ -55,8 +55,11 @@
 #include "keyboard_hook.h"
 #include "logger.h"
 #include "policy.h"
+#include "device_blocker.h"
 #include "shell_detector.h"
 #include "threat_matcher.h"
+#include "typing_analyzer.h"
+#include "url_classifier.h"
 
 #include <QPointer>
 #include <QSystemTrayIcon>
@@ -81,6 +84,7 @@ static constexpr UINT WM_APP_NEWLOG = WM_APP + 1;
 static QPointer<QDialog>      g_activeBufferDlg;
 static std::shared_ptr<UsbItem> g_dlgSharedDevice;
 static QVector<double>        g_threatScoreTrend;
+static QVector<QPair<double, bool>> g_inputSpeedTrend;
 
 namespace
 {
@@ -94,6 +98,11 @@ namespace
         ShellDetector::Result shell{};
         ThreatMatcher::ThreatResult threat{};
         HotkeyScorer::HotkeyResult hotkey{};
+        TypingAnalyzer::Result typing{};
+        UrlClassifier::Result urls{};
+        double typingScore = 0.0;
+        double urlScore = 0.0;
+        double keysPerSecond = 0.0;
         CompoundScorer::Verdict verdict{};
     };
 
@@ -204,6 +213,30 @@ namespace
         return accepted;
     }
 
+    QString reenableAllowedDevice(const UsbItem& item, const std::wstring& source)
+    {
+        if (item.vid == 0 && item.pid == 0) {
+            Logger::Add(L"[Qt] " + source + L" re-enable skipped: missing VID/PID");
+            return QStringLiteral("허용 목록에 저장했습니다. VID/PID 정보가 없어 장치 재활성화는 건너뛰었습니다.");
+        }
+
+        std::wstring enableDetail;
+        const DeviceBlocker::EnableResult enableResult =
+            DeviceBlocker::EnableByVidPid(item.vid, item.pid, &enableDetail);
+        Logger::Add(L"[Qt] " + source + L" re-enable result=" +
+            std::to_wstring(static_cast<int>(enableResult)) + L", " + enableDetail);
+
+        switch (enableResult) {
+        case DeviceBlocker::EnableResult::Enabled:
+            return QStringLiteral("허용 목록에 저장하고 장치 재활성화를 요청했습니다.");
+        case DeviceBlocker::EnableResult::NotFound:
+            return QStringLiteral("허용 목록에 저장했습니다. 현재 재활성화할 장치를 찾지 못했습니다.");
+        case DeviceBlocker::EnableResult::Failed:
+        default:
+            return QStringLiteral("허용 목록에 저장했지만 장치 재활성화 요청은 실패했습니다.");
+        }
+    }
+
     QString scoreText(double score, double maxScore = 10.0)
     {
         return QString("%1 / %2")
@@ -239,6 +272,61 @@ namespace
         return count;
     }
 
+    double scoreTypingResult(const TypingAnalyzer::Result& typing)
+    {
+        if (typing.intervalCount < 5)
+            return 0.0;
+
+        double score = 0.0;
+        if (typing.classification == TypingAnalyzer::TYPING_AUTOMATED) {
+            score = 6.0;
+        } else if (typing.classification == TypingAnalyzer::TYPING_HUMAN) {
+            score = 1.0;
+        }
+
+        if (typing.medianMs < 30.0)
+            score += 2.0;
+        else if (typing.medianMs < 50.0)
+            score += 1.0;
+
+        if (typing.madMs < 5.0)
+            score += 2.0;
+        else if (typing.madMs < 12.0)
+            score += 1.0;
+
+        return std::clamp(score, 0.0, 10.0);
+    }
+
+    double scoreUrlFlags(uint32_t flags)
+    {
+        double score = 0.0;
+        const auto has = [flags](UrlClassifier::UrlFlag flag) {
+            return (flags & static_cast<uint32_t>(flag)) != 0;
+        };
+
+        if (has(UrlClassifier::URL_FLAG_EXE_EXTENSION))   score += 3.0;
+        if (has(UrlClassifier::URL_FLAG_HIGH_ENTROPY))    score += 2.0;
+        if (has(UrlClassifier::URL_FLAG_ABNORMAL_SCHEME)) score += 2.0;
+        if (has(UrlClassifier::URL_FLAG_UNUSUAL_PORT))    score += 2.0;
+        if (has(UrlClassifier::URL_FLAG_SHORTENER))       score += 2.0;
+        if (has(UrlClassifier::URL_FLAG_IP_ADDRESS))      score += 1.5;
+        if (has(UrlClassifier::URL_FLAG_FREE_TLD))        score += 2.0;
+        if (has(UrlClassifier::URL_FLAG_DYNAMIC_DNS))     score += 2.0;
+        if (has(UrlClassifier::URL_FLAG_TUNNELING))       score += 2.0;
+        if (has(UrlClassifier::URL_FLAG_FILE_SHARING))    score += 1.5;
+        if (has(UrlClassifier::URL_FLAG_FREE_HOSTING))    score += 1.0;
+
+        return std::clamp(score, 0.0, 10.0);
+    }
+
+    double scoreUrlResult(const UrlClassifier::Result& urls)
+    {
+        double maxScore = 0.0;
+        for (const auto& item : urls.items)
+            maxScore = (std::max)(maxScore, scoreUrlFlags(item.flags));
+        return maxScore;
+    }
+
     LiveAnalysisSnapshot buildLiveAnalysisSnapshot()
     {
         LiveAnalysisSnapshot snapshot;
@@ -265,14 +353,23 @@ namespace
         if (intervalCount > 0)
             snapshot.averageIntervalMs = intervalSum / intervalCount;
 
+        snapshot.typing = TypingAnalyzer::Analyze(keys);
+        snapshot.typingScore = scoreTypingResult(snapshot.typing);
+        if (snapshot.typing.meanMs > 0.0)
+            snapshot.keysPerSecond = 1000.0 / snapshot.typing.meanMs;
+        else if (snapshot.averageIntervalMs > 0.0)
+            snapshot.keysPerSecond = 1000.0 / snapshot.averageIntervalMs;
+
         snapshot.decoded = KeyDecoder::Decode(keys);
+        snapshot.urls = UrlClassifier::Classify(snapshot.decoded);
+        snapshot.urlScore = scoreUrlResult(snapshot.urls);
         snapshot.shell = ShellDetector::Detect(snapshot.decoded);
         snapshot.threat = ThreatMatcher::Analyze(snapshot.decoded, static_cast<int>(snapshot.shell.shell));
         snapshot.hotkey = HotkeyScorer::Analyze(snapshot.decoded.hotkeys);
         snapshot.verdict = CompoundScorer::Combine(
             snapshot.threat.session_score,
-            0.0,
-            0.0,
+            snapshot.urlScore,
+            snapshot.typingScore,
             snapshot.hotkey.final_score
         );
         return snapshot;
@@ -283,6 +380,13 @@ namespace
         g_threatScoreTrend.append(std::clamp(score, 0.0, 10.0));
         while (g_threatScoreTrend.size() > 36)
             g_threatScoreTrend.removeFirst();
+    }
+
+    void appendInputSpeedTrendSample(double keysPerSecond, bool isAnomaly)
+    {
+        g_inputSpeedTrend.append(qMakePair(std::clamp(keysPerSecond, 0.0, 16.0), isAnomaly));
+        while (g_inputSpeedTrend.size() > 30)
+            g_inputSpeedTrend.removeFirst();
     }
 
     QString fromWString(const std::wstring& value)
@@ -691,6 +795,13 @@ namespace
         explicit BarChartWidget(QWidget* parent = nullptr) : QWidget(parent)
         {
             setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+            data_ = g_inputSpeedTrend;
+        }
+
+        void setData(const QVector<QPair<double, bool>>& data)
+        {
+            data_ = data;
+            update();
         }
 
     protected:
@@ -699,16 +810,7 @@ namespace
             QPainter p(this);
             p.setRenderHint(QPainter::Antialiasing);
 
-            // Mock data: {value, isAnomaly}  max=16
-            const QVector<QPair<double, bool>> data = {
-                {2.5, false}, {3.1, false}, {3.8, false}, {2.9, false}, {2.2, false},
-                {1.8, false}, {2.4, false}, {3.2, false}, {3.7, false}, {4.1, false},
-                {3.5, false}, {3.0, false},
-                {9.5, true},  {10.8, true}, {10.2, true}, {9.1, true},  {11.3, true},
-                {11.7, true}, {12.2, true}, {11.4, true}, {9.8, true},  {10.5, true},
-                {11.0, true}, {10.8, true}, {9.5, true},  {8.7, true},
-                {1.8, false}, {2.1, false}, {2.9, false}, {3.4, false},
-            };
+            const QVector<QPair<double, bool>> data = data_;
 
             const double maxV = 16.0;
             const int lm = 38, rm = 12, tm = 10, bm = 28;
@@ -727,9 +829,16 @@ namespace
                 p.drawText(0, y - 7, lm - 4, 14, Qt::AlignRight | Qt::AlignVCenter, yLabels[i]);
             }
 
+            if (data.isEmpty()) {
+                p.setPen(QColor("#94A3B8"));
+                QFont emptyFont("Inter", 10);
+                p.setFont(emptyFont);
+                p.drawText(lm, tm, cw, ch, Qt::AlignCenter, "입력 대기중...");
+            }
+
             // Bars
             const int n = data.size();
-            const double barW = static_cast<double>(cw) / n;
+            const double barW = n > 0 ? static_cast<double>(cw) / n : 0.0;
             const double gap = 2.0;
             for (int i = 0; i < n; ++i) {
                 const double val = data[i].first;
@@ -742,7 +851,7 @@ namespace
             }
 
             // X-axis labels
-            const QStringList xLabels = {"13:50", "13:55", "14:00", "14:05", "14:10", "14:15", "14:20"};
+            const QStringList xLabels = {"0초", "5초", "10초", "15초", "20초", "25초", "30초"};
             p.setPen(QColor("#94A3B8"));
             QFont xf("Inter", 9); p.setFont(xf);
             for (int i = 0; i < xLabels.size(); ++i) {
@@ -751,6 +860,9 @@ namespace
                            Qt::AlignCenter, xLabels[i]);
             }
         }
+
+    private:
+        QVector<QPair<double, bool>> data_;
     };
 
     // ---- Line chart widget (위험 점수 추이) ----
@@ -827,6 +939,38 @@ namespace
 
     private:
         QVector<double> data_;
+    };
+
+    class DialogDragFilter : public QObject {
+        QDialog* dialog_;
+        bool dragging_ = false;
+        QPoint dragOffset_;
+
+    public:
+        explicit DialogDragFilter(QDialog* dialog) : QObject(dialog), dialog_(dialog) {}
+
+        bool eventFilter(QObject*, QEvent* event) override
+        {
+            if (!dialog_)
+                return false;
+
+            if (event->type() == QEvent::MouseButtonPress) {
+                auto* mouse = static_cast<QMouseEvent*>(event);
+                if (mouse->button() == Qt::LeftButton) {
+                    dragging_ = true;
+                    dragOffset_ = mouse->globalPosition().toPoint() - dialog_->frameGeometry().topLeft();
+                    return true;
+                }
+            } else if (event->type() == QEvent::MouseMove && dragging_) {
+                auto* mouse = static_cast<QMouseEvent*>(event);
+                dialog_->move(mouse->globalPosition().toPoint() - dragOffset_);
+                return true;
+            } else if (event->type() == QEvent::MouseButtonRelease) {
+                dragging_ = false;
+            }
+
+            return false;
+        }
     };
 
     // ---- Buffer Monitor Dialog ----
@@ -912,7 +1056,9 @@ namespace
         // ── Header ───────────────────────────────────────────────────────────
         auto* hdr = new QWidget;
         hdr->setFixedHeight(61);
+        hdr->setCursor(Qt::SizeAllCursor);
         hdr->setStyleSheet("QWidget { background: #FFFFFF; border-bottom: 1px solid #E2E8F0; }");
+        hdr->installEventFilter(new DialogDragFilter(dlg));
         auto* hdrL = new QHBoxLayout(hdr);
         hdrL->setContentsMargins(24, 0, 16, 0);
         hdrL->setSpacing(10);
@@ -920,6 +1066,7 @@ namespace
         auto* title = new QLabel("장치 승인 및 버퍼 모니터");
         title->setFont(pretendardFont(FontRole::SemiBold));
         title->setStyleSheet("font-size: 16px; color: #1D293D;");
+        title->setAttribute(Qt::WA_TransparentForMouseEvents);
         hdrL->addWidget(title);
         hdrL->addStretch();
         auto* closeBtn = new QPushButton("✕");
@@ -1071,7 +1218,7 @@ namespace
                     cbl->addLayout(row);
                 };
 
-                addGuideRow(":/icons/status-allowed.svg", "#00BC7D", "허용",
+                addGuideRow(":/icons/status-allowed.svg", "#2563C7", "허용",
                             "이 장치를 신뢰할 수 있는 장치로 등록하고 연결을 허용합니다.");
                 addGuideRow(":/icons/status-blocked.svg", "#E93729", "차단",
                             "이 장치를 차단하고 연결을 즉시 종료합니다.");
@@ -1260,6 +1407,7 @@ namespace
                         device_->allow = allow_;
                         if (allow_) {
                             Policy::AddWhitelist(*device_);
+                            reenableAllowedDevice(*device_, L"Buffer monitor allow");
                             Logger::Add(L"[Qt] Buffer monitor allow: " + device_->name);
                         } else {
                             Policy::AddBlacklist(*device_);
@@ -2166,12 +2314,13 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         item.allow       = true;
         if (!confirmPolicyChange(this, r.name, true)) return;
         Policy::AddWhitelist(item);
+        const QString feedback = reenableAllowedDevice(item, L"Policy allow");
         enforceBlockedDeviceHook();
         Logger::Add(L"[Qt] Policy allow: " + toWString(r.name));
         r.policy = "허용";
         usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("허용", "successBadge"));
         applyUsbDetailPanel(usbSelectedRow_);
-        showUsbActionFeedback("허용 목록에 저장했습니다.", "#008236");
+        showUsbActionFeedback(feedback, UiTheme::PrimaryText);
     });
 
     connect(usbBlockBtn_, &QPushButton::clicked, this, [this] {
@@ -2961,6 +3110,7 @@ QWidget* MainWindow::createAnalyticsPage()
     auto* leftL = new QVBoxLayout(leftPanel);
     leftL->setContentsMargins(0, 0, 0, 0);
     leftL->setSpacing(16);
+    BarChartWidget* inputSpeedChart = nullptr;
     LineChartWidget* threatTrendChart = nullptr;
     QLabel* sessionStartValue = nullptr;
     QLabel* durationValue = nullptr;
@@ -2968,6 +3118,10 @@ QWidget* MainWindow::createAnalyticsPage()
     QLabel* avgSpeedValue = nullptr;
     QLabel* commandCountValue = nullptr;
     QLabel* hotkeyCountValue = nullptr;
+    QLabel* commandScoreValue = nullptr;
+    QLabel* urlScoreValue = nullptr;
+    QLabel* typingScoreValue = nullptr;
+    QLabel* hotkeyScoreValue = nullptr;
     QLabel* threatScoreValue = nullptr;
     QLabel* levelValue = nullptr;
     QFrame* warningBanner = nullptr;
@@ -3010,6 +3164,7 @@ QWidget* MainWindow::createAnalyticsPage()
         cbL->addLayout(subHeader);
 
         auto* barChart = new BarChartWidget;
+        inputSpeedChart = barChart;
         barChart->setMinimumHeight(200);
         cbL->addWidget(barChart, 1);
 
@@ -3156,6 +3311,10 @@ QWidget* MainWindow::createAnalyticsPage()
 
         // 위험 평가
         addSection("위험 평가");
+        commandScoreValue = addRow("명령어 위험도", "0.0 / 10.0");
+        urlScoreValue = addRow("URL 위험도", "0.0 / 10.0");
+        typingScoreValue = addRow("입력 속도 위험도", "0.0 / 10.0");
+        hotkeyScoreValue = addRow("핫키 위험도", "0.0 / 10.0");
         threatScoreValue = addRow("현재 위협 점수", "0.0 / 10.0", true);
         levelValue = addRow("판정 등급",  "SAFE");
         addRow("설정된 임계값",  "8.0");
@@ -3166,9 +3325,10 @@ QWidget* MainWindow::createAnalyticsPage()
     }
 
     auto* analyticsTimer = new QTimer(page);
-    auto updateThreatTrend = [threatTrendChart, analyticsSessionStart, durationValue,
+    auto updateThreatTrend = [inputSpeedChart, threatTrendChart, analyticsSessionStart, durationValue,
                               totalInputValue, avgSpeedValue, commandCountValue,
-                              hotkeyCountValue, threatScoreValue, levelValue,
+                              hotkeyCountValue, commandScoreValue, urlScoreValue,
+                              typingScoreValue, hotkeyScoreValue, threatScoreValue, levelValue,
                               warningBanner, warningTitle, warningDesc,
                               lastSnapshot = LiveAnalysisSnapshot{},
                               lastKeyDownCount = -1]() mutable {
@@ -3178,6 +3338,13 @@ QWidget* MainWindow::createAnalyticsPage()
             lastKeyDownCount = bufferedKeyDownCount;
             lastSnapshot = buildLiveAnalysisSnapshot();
             if (lastSnapshot.keyDownCount > 0) {
+                appendInputSpeedTrendSample(
+                    lastSnapshot.keysPerSecond,
+                    lastSnapshot.typing.classification == TypingAnalyzer::TYPING_AUTOMATED
+                        || lastSnapshot.keysPerSecond >= 8.0
+                );
+                if (inputSpeedChart)
+                    inputSpeedChart->setData(g_inputSpeedTrend);
                 appendThreatTrendSample(lastSnapshot.verdict.final_score);
                 if (threatTrendChart)
                     threatTrendChart->setData(g_threatScoreTrend);
@@ -3202,6 +3369,14 @@ QWidget* MainWindow::createAnalyticsPage()
             commandCountValue->setText(QString::number(static_cast<int>(snapshot.threat.commands.size())));
         if (hotkeyCountValue)
             hotkeyCountValue->setText(QString::number(static_cast<int>(snapshot.hotkey.matches.size())));
+        if (commandScoreValue)
+            commandScoreValue->setText(scoreText(snapshot.threat.session_score));
+        if (urlScoreValue)
+            urlScoreValue->setText(scoreText(snapshot.urlScore));
+        if (typingScoreValue)
+            typingScoreValue->setText(scoreText(snapshot.typingScore));
+        if (hotkeyScoreValue)
+            hotkeyScoreValue->setText(scoreText(snapshot.hotkey.final_score));
         if (threatScoreValue)
             threatScoreValue->setText(scoreText(snapshot.verdict.final_score));
         if (levelValue)

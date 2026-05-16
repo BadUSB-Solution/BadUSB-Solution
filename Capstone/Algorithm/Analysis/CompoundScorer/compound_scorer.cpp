@@ -13,8 +13,8 @@
 //
 // 가중치 — 임시값 (calibration 미정):
 //   w_TM     = 1.0   ← ThreatMatcher (셸 명령 분석)
-//   w_URL    = 0.0   ← UrlClassifier  미구현 (권장 시작값 0.2)
-//   w_TS     = 0.0   ← TypingAnalyzer 미구현 (권장 시작값 0.3)
+//   w_URL    = 0.2   ← UrlClassifier  분류 점수
+//   w_TS     = 0.3   ← TypingAnalyzer 분류 점수
 //   w_HK     = 0.5   ← HotkeyScorer (Win+R, Ctrl+Shift+Enter 등)
 //                      → BadUSB 진입 시그널이라 보조 가중치로 합산.
 //                        HotkeyScorer 자체가 cap 10 이라 0.5 가중치로 0~5 기여.
@@ -33,8 +33,8 @@ namespace CompoundScorer
 
         // ─── 가중치 (calibration 시 조정) ────────────────────────
         constexpr double W_TM     = 1.0;   // ThreatMatcher
-        constexpr double W_URL    = 0.0;   // UrlClassifier  미구현
-        constexpr double W_TYPING = 0.0;   // TypingAnalyzer 미구현
+        constexpr double W_URL    = 0.2;   // UrlClassifier
+        constexpr double W_TYPING = 0.3;   // TypingAnalyzer
         constexpr double W_HOTKEY = 0.5;   // HotkeyScorer (보조)
         constexpr double SCORE_CAP = 10.0;
 

@@ -2,280 +2,261 @@
 #include "TrayWidget.h"
 #include "Theme.h"
 
+#include <QApplication>
 #include <QFrame>
+#include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QLabel>
+#include <QPixmap>
 #include <QPushButton>
 #include <QScreen>
 #include <QVBoxLayout>
-#include <QApplication>
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 namespace
 {
     QLabel* makeLabel(const QString& text, const QString& style)
     {
-        auto* lbl = new QLabel(text);
-        lbl->setStyleSheet(style);
-        return lbl;
+        auto* label = new QLabel(text);
+        label->setStyleSheet(style);
+        return label;
     }
 
-    QFrame* makeCard()
+    QString labelStyle(int size, const QString& color, int weight = 400)
+    {
+        return QString(
+            "QLabel { font-size: %1px; font-weight: %2; color: %3;"
+            " background: transparent; border: none; }")
+            .arg(size)
+            .arg(weight)
+            .arg(color);
+    }
+
+    QFrame* makeCard(int radius = 12)
     {
         auto* card = new QFrame;
-        card->setStyleSheet(
-            "QFrame { background: white; border: 1px solid #E2E8F0; border-radius: 8px; }");
+        card->setObjectName("trayCard");
+        card->setStyleSheet(QString(
+            "QFrame#trayCard { background: #FFFFFF; border: 1px solid %1;"
+            " border-radius: %2px; }")
+            .arg(UiTheme::PrimarySoftBorder)
+            .arg(radius));
         return card;
+    }
+
+    QFrame* makeIconCircle(const QString& icon, const QString& border,
+                           const QString& bg, int size, int iconSize)
+    {
+        auto* circle = new QFrame;
+        circle->setFixedSize(size, size);
+        circle->setStyleSheet(QString(
+            "QFrame { background: %1; border: 1px solid %2; border-radius: %3px; }")
+            .arg(bg, border)
+            .arg(size / 2));
+
+        auto* layout = new QHBoxLayout(circle);
+        layout->setContentsMargins(0, 0, 0, 0);
+
+        auto* label = new QLabel;
+        label->setFixedSize(iconSize, iconSize);
+        label->setStyleSheet("QLabel { background: transparent; border: none; }");
+        label->setPixmap(QIcon(icon).pixmap(iconSize, iconSize));
+        layout->addWidget(label, 0, Qt::AlignCenter);
+        return circle;
+    }
+
+    QPushButton* makeHeaderButton(const QString& text)
+    {
+        auto* button = new QPushButton(text);
+        button->setFixedSize(34, 34);
+        button->setCursor(Qt::PointingHandCursor);
+        button->setStyleSheet(QString(
+            "QPushButton { background: transparent; border: none; border-radius: 17px;"
+            " color: %1; font-size: 24px; font-weight: 300; }"
+            "QPushButton:hover { background: %2; color: %3; }")
+            .arg(UiTheme::SubtextMid, UiTheme::PrimarySoft, UiTheme::PrimaryText));
+        return button;
     }
 }
 
-// ---------------------------------------------------------------------------
-// Construction
-// ---------------------------------------------------------------------------
 TrayWidget::TrayWidget(QWidget* parent)
     : QWidget(parent,
               Qt::FramelessWindowHint | Qt::Tool | Qt::WindowStaysOnTopHint)
 {
-    setFixedSize(470, 249);
+    setFixedSize(603, 296);
 
-    // ---- Outer container fills the widget exactly — no shadow padding gap ----
     auto* container = new QFrame(this);
-    container->setGeometry(0, 0, 470, 249);
-    container->setStyleSheet(R"(
-        QFrame {
-            background: white;
-            border-radius: 12px;
-            border: 1px solid #E2E8F0;
-        }
-    )");
+    container->setGeometry(0, 0, width(), height());
+    container->setStyleSheet(QString(
+        "QFrame { background: #F8FBFF; border: 1px solid %1; border-radius: 14px; }")
+        .arg(UiTheme::PrimarySoftBorder));
 
     auto* root = new QVBoxLayout(container);
     root->setContentsMargins(0, 0, 0, 0);
     root->setSpacing(0);
 
-    // ==================================================================
-    // HEADER
-    // ==================================================================
     auto* header = new QWidget;
-    header->setFixedHeight(48);
-    header->setStyleSheet(R"(
-        QWidget {
-            background: white;
-            border-top-left-radius: 12px;
-            border-top-right-radius: 12px;
-            border-bottom: 1px solid #F1F5F9;
-        }
-    )");
+    header->setFixedHeight(68);
+    header->setStyleSheet("QWidget { background: transparent; border: none; }");
 
     auto* headerL = new QHBoxLayout(header);
-    headerL->setContentsMargins(14, 0, 10, 0);
-    headerL->setSpacing(8);
+    headerL->setContentsMargins(20, 6, 20, 6);
+    headerL->setSpacing(10);
 
-    // Shield icon
-    auto* shieldLbl = new QLabel;
-    shieldLbl->setFixedSize(18, 18);
-    shieldLbl->setPixmap(QIcon(":/icons/brand-mark.png").pixmap(18, 18));
-    shieldLbl->setStyleSheet("QLabel { background: transparent; border: none; }");
-    headerL->addWidget(shieldLbl);
+    auto* brand = new QLabel;
+    brand->setFixedSize(40, 40);
+    brand->setStyleSheet("QLabel { background: transparent; border: none; }");
+    brand->setPixmap(QIcon(":/icons/brand-mark.png").pixmap(38, 38));
+    brand->setAlignment(Qt::AlignCenter);
+    headerL->addWidget(brand);
 
-    // App name + subtitle
     auto* titleBox = new QVBoxLayout;
-    titleBox->setSpacing(0);
+    titleBox->setSpacing(2);
     titleBox->setContentsMargins(0, 0, 0, 0);
-    titleBox->addWidget(makeLabel("Abang-All",
-        "QLabel { font-size:13px; font-weight:700; color:#1D293D; background:transparent; border:none; }"));
-    titleBox->addWidget(makeLabel("보안 위젯",
-        "QLabel { font-size:10px; color:#62748E; background:transparent; border:none; }"));
+    auto* titleLabel = makeLabel("Abang-All", labelStyle(21, UiTheme::TextDark, 800));
+    auto* subtitleLabel = makeLabel("보안 위젯", labelStyle(13, UiTheme::SubtextMid, 600));
+    titleLabel->setAlignment(Qt::AlignLeft);
+    subtitleLabel->setAlignment(Qt::AlignLeft);
+    titleBox->addWidget(titleLabel);
+    titleBox->addWidget(subtitleLabel);
     headerL->addLayout(titleBox);
     headerL->addStretch();
 
-    // Monitoring badge
-    auto* monBadge = makeLabel("● 모니터링 ON", R"(
-        QLabel {
-            background: #DCFCE7;
-            color: #15803D;
-            font-size: 10px;
-            font-weight: 600;
-            padding: 2px 6px;
-            border-radius: 6px;
-            border: none;
-        }
-    )");
-    monBadge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    headerL->addWidget(monBadge);
-    headerL->addSpacing(4);
+    auto* monitoringBadge = makeLabel("●  모니터링 ON",
+        "QLabel { background: #E8FFF3; color: #0B8F52; font-size: 12px;"
+        " font-weight: 800; padding: 0; border-radius: 10px;"
+        " border: 1px solid #A7E8C8; }");
+    monitoringBadge->setFixedSize(104, 32);
+    monitoringBadge->setAlignment(Qt::AlignCenter);
+    headerL->addWidget(monitoringBadge);
+    headerL->addSpacing(6);
 
-    // Expand button
-    auto* expandBtn = new QPushButton("↗");
-    expandBtn->setFixedSize(28, 28);
-    expandBtn->setStyleSheet(R"(
-        QPushButton {
-            background: transparent;
-            border: none;
-            font-size: 15px;
-            color: #62748E;
-        }
-        QPushButton:hover { color: #1D293D; }
-    )");
+    auto* expandBtn = makeHeaderButton("↗");
+    auto* closeBtn = makeHeaderButton("×");
     headerL->addWidget(expandBtn);
-
-    // Close button
-    auto* closeBtn = new QPushButton("✕");
-    closeBtn->setFixedSize(28, 28);
-    closeBtn->setStyleSheet(R"(
-        QPushButton {
-            background: transparent;
-            border: none;
-            font-size: 13px;
-            color: #62748E;
-        }
-        QPushButton:hover { color: #1D293D; }
-    )");
     headerL->addWidget(closeBtn);
-
     root->addWidget(header);
 
-    // ==================================================================
-    // CONTENT (gray background, two cards)
-    // ==================================================================
     auto* content = new QWidget;
-    content->setStyleSheet("QWidget { background: #F8FAFC; border: none; border-radius: 0; }");
+    content->setStyleSheet("QWidget { background: transparent; border: none; }");
 
     auto* contentL = new QVBoxLayout(content);
-    contentL->setContentsMargins(12, 10, 12, 10);
-    contentL->setSpacing(8);
+    contentL->setContentsMargins(18, 0, 15, 0);
+    contentL->setSpacing(0);
 
-    // ---- USB card ----
     auto* usbCard = makeCard();
+    usbCard->setFixedHeight(74);
     auto* usbL = new QHBoxLayout(usbCard);
-    usbL->setContentsMargins(12, 10, 12, 10);
-    usbL->setSpacing(8);
+    usbL->setContentsMargins(24, 7, 25, 7);
+    usbL->setSpacing(16);
+    usbL->addWidget(makeIconCircle(":/icons/status-shield-blue.svg",
+                                   UiTheme::PrimarySoftBorder,
+                                   UiTheme::PrimarySoft,
+                                   38, 24));
 
-    auto* usbIcon = new QLabel;
-    usbIcon->setFixedSize(16, 16);
-    usbIcon->setPixmap(QIcon(":/icons/nav-usb.svg").pixmap(16, 16));
-    usbIcon->setStyleSheet("QLabel { background: transparent; border: none; }");
-    usbL->addWidget(usbIcon);
-
-    auto* usbInfoBox = new QVBoxLayout;
-    usbInfoBox->setSpacing(1);
-    usbInfoBox->addWidget(makeLabel("연결된 USB",
-        "QLabel { font-size:11px; color:#62748E; background:transparent; border:none; }"));
-    usbCountLabel_ = new QLabel("— 개 장치");
-    usbCountLabel_->setStyleSheet(
-        "QLabel { font-size:17px; font-weight:700; color:#1D293D; background:transparent; border:none; }");
-    usbInfoBox->addWidget(usbCountLabel_);
-    usbL->addLayout(usbInfoBox);
+    auto* usbText = new QVBoxLayout;
+    usbText->setSpacing(0);
+    usbText->addStretch();
+    usbText->addWidget(makeLabel("연결된 USB", labelStyle(14, UiTheme::SubtextMid, 700)));
+    usbCountLabel_ = makeLabel("0개 장치", labelStyle(22, UiTheme::TextDark, 900));
+    usbText->addWidget(usbCountLabel_);
+    usbText->addStretch();
+    usbL->addLayout(usbText);
     usbL->addStretch();
 
     auto* realtimeBtn = new QPushButton("실시간");
-    realtimeBtn->setStyleSheet(R"(
-        QPushButton {
-            font-size: 11px;
-            color: #62748E;
-            background: white;
-            border: 1px solid #E2E8F0;
-            border-radius: 6px;
-            padding: 3px 10px;
-        }
-    )");
+    realtimeBtn->setFixedSize(72, 30);
+    realtimeBtn->setCursor(Qt::PointingHandCursor);
+    realtimeBtn->setStyleSheet(QString(
+        "QPushButton { color: %1; background: #FFFFFF; border: 1px solid #8AB8FF;"
+        " border-radius: 9px; font-size: 14px; font-weight: 800; }"
+        "QPushButton:hover { background: #EAF2FF; }")
+        .arg(UiTheme::PrimaryHover));
     usbL->addWidget(realtimeBtn);
     contentL->addWidget(usbCard);
 
-    // ---- Threat card ----
     auto* threatCard = makeCard();
+    threatCard->setFixedHeight(74);
     auto* threatL = new QHBoxLayout(threatCard);
-    threatL->setContentsMargins(12, 10, 12, 10);
-    threatL->setSpacing(8);
+    threatL->setContentsMargins(24, 7, 25, 7);
+    threatL->setSpacing(16);
 
     threatIconLabel_ = new QLabel;
-    threatIconLabel_->setFixedSize(16, 16);
-    threatIconLabel_->setStyleSheet("QLabel { background: transparent; border: none; }");
+    threatIconLabel_->setFixedSize(38, 38);
+    threatIconLabel_->setAlignment(Qt::AlignCenter);
     threatL->addWidget(threatIconLabel_);
 
-    auto* threatInfoBox = new QVBoxLayout;
-    threatInfoBox->setSpacing(2);
-    threatInfoBox->addWidget(makeLabel("위협 탐지 상태",
-        "QLabel { font-size:11px; color:#62748E; background:transparent; border:none; }"));
+    auto* threatText = new QVBoxLayout;
+    threatText->setSpacing(0);
+    threatText->addStretch();
+    threatText->addWidget(makeLabel("위험 탐지 상태", labelStyle(14, UiTheme::SubtextMid, 700)));
 
     auto* statusRow = new QHBoxLayout;
-    statusRow->setSpacing(5);
-    statusRow->setContentsMargins(0, 0, 0, 0);
-
-    statusDot_ = new QLabel("●");
-    statusDot_->setStyleSheet(
-        "QLabel { font-size:13px; background:transparent; border:none; }");
+    statusRow->setSpacing(8);
+    statusDot_ = makeLabel("●",
+        "QLabel { font-size: 19px; color: #F97316; background: transparent; border: none; }");
+    statusText_ = makeLabel("경고", labelStyle(22, UiTheme::TextDark, 900));
     statusRow->addWidget(statusDot_);
-
-    statusText_ = new QLabel("—");
-    statusText_->setStyleSheet(
-        "QLabel { font-size:17px; font-weight:700; color:#1D293D; background:transparent; border:none; }");
     statusRow->addWidget(statusText_);
     statusRow->addStretch();
-
-    threatInfoBox->addLayout(statusRow);
-    threatL->addLayout(threatInfoBox);
+    threatText->addLayout(statusRow);
+    threatText->addStretch();
+    threatL->addLayout(threatText);
     threatL->addStretch();
 
-    statusBadge_ = new QPushButton("—");
-    statusBadge_->setFixedHeight(28);
-    threatL->addWidget(statusBadge_);
-    contentL->addWidget(threatCard);
+    auto* mascot = new QLabel;
+    mascot->setFixedSize(76, 76);
+    mascot->setStyleSheet("QLabel { background: transparent; border: none; }");
+    mascot->setPixmap(QPixmap(":/icons/mascot_ver3.png").scaled(
+        76, 76, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    mascot->setAttribute(Qt::WA_TransparentForMouseEvents);
+    auto* opacity = new QGraphicsOpacityEffect(mascot);
+    opacity->setOpacity(0.32);
+    mascot->setGraphicsEffect(opacity);
 
+    statusBadge_ = new QPushButton("주의");
+    statusBadge_->setFixedSize(72, 30);
+    statusBadge_->setCursor(Qt::PointingHandCursor);
+    threatL->addWidget(mascot, 0, Qt::AlignVCenter);
+    threatL->addWidget(statusBadge_, 0, Qt::AlignVCenter);
+
+    contentL->addWidget(threatCard);
     root->addWidget(content, 1);
 
-    // ==================================================================
-    // FOOTER (recent event)
-    // ==================================================================
     auto* footer = new QWidget;
-    footer->setFixedHeight(40);
-    footer->setStyleSheet(R"(
-        QWidget {
-            background: white;
-            border-top: 1px solid #F1F5F9;
-            border-bottom-left-radius: 12px;
-            border-bottom-right-radius: 12px;
-        }
-    )");
+    footer->setFixedHeight(44);
+    footer->setStyleSheet(QString(
+        "QWidget { background: #F8FBFF; border-top: 1px solid %1;"
+        " border-bottom-left-radius: 14px; border-bottom-right-radius: 14px; }")
+        .arg(UiTheme::PrimarySoftBorder));
 
     auto* footerL = new QHBoxLayout(footer);
-    footerL->setContentsMargins(14, 0, 14, 0);
+    footerL->setContentsMargins(18, 0, 17, 0);
     footerL->setSpacing(8);
+    footerL->addWidget(makeLabel("최근 이벤트", labelStyle(14, UiTheme::PrimaryHover, 800)));
 
-    footerL->addWidget(makeLabel("최근 이벤트",
-        "QLabel { font-size:11px; color:#62748E; background:transparent; border:none; min-width:58px; }"));
+    auto* divider = new QFrame;
+    divider->setFixedSize(1, 20);
+    divider->setStyleSheet(QString("QFrame { background: %1; border: none; }").arg(UiTheme::Border));
+    footerL->addWidget(divider);
 
-    eventText_ = new QLabel("—");
-    eventText_->setStyleSheet(
-        "QLabel { font-size:12px; color:#1D293D; background:transparent; border:none; }");
+    eventText_ = makeLabel("-", labelStyle(14, UiTheme::TextDark, 700));
     eventText_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     footerL->addWidget(eventText_, 1);
 
-    eventTime_ = new QLabel("--:--:--");
-    eventTime_->setStyleSheet(
-        "QLabel { font-size:11px; color:#62748E; background:transparent; border:none; }");
+    eventTime_ = makeLabel("--:--:--", labelStyle(13, UiTheme::SubtextMid, 700));
     footerL->addWidget(eventTime_);
-
     root->addWidget(footer);
 
-    // ==================================================================
-    // Signals
-    // ==================================================================
     connect(expandBtn, &QPushButton::clicked, this, &TrayWidget::expandRequested);
-    connect(closeBtn,  &QPushButton::clicked, this, &QWidget::hide);
+    connect(realtimeBtn, &QPushButton::clicked, this, &TrayWidget::expandRequested);
+    connect(closeBtn, &QPushButton::clicked, this, &QWidget::hide);
 
-    // ==================================================================
-    // Initial mock data
-    // ==================================================================
-    setUsbCount(3);
-    setRecentEvent("14:22:33", "미승인 HID 장치 연결 시도 차단됨");
-    setThreatLevel(ThreatLevel::Warning);
+    setUsbCount(0);
+    setRecentEvent("--:--:--", "이벤트 대기중");
+    setThreatLevel(ThreatLevel::Normal);
 }
 
-// ---------------------------------------------------------------------------
 void TrayWidget::setThreatLevel(ThreatLevel level)
 {
     level_ = level;
@@ -290,11 +271,12 @@ void TrayWidget::setUsbCount(int count)
 
 void TrayWidget::setRecentEvent(const QString& time, const QString& text)
 {
-    if (eventText_)  eventText_->setText(text);
-    if (eventTime_)  eventTime_->setText(time);
+    if (eventText_)
+        eventText_->setText(text);
+    if (eventTime_)
+        eventTime_->setText(time);
 }
 
-// ---------------------------------------------------------------------------
 void TrayWidget::applyLevel()
 {
     struct Cfg {
@@ -302,42 +284,50 @@ void TrayWidget::applyLevel()
         const char* icon;
         const char* statusStr;
         const char* badgeText;
-        const char* badgeStyle;
+        const char* iconBg;
+        const char* iconBorder;
+        QString badgeStyle;
     };
 
-    static const Cfg cfgs[3] = {
-        // Normal
-        {
-            "#00C950", ":/icons/status-shield-green.svg", "정상", "안전",
-            "QPushButton { font-size:11px; font-weight:600; color:#15803D;"
-            " background:#DCFCE7; border:none; border-radius:6px; padding:3px 12px; }"
-        },
-        // Warning — color matches UiTheme::Warning
-        {
-            UiTheme::Warning, ":/icons/status-warning.svg", "경고", "주의 필요",
-            "QPushButton { font-size:11px; font-weight:600; color:#F97316;"
-            " background:white; border:1px solid #F97316; border-radius:6px; padding:3px 12px; }"
-        },
-        // Danger
-        {
-            "#EC003F", ":/icons/status-blocked.svg", "위험", "즉시 대응",
-            "QPushButton { font-size:11px; font-weight:600; color:white;"
-            " background:#EC003F; border:none; border-radius:6px; padding:3px 12px; }"
-        },
+    const QString safeBadge =
+        "QPushButton { font-size: 13px; font-weight: 800; color: #087A45;"
+        " background: #ECFFF6; border: 1px solid #9EE7C0; border-radius: 9px; }"
+        "QPushButton:hover { background: #DDFBEA; }";
+    const QString warningBadge = QString(
+        "QPushButton { font-size: 13px; font-weight: 800; color: %1;"
+        " background: %2; border: 1px solid %3; border-radius: 9px; }"
+        "QPushButton:hover { background: #FFF3D9; }")
+        .arg(UiTheme::WarningText, UiTheme::WarningSoft, UiTheme::WarningBorder);
+    const QString dangerBadge = QString(
+        "QPushButton { font-size: 13px; font-weight: 800; color: #FFFFFF;"
+        " background: %1; border: 1px solid %1; border-radius: 9px; }"
+        "QPushButton:hover { background: %2; }")
+        .arg(UiTheme::DangerAction, UiTheme::DangerHover);
+
+    const Cfg cfgs[3] = {
+        {"#00BC7D", ":/icons/status-shield-green.svg", "정상", "안전", "#F0FFF8", "#BCE7D4", safeBadge},
+        {UiTheme::Warning, ":/icons/status-warning.svg", "경고", "주의", UiTheme::WarningSoft, UiTheme::WarningBorder, warningBadge},
+        {UiTheme::DangerAction, ":/icons/status-blocked.svg", "위험", "차단", "#FFF1F2", "#FECDD3", dangerBadge},
     };
 
     const int idx = static_cast<int>(level_);
+    const Cfg& cfg = cfgs[idx];
+
     statusDot_->setStyleSheet(
-        QString("QLabel { font-size:13px; color:%1; background:transparent; border:none; }")
-            .arg(cfgs[idx].dotColor));
-    if (threatIconLabel_)
-        threatIconLabel_->setPixmap(QIcon(cfgs[idx].icon).pixmap(16, 16));
-    statusText_->setText(cfgs[idx].statusStr);
-    statusBadge_->setText(cfgs[idx].badgeText);
-    statusBadge_->setStyleSheet(cfgs[idx].badgeStyle);
+        QString("QLabel { font-size: 19px; color: %1; background: transparent; border: none; }")
+            .arg(cfg.dotColor));
+    statusText_->setText(cfg.statusStr);
+    statusBadge_->setText(cfg.badgeText);
+    statusBadge_->setStyleSheet(cfg.badgeStyle);
+
+    if (threatIconLabel_) {
+        threatIconLabel_->setStyleSheet(QString(
+            "QLabel { background: %1; border: 1px solid %2; border-radius: 19px; }")
+            .arg(cfg.iconBg, cfg.iconBorder));
+        threatIconLabel_->setPixmap(QIcon(cfg.icon).pixmap(21, 21));
+    }
 }
 
-// ---------------------------------------------------------------------------
 void TrayWidget::positionNearTray()
 {
     const QRect screen = QApplication::primaryScreen()->availableGeometry();
