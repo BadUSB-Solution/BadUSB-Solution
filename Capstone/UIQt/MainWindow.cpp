@@ -97,6 +97,113 @@ namespace
         CompoundScorer::Verdict verdict{};
     };
 
+    bool confirmPolicyChange(QWidget* parent, const QString& deviceName, bool allow)
+    {
+        const QString name = deviceName.trimmed().isEmpty()
+            ? QStringLiteral("선택한 장치")
+            : deviceName.trimmed();
+
+        QDialog dlg(parent);
+        dlg.setModal(true);
+        dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+        dlg.setFixedWidth(438);
+        dlg.setObjectName("confirmPolicyDialog");
+        dlg.setStyleSheet(QString(
+            "QDialog#confirmPolicyDialog { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; }"
+            "QLabel#confirmTitle { color: #0F172A; font-size: 17px; font-weight: 700; background: transparent; }"
+            "QLabel#confirmSubtitle { color: #475569; font-size: 12px; background: transparent; }"
+            "QLabel#confirmDevice { color: #0F172A; font-size: 14px; font-weight: 600; background: #F8FAFC;"
+            " border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 12px; }"
+            "QLabel#confirmBody { color: #475569; font-size: 13px; line-height: 150%; background: transparent; }"
+            "QPushButton#confirmClose { color: #64748B; background: transparent; border: none; font-size: 18px; }"
+            "QPushButton#confirmClose:hover { color: #0F172A; }"
+            "QPushButton#confirmCancel { color: #334155; background: #FFFFFF; border: 1px solid #CBD5E1;"
+            " border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; }"
+            "QPushButton#confirmCancel:hover { background: #F8FAFC; border-color: #94A3B8; }"
+            "QPushButton#confirmAction { color: #FFFFFF; background: %1; border: none;"
+            " border-radius: 8px; padding: 9px 22px; font-size: 13px; font-weight: 700; }"
+            "QPushButton#confirmAction:hover { background: %2; }"
+        ).arg(allow ? UiTheme::Primary : UiTheme::DangerAction,
+              allow ? UiTheme::PrimaryHover : UiTheme::DangerHover));
+
+        auto* root = new QVBoxLayout(&dlg);
+        root->setContentsMargins(22, 20, 22, 20);
+        root->setSpacing(16);
+
+        auto* header = new QHBoxLayout;
+        header->setSpacing(12);
+
+        auto* iconWrap = new QFrame;
+        iconWrap->setFixedSize(42, 42);
+        iconWrap->setStyleSheet(QString(
+            "QFrame { background: %1; border: 1px solid %2; border-radius: 10px; }"
+        ).arg(allow ? UiTheme::PrimarySoft : "#FFF1F2",
+              allow ? UiTheme::PrimarySoftBorder : "#FECDD3"));
+        auto* iconLayout = new QHBoxLayout(iconWrap);
+        iconLayout->setContentsMargins(0, 0, 0, 0);
+        auto* icon = new QLabel;
+        icon->setFixedSize(20, 20);
+        icon->setPixmap(QIcon(allow ? ":/icons/status-allowed.svg"
+                                    : ":/icons/status-blocked.svg").pixmap(20, 20));
+        iconLayout->addWidget(icon, 0, Qt::AlignCenter);
+        header->addWidget(iconWrap);
+
+        auto* titleCol = new QVBoxLayout;
+        titleCol->setSpacing(3);
+        auto* title = new QLabel(allow ? QStringLiteral("장치 허용 확인")
+                                       : QStringLiteral("장치 차단 확인"));
+        title->setObjectName("confirmTitle");
+        auto* subtitle = new QLabel(allow ? QStringLiteral("신뢰 목록에 등록하기 전에 한 번 더 확인합니다.")
+                                          : QStringLiteral("차단 정책을 적용하기 전에 한 번 더 확인합니다."));
+        subtitle->setObjectName("confirmSubtitle");
+        titleCol->addWidget(title);
+        titleCol->addWidget(subtitle);
+        header->addLayout(titleCol, 1);
+
+        auto* closeBtn = new QPushButton(QStringLiteral("×"));
+        closeBtn->setObjectName("confirmClose");
+        closeBtn->setFixedSize(28, 28);
+        closeBtn->setCursor(Qt::PointingHandCursor);
+        header->addWidget(closeBtn, 0, Qt::AlignTop);
+        root->addLayout(header);
+
+        auto* deviceLabel = new QLabel(name);
+        deviceLabel->setObjectName("confirmDevice");
+        deviceLabel->setWordWrap(true);
+        root->addWidget(deviceLabel);
+
+        auto* body = new QLabel(allow
+            ? QStringLiteral("허용된 장치는 이후 연결 시 키보드 후킹과 입력 차단이 적용되지 않습니다.\n신뢰할 수 있는 장치인지 확인한 뒤 진행하세요.")
+            : QStringLiteral("차단된 장치는 블랙리스트에 등록되며 이후 연결 시 입력 차단 상태가 적용됩니다.\n현재 사용 중인 정상 장치가 아닌지 확인한 뒤 진행하세요."));
+        body->setObjectName("confirmBody");
+        body->setWordWrap(true);
+        root->addWidget(body);
+
+        auto* buttons = new QHBoxLayout;
+        buttons->addStretch();
+        auto* cancelBtn = new QPushButton(QStringLiteral("취소"));
+        cancelBtn->setObjectName("confirmCancel");
+        cancelBtn->setCursor(Qt::PointingHandCursor);
+        auto* actionBtn = new QPushButton(allow ? QStringLiteral("허용")
+                                                : QStringLiteral("차단"));
+        actionBtn->setObjectName("confirmAction");
+        actionBtn->setCursor(Qt::PointingHandCursor);
+        buttons->addWidget(cancelBtn);
+        buttons->addWidget(actionBtn);
+        root->addLayout(buttons);
+
+        bool accepted = false;
+        QObject::connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+        QObject::connect(cancelBtn, &QPushButton::clicked, &dlg, &QDialog::reject);
+        QObject::connect(actionBtn, &QPushButton::clicked, &dlg, [&] {
+            accepted = true;
+            dlg.accept();
+        });
+
+        dlg.exec();
+        return accepted;
+    }
+
     QString scoreText(double score, double maxScore = 10.0)
     {
         return QString("%1 / %2")
@@ -1129,7 +1236,7 @@ namespace
             return container;
         };
 
-        auto* allowBtn = mkActionBtn("허용", "이 장치 신뢰 등록", UiTheme::Primary, UiTheme::PrimaryHover, 140);
+        auto* allowBtn = mkActionBtn("허용", "이 장치 신뢰 등록", "#2563C7", "#1E4F9E", 140);
         auto* denyBtn  = mkActionBtn("차단", "즉시 연결 종료",    UiTheme::DangerAction, UiTheme::DangerHover, 120);
 
         class ClickFilter : public QObject {
@@ -1145,6 +1252,11 @@ namespace
             bool eventFilter(QObject*, QEvent* e) override {
                 if (e->type() == QEvent::MouseButtonRelease) {
                     if (device_ && device_->fingerprint != 0) {
+                        const QString deviceName = fromWString(
+                            device_->name.empty() ? L"Unknown USB Device" : device_->name);
+                        if (!confirmPolicyChange(dlg_, deviceName, allow_))
+                            return true;
+
                         device_->allow = allow_;
                         if (allow_) {
                             Policy::AddWhitelist(*device_);
@@ -1991,19 +2103,21 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
     dcBL->addWidget(makeDivider());
     dcBL->addSpacing(16);
 
-    auto makeActionBtn = [](const QString& text, const QString& bg, const QString& fg, const QString& border) {
+    auto makeActionBtn = [](const QString& text, const QString& bg, const QString& hoverBg,
+                            const QString& fg, const QString& border) {
         auto* btn = new QPushButton(text);
         btn->setFont(pretendardFont(FontRole::Medium));
         btn->setFixedHeight(36);
         btn->setStyleSheet(QString(
             "QPushButton { background: %1; color: %2; border-radius: 8px; border: %3; font-size: 14px; }"
+            "QPushButton:hover { background: %4; }"
             "QPushButton:disabled { background: #F1F5F9; color: #90A1B9; border: 1px solid #E2E8F0; }"
-        ).arg(bg, fg, border));
+        ).arg(bg, fg, border, hoverBg));
         return btn;
     };
-    usbAllowBtn_      = makeActionBtn("이 장치 허용",   UiTheme::Primary, "#FFFFFF", "none");
-    usbBlockBtn_      = makeActionBtn("이 장치 차단",   UiTheme::DangerAction, "#FFFFFF", "none");
-    usbRemoveRuleBtn_ = makeActionBtn("예외 규칙 삭제", "#FFFFFF", "#62748E", "1px solid #E2E8F0");
+    usbAllowBtn_      = makeActionBtn("이 장치 허용",   "#2563C7", "#1E4F9E", "#FFFFFF", "none");
+    usbBlockBtn_      = makeActionBtn("이 장치 차단",   "#D21F4A", "#AD183B", "#FFFFFF", "none");
+    usbRemoveRuleBtn_ = makeActionBtn("예외 규칙 삭제", "#FFFFFF", "#F8FAFC", "#62748E", "1px solid #E2E8F0");
     dcBL->addWidget(usbAllowBtn_);
     dcBL->addSpacing(8);
     dcBL->addWidget(usbBlockBtn_);
@@ -2050,6 +2164,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         item.vid         = r.vid;
         item.pid         = r.pid;
         item.allow       = true;
+        if (!confirmPolicyChange(this, r.name, true)) return;
         Policy::AddWhitelist(item);
         enforceBlockedDeviceHook();
         Logger::Add(L"[Qt] Policy allow: " + toWString(r.name));
@@ -2070,6 +2185,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         item.vid         = r.vid;
         item.pid         = r.pid;
         item.allow       = false;
+        if (!confirmPolicyChange(this, r.name, false)) return;
         Policy::AddBlacklist(item);
         enforceBlockedDeviceHook();
         Logger::Add(L"[Qt] Policy block: " + toWString(r.name));

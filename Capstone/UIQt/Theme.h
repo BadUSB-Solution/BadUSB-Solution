@@ -107,15 +107,14 @@ namespace UiTheme
             }
 
             QPushButton#navButton:hover {
-                background: rgba(30, 143, 255, 0.16);
+                background: rgba(215, 229, 255, 0.10);
                 color: %White%;
             }
 
             QPushButton#navButton[active="true"] {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                            stop:0 %PrimaryHover%, stop:1 %Primary%);
+                background: rgba(215, 229, 255, 0.14);
                 color: %White%;
-                border: none;
+                border: 1px solid rgba(215, 229, 255, 0.18);
             }
 
             QPushButton#topNavButton {
