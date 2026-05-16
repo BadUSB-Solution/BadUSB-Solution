@@ -82,6 +82,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y /D /Q "$(ProjectDir)Core\matchingDB.db" "$(OutDir)" &gt; nul</Command>
@@ -105,6 +106,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y /D /Q "$(ProjectDir)Core\matchingDB.db" "$(OutDir)" &gt; nul</Command>
@@ -127,6 +129,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y /D /Q "$(ProjectDir)Core\matchingDB.db" "$(OutDir)" &gt; nul</Command>
@@ -151,6 +154,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y /D /Q "$(ProjectDir)Core\matchingDB.db" "$(OutDir)" &gt; nul</Command>
@@ -169,6 +173,8 @@
     <ClInclude Include="Core\logger.h" />
     <ClInclude Include="Core\policy.h" />
     <ClInclude Include="Core\usb_item.h" />
+    <ClInclude Include="Policy\device_blocker.h" />
+    <ClInclude Include="Policy\device_finder.h" />
     <ClInclude Include="Detect\hid_approval_flow.h" />
     <ClInclude Include="Detect\hid_fingerprint.h" />
     <ClInclude Include="Detect\hid_monitor.h" />
@@ -181,6 +187,7 @@
     <ClInclude Include="UI\ui_approval.h" />
     <ClInclude Include="UI\ui_buffer_view.h" />
     <ClInclude Include="UI\ui_compound_scorer.h" />
+    <ClInclude Include="UI\ui_policy_tab.h" />
     <ClInclude Include="Algorithm\PreAnalysis\KeyDecoder\key_decoder.h" />
     <ClInclude Include="Algorithm\PreAnalysis\KeyNormalizer\key_normalizer.h" />
     <ClInclude Include="Algorithm\PreAnalysis\KeyNormalizer\keyboard_shortcuts_ref.h" />
@@ -188,6 +195,7 @@
     <ClInclude Include="Algorithm\PreAnalysis\TypingAnalyzer\typing_analyzer.h" />
     <ClInclude Include="Algorithm\Analysis\ShellDetector\shell_detector.h" />
     <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.h" />
+    <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_matcher_internal.h" />
     <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_db_connect.h" />
     <ClInclude Include="Algorithm\Analysis\UrlClassifier\url_classifier.h" />
     <ClInclude Include="Algorithm\Analysis\UrlClassifier\url_parser.h" />
@@ -208,6 +216,8 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Core\logger.cpp" />
     <ClCompile Include="Core\policy.cpp" />
+    <ClCompile Include="Policy\device_blocker.cpp" />
+    <ClCompile Include="Policy\device_finder.cpp" />
     <ClCompile Include="Detect\hid_monitor.cpp" />
     <ClCompile Include="ThirdParty\sqlite3.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -217,6 +227,7 @@
     <ClCompile Include="UI\ui_tray.cpp" />
     <ClCompile Include="UI\ui_tabs.cpp" />
     <ClCompile Include="UI\ui_approval.cpp" />
+    <ClCompile Include="UI\ui_policy_tab.cpp" />
     <ClCompile Include="Hook\keyboard_hook.cpp" />
     <ClCompile Include="UI\ui_buffer_view.cpp" />
     <ClCompile Include="UI\ui_compound_scorer.cpp" />
@@ -226,6 +237,9 @@
     <ClCompile Include="Algorithm\PreAnalysis\TypingAnalyzer\typing_analyzer.cpp" />
     <ClCompile Include="Algorithm\Analysis\ShellDetector\shell_detector.cpp" />
     <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.cpp" />
+    <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_command_analyzer.cpp" />
+    <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_executor_analyzer.cpp" />
+    <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_result_formatter.cpp" />
     <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_db_connect.cpp">
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</LanguageStandard>
       <LanguageStandard Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Default</LanguageStandard>

@@ -10,6 +10,7 @@
 #include "keyboard_hook.h"
 #include "logger.h"
 #include "policy.h"
+#include "../Policy/device_blocker.h"
 #include "ui_approval.h"
 #include "ui_buffer_view.h"
 
@@ -52,13 +53,15 @@ namespace
             return false;
         }
 
-        // UI 초기 체크 상태 설정
+        // UI 초기 체크 상태 설정:
+        // 기존 정책이 있으면 체크 상태에 반영하고, 새 장치는 기본 차단 상태로 둔다.
         for (auto& item : pending) {
-            if (Policy::IsWhitelisted(item.fingerprint)) {
-                item.allow = true;
-            }
-            else if (Policy::IsBlacklisted(item.fingerprint)) {
+            const Policy::PolicyStatus status = Policy::Evaluate(item);
+            if (status == Policy::PolicyStatus::Blacklisted) {
                 item.allow = false;
+            }
+            else if (status == Policy::PolicyStatus::Whitelisted) {
+                item.allow = true;
             }
             else {
                 item.allow = false;
@@ -75,18 +78,27 @@ namespace
 
         Logger::Add(L"[UI] Saved. Applying policy...");
 
-        // 항목별 fingerprint 단위 정책 반영
+        // 항목별 정책 반영.
+        // blacklist로 저장한 항목은 현재 연결된 장치도 즉시 disable/eject 시도한다.
         for (const auto& item : pending) {
             if (item.allow) {
-                if (!Policy::IsWhitelisted(item.fingerprint)) {
-                    Policy::AddWhitelist(item);
-                    Logger::Add(L"[T] Added to Whitelist: " + std::to_wstring(item.fingerprint));
-                }
+                Policy::AddWhitelist(item);
+                Logger::Add(L"[T] Saved as Whitelist: " + std::to_wstring(item.fingerprint));
+                std::wstring enableDetail;
+                const DeviceBlocker::EnableResult enableResult =
+                    DeviceBlocker::EnableByVidPid(item.vid, item.pid, &enableDetail);
+                Logger::Add(L"[Block] Saved whitelist item enable result=" +
+                    std::to_wstring(static_cast<int>(enableResult)) + L", " + enableDetail);
             }
             else {
-                if (!Policy::IsBlacklisted(item.fingerprint)) {
-                    Policy::AddBlacklist(item);
-                    Logger::Add(L"[T] Added to Blacklist: " + std::to_wstring(item.fingerprint));
+                Policy::AddBlacklist(item);
+                Logger::Add(L"[T] Saved as Blacklist: " + std::to_wstring(item.fingerprint));
+                if (!item.devicePath.empty()) {
+                    std::wstring blockDetail;
+                    const DeviceBlocker::BlockResult blockResult =
+                        DeviceBlocker::BlockByDevicePath(item.devicePath, &blockDetail);
+                    Logger::Add(L"[Block] Saved blacklist item block result=" +
+                        std::to_wstring(static_cast<int>(blockResult)) + L", " + blockDetail);
                 }
             }
         }
@@ -106,9 +118,16 @@ bool DeviceApprovalFlow::ApproveDevicesFromPaths(HWND hWnd, const std::vector<st
         }
 
         UsbItem item = HidFingerprint::BuildUsbItemFromPath(path);
+        const Policy::PolicyStatus status = Policy::Evaluate(item);
+
+        // 이미 차단된 후보는 승인 UI에 다시 올리지 않는다.
+        if (status == Policy::PolicyStatus::Blacklisted) {
+            Logger::Add(L"[Approval] Auto-block candidate (blacklisted VID/PID): " + item.name);
+            continue;
+        }
 
         // whitelist 미포함 fingerprint 후보 규칙
-        if (Policy::IsWhitelisted(item.fingerprint)) {
+        if (status == Policy::PolicyStatus::Whitelisted) {
             continue;
         }
 
@@ -138,17 +157,21 @@ bool DeviceApprovalFlow::ApproveDeviceFromPath(HWND hWnd, const std::wstring& pa
     if (path.empty()) return false;
 
     UsbItem hotplugItem = HidFingerprint::BuildUsbItemFromPath(path);
+    const Policy::PolicyStatus status = Policy::Evaluate(hotplugItem);
 
-    // 이미 허용된 장치 → Hook/뷰어/다이얼로그 없이 통과
-    if (Policy::IsWhitelisted(hotplugItem.fingerprint)) {
-        Logger::Add(L"[Approval] Auto-allow (whitelisted): " + hotplugItem.name);
-        return true;
+    // 이미 차단된 장치 -> 승인 UI 없이 Windows 장치 비활성화/eject 시도
+    if (status == Policy::PolicyStatus::Blacklisted) {
+        Logger::Add(L"[Approval] Auto-block (blacklisted): " + hotplugItem.name);
+        std::wstring blockDetail;
+        const DeviceBlocker::BlockResult blockResult = DeviceBlocker::BlockByDevicePath(path, &blockDetail);
+        Logger::Add(L"[Block] Result=" + std::to_wstring(static_cast<int>(blockResult)) + L", " + blockDetail);
+        return false;
     }
 
-    // 이미 차단된 장치 → Hook/뷰어/다이얼로그 없이 차단
-    if (Policy::IsBlacklisted(hotplugItem.fingerprint)) {
-        Logger::Add(L"[Approval] Auto-block (blacklisted): " + hotplugItem.name);
-        return false;
+    // 이미 허용된 장치 -> Hook/뷰어/다이얼로그 없이 통과
+    if (status == Policy::PolicyStatus::Whitelisted) {
+        Logger::Add(L"[Approval] Auto-allow (whitelisted): " + hotplugItem.name);
+        return true;
     }
 
     // ── Unknown → 키보드 훅 + 모니터링 창 + 승인 다이얼로그 동시 ──
