@@ -1,23 +1,35 @@
-// 실제 앱 화면 구성 - 현재는 매인(상태) 탭과 로그탭으로 구분
-
 #include "ui_tabs.h"
+
 #include <commctrl.h>
+
 #include "logger.h"
+#include "ui_policy_tab.h"
 
 #pragma comment(lib, "Comctl32.lib")
 
 namespace UiTabs
 {
     static HWND g_tabWnd = nullptr;
-    static HWND g_tabStatus = nullptr; // 메인(상태) 탭
-    static HWND g_tabLogs = nullptr; // 로그 탭
+    static HWND g_tabStatus = nullptr;
+    static HWND g_tabPolicy = nullptr;
+    static HWND g_tabLogs = nullptr;
 
     static void SwitchTab(int idx)
     {
-        if (!g_tabStatus || !g_tabLogs) return;
+        if (!g_tabStatus || !g_tabPolicy || !g_tabLogs) {
+            return;
+        }
+
         ShowWindow(g_tabStatus, idx == 0 ? SW_SHOW : SW_HIDE);
-        ShowWindow(g_tabLogs, idx == 1 ? SW_SHOW : SW_HIDE);
-        if (idx == 1) UpdateLogs();
+        ShowWindow(g_tabPolicy, idx == 1 ? SW_SHOW : SW_HIDE);
+        ShowWindow(g_tabLogs, idx == 2 ? SW_SHOW : SW_HIDE);
+
+        if (idx == 1) {
+            UiPolicyTab::Refresh();
+        }
+        if (idx == 2) {
+            UpdateLogs();
+        }
     }
 
     void Create(HWND hWnd, HINSTANCE hInst)
@@ -32,14 +44,15 @@ namespace UiTabs
             WC_TABCONTROLW, L"",
             WS_CHILD | WS_VISIBLE,
             10, 10, rc.right - 20, rc.bottom - 20,
-            hWnd, nullptr, hInst, nullptr
-        );
+            hWnd, nullptr, hInst, nullptr);
 
         TCITEMW ti{ TCIF_TEXT };
         ti.pszText = (LPWSTR)L"Status";
         TabCtrl_InsertItem(g_tabWnd, 0, &ti);
-        ti.pszText = (LPWSTR)L"Logs";
+        ti.pszText = (LPWSTR)L"Policy";
         TabCtrl_InsertItem(g_tabWnd, 1, &ti);
+        ti.pszText = (LPWSTR)L"Logs";
+        TabCtrl_InsertItem(g_tabWnd, 2, &ti);
 
         RECT trc;
         GetClientRect(g_tabWnd, &trc);
@@ -51,13 +64,15 @@ namespace UiTabs
             L"- Tray resident like antivirus\n"
             L"- HID insert -> approval popup\n"
             L"- One USB -> one approval (VID/PID)\n"
+            L"- Policy tab can re-allow disabled blacklist devices\n"
             L"- Logs in Logs tab\n",
             WS_CHILD | WS_VISIBLE,
             trc.left + 10, trc.top + 10,
             trc.right - trc.left - 20,
             trc.bottom - trc.top - 20,
-            g_tabWnd, nullptr, hInst, nullptr
-        );
+            g_tabWnd, nullptr, hInst, nullptr);
+
+        g_tabPolicy = UiPolicyTab::Create(g_tabWnd, hInst, trc);
 
         g_tabLogs = CreateWindowExW(
             WS_EX_CLIENTEDGE, L"EDIT", L"",
@@ -66,28 +81,41 @@ namespace UiTabs
             trc.left + 6, trc.top + 6,
             trc.right - trc.left - 12,
             trc.bottom - trc.top - 12,
-            g_tabWnd, nullptr, hInst, nullptr
-        );
+            g_tabWnd, nullptr, hInst, nullptr);
 
+        ShowWindow(g_tabPolicy, SW_HIDE);
         ShowWindow(g_tabLogs, SW_HIDE);
     }
 
     void OnSelChange()
     {
-        if (!g_tabWnd) return;
+        if (!g_tabWnd) {
+            return;
+        }
+
         int idx = TabCtrl_GetCurSel(g_tabWnd);
         SwitchTab(idx);
     }
 
+    bool HandleCommand(WPARAM wParam, LPARAM lParam)
+    {
+        return UiPolicyTab::HandleCommand(wParam, lParam);
+    }
+
     bool IsLogsTabActive()
     {
-        if (!g_tabWnd) return false;
-        return TabCtrl_GetCurSel(g_tabWnd) == 1;
+        if (!g_tabWnd) {
+            return false;
+        }
+        return TabCtrl_GetCurSel(g_tabWnd) == 2;
     }
 
     void UpdateLogs()
     {
-        if (!g_tabLogs) return;
+        if (!g_tabLogs) {
+            return;
+        }
+
         std::wstring all = Logger::GetAll();
         SetWindowTextW(g_tabLogs, all.c_str());
     }

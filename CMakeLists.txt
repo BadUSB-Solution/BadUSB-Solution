@@ -14,16 +14,29 @@ add_library(CapstoneCore STATIC
     Capstone/Hook/keyboard_hook.cpp
     Capstone/Detect/hid_scan.cpp
     Capstone/Detect/hid_fingerprint.cpp
-    Capstone/Algorithm/PreAnalysis/key_decoder.cpp
-    Capstone/Algorithm/PreAnalysis/key_normalizer.cpp
-    Capstone/Algorithm/PreAnalysis/url_extractor.cpp
-    Capstone/Algorithm/PreAnalysis/typing_analyzer.cpp
+    Capstone/Algorithm/PreAnalysis/KeyDecoder/key_decoder.cpp
+    Capstone/Algorithm/PreAnalysis/KeyNormalizer/key_normalizer.cpp
+    Capstone/Algorithm/PreAnalysis/UrlExtractor/url_extractor.cpp
+    Capstone/Algorithm/PreAnalysis/TypingAnalyzer/typing_analyzer.cpp
     Capstone/Algorithm/Analysis/ShellDetector/shell_detector.cpp
     Capstone/Algorithm/Analysis/ThreatMatcher/threat_matcher.cpp
+    Capstone/Algorithm/Analysis/ThreatMatcher/threat_command_analyzer.cpp
+    Capstone/Algorithm/Analysis/ThreatMatcher/threat_executor_analyzer.cpp
+    Capstone/Algorithm/Analysis/ThreatMatcher/threat_result_formatter.cpp
     Capstone/Algorithm/Analysis/ThreatMatcher/threat_db_connect.cpp
     Capstone/Algorithm/Analysis/UrlClassifier/url_classifier.cpp
+    Capstone/Algorithm/Analysis/UrlClassifier/url_parser.cpp
+    Capstone/Algorithm/Analysis/UrlClassifier/ip_filter.cpp
+    Capstone/Algorithm/Analysis/UrlClassifier/shortener_filter.cpp
+    Capstone/Algorithm/Analysis/UrlClassifier/executable_filter.cpp
+    Capstone/Algorithm/Analysis/UrlClassifier/entropy_filter.cpp
+    Capstone/Algorithm/Analysis/UrlClassifier/scheme_filter.cpp
+    Capstone/Algorithm/Analysis/UrlClassifier/port_filter.cpp
+    Capstone/Algorithm/Analysis/UrlClassifier/hosting_filter.cpp
     Capstone/Algorithm/Analysis/CompoundScorer/compound_scorer.cpp
     Capstone/Algorithm/Analysis/CompoundScorer/hotkey_scorer.cpp
+    Capstone/Policy/device_blocker.cpp
+    Capstone/Policy/device_finder.cpp
     Capstone/ThirdParty/sqlite3.c
 )
 
@@ -32,10 +45,15 @@ target_include_directories(CapstoneCore PUBLIC
     Capstone/Hook
     Capstone/Detect
     Capstone/Algorithm/PreAnalysis
+    Capstone/Algorithm/PreAnalysis/KeyDecoder
+    Capstone/Algorithm/PreAnalysis/KeyNormalizer
+    Capstone/Algorithm/PreAnalysis/UrlExtractor
+    Capstone/Algorithm/PreAnalysis/TypingAnalyzer
     Capstone/Algorithm/Analysis/ShellDetector
     Capstone/Algorithm/Analysis/ThreatMatcher
     Capstone/Algorithm/Analysis/UrlClassifier
     Capstone/Algorithm/Analysis/CompoundScorer
+    Capstone/Policy
     Capstone/ThirdParty
 )
 

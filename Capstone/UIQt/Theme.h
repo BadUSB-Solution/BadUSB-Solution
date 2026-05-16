@@ -12,9 +12,9 @@ namespace UiTheme
     // ─────────────────────────────────────────────────────────────────────────
 
     // Brand / interactive
-    constexpr const char* Primary      = "#1E8FFF";
-    constexpr const char* PrimaryHover = "#0B68D8";
-    constexpr const char* PrimarySoft  = "#EAF4FF";
+    constexpr const char* Primary      = "#0B73F6";
+    constexpr const char* PrimaryHover = "#0757C9";
+    constexpr const char* PrimarySoft  = "#EAF2FF";
 
     // Text
     constexpr const char* Text         = "#1D293D";
@@ -33,8 +33,8 @@ namespace UiTheme
     constexpr const char* BorderInput  = "#CAD5E2";
 
     // Brand extended
-    constexpr const char* PrimarySoftBorder = "#B9DCFF";   // border on primary-soft surfaces
-    constexpr const char* PrimaryText        = "#0B4EA2";   // dark primary text on PrimarySoft bg
+    constexpr const char* PrimarySoftBorder = "#B7D4FF";   // border on primary-soft surfaces
+    constexpr const char* PrimaryText        = "#084A9E";   // dark primary text on PrimarySoft bg
 
     // Sidebar brand surface
     constexpr const char* SidebarBg          = "#061B49";
@@ -59,9 +59,9 @@ namespace UiTheme
     constexpr const char* WarningText   = "#B26A00";
 
     // Chart palette
-    constexpr const char* ChartNormal    = "#B9DCFF";   // normal-range bars / neutral border
-    constexpr const char* ChartRisk      = "#0B68D8";   // cumulative risk score line
-    constexpr const char* ChartThreshold = "#1E8FFF";   // anomaly bars + threshold dashed line
+    constexpr const char* ChartNormal    = "#B7D4FF";   // normal-range bars / neutral border
+    constexpr const char* ChartRisk      = "#0757C9";   // cumulative risk score line
+    constexpr const char* ChartThreshold = "#0B73F6";   // anomaly bars + threshold dashed line
 
     // Terminal / raw-data areas
     constexpr const char* TerminalBg   = "#0F172B";
@@ -315,15 +315,15 @@ namespace UiTheme
                 min-height: 40px;
                 padding: 0 18px;
                 border-radius: 8px;
-                background: %White%;
-                color: %PrimaryText%;
-                border: 1px solid %BorderInput%;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
+                                            stop:0 %PrimaryHover%, stop:1 %Primary%);
+                color: %White%;
+                border: none;
                 font-size: 14px;
             }
 
             QPushButton#bufferButton:hover {
-                background: %PrimarySoft%;
-                border: 1px solid %PrimarySoftBorder%;
+                background: %PrimaryHover%;
             }
 
             QFrame#themeToggle {

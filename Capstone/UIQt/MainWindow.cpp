@@ -1671,7 +1671,7 @@ QWidget* MainWindow::createDashboardPage()
                 "QScrollArea#protectionScrollArea { background: #FFFFFF; border: none; }"
                 "QScrollArea#protectionScrollArea > QWidget > QWidget { background: #FFFFFF; }"
                 "QScrollBar:vertical { background: #FFFFFF; width: 6px; margin: 0; }"
-                "QScrollBar::handle:vertical { background: #B9DCFF; border-radius: 3px; min-height: 24px; }"
+                "QScrollBar::handle:vertical { background: #B7D4FF; border-radius: 3px; min-height: 24px; }"
                 "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
                 "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: #FFFFFF; }"
             );

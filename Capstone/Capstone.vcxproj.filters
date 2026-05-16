@@ -22,6 +22,18 @@
     <Filter Include="Algorithm\PreAnalysis">
       <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556677}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Algorithm\PreAnalysis\KeyDecoder">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556701}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm\PreAnalysis\KeyNormalizer">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556702}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm\PreAnalysis\UrlExtractor">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556703}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Algorithm\PreAnalysis\TypingAnalyzer">
+      <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556704}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Algorithm\Analysis">
       <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556688}</UniqueIdentifier>
     </Filter>
@@ -39,6 +51,9 @@
     </Filter>
     <Filter Include="ThirdParty">
       <UniqueIdentifier>{B7E80000-1234-5678-9ABC-DEF012345678}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Policy">
+      <UniqueIdentifier>{0E8A2F08-4E66-4D8F-925A-9C7E2470BE4E}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -99,20 +114,23 @@
     <ClInclude Include="UI\ui_compound_scorer.h">
       <Filter>UI</Filter>
     </ClInclude>
-    <ClInclude Include="Algorithm\PreAnalysis\key_decoder.h">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClInclude Include="UI\ui_policy_tab.h">
+      <Filter>UI</Filter>
     </ClInclude>
-    <ClInclude Include="Algorithm\PreAnalysis\key_normalizer.h">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClInclude Include="Algorithm\PreAnalysis\KeyDecoder\key_decoder.h">
+      <Filter>Algorithm\PreAnalysis\KeyDecoder</Filter>
     </ClInclude>
-    <ClInclude Include="Algorithm\PreAnalysis\url_extractor.h">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClInclude Include="Algorithm\PreAnalysis\KeyNormalizer\key_normalizer.h">
+      <Filter>Algorithm\PreAnalysis\KeyNormalizer</Filter>
     </ClInclude>
-    <ClInclude Include="Algorithm\PreAnalysis\keyboard_shortcuts_ref.h">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClInclude Include="Algorithm\PreAnalysis\UrlExtractor\url_extractor.h">
+      <Filter>Algorithm\PreAnalysis\UrlExtractor</Filter>
     </ClInclude>
-    <ClInclude Include="Algorithm\PreAnalysis\typing_analyzer.h">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClInclude Include="Algorithm\PreAnalysis\KeyNormalizer\keyboard_shortcuts_ref.h">
+      <Filter>Algorithm\PreAnalysis\KeyNormalizer</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\PreAnalysis\TypingAnalyzer\typing_analyzer.h">
+      <Filter>Algorithm\PreAnalysis\TypingAnalyzer</Filter>
     </ClInclude>
     <ClInclude Include="Algorithm\Analysis\ShellDetector\shell_detector.h">
       <Filter>Algorithm\Analysis\ShellDetector</Filter>
@@ -120,10 +138,37 @@
     <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.h">
       <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
     </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_matcher_internal.h">
+      <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
+    </ClInclude>
     <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_db_connect.h">
       <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
     </ClInclude>
     <ClInclude Include="Algorithm\Analysis\UrlClassifier\url_classifier.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\url_parser.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\ip_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\shortener_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\executable_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\entropy_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\scheme_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\port_filter.h">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClInclude>
+    <ClInclude Include="Algorithm\Analysis\UrlClassifier\hosting_filter.h">
       <Filter>Algorithm\Analysis\UrlClassifier</Filter>
     </ClInclude>
     <ClInclude Include="Algorithm\Analysis\CompoundScorer\compound_scorer.h">
@@ -134,6 +179,12 @@
     </ClInclude>
     <ClInclude Include="ThirdParty\sqlite3.h">
       <Filter>ThirdParty</Filter>
+    </ClInclude>
+    <ClInclude Include="Policy\device_blocker.h">
+      <Filter>Policy</Filter>
+    </ClInclude>
+    <ClInclude Include="Policy\device_finder.h">
+      <Filter>Policy</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -156,6 +207,9 @@
     <ClCompile Include="UI\ui_approval.cpp">
       <Filter>UI</Filter>
     </ClCompile>
+    <ClCompile Include="UI\ui_policy_tab.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
     <ClCompile Include="Hook\keyboard_hook.cpp">
       <Filter>Hook</Filter>
     </ClCompile>
@@ -174,17 +228,17 @@
     <ClCompile Include="UI\ui_compound_scorer.cpp">
       <Filter>UI</Filter>
     </ClCompile>
-    <ClCompile Include="Algorithm\PreAnalysis\key_decoder.cpp">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClCompile Include="Algorithm\PreAnalysis\KeyDecoder\key_decoder.cpp">
+      <Filter>Algorithm\PreAnalysis\KeyDecoder</Filter>
     </ClCompile>
-    <ClCompile Include="Algorithm\PreAnalysis\key_normalizer.cpp">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClCompile Include="Algorithm\PreAnalysis\KeyNormalizer\key_normalizer.cpp">
+      <Filter>Algorithm\PreAnalysis\KeyNormalizer</Filter>
     </ClCompile>
-    <ClCompile Include="Algorithm\PreAnalysis\url_extractor.cpp">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClCompile Include="Algorithm\PreAnalysis\UrlExtractor\url_extractor.cpp">
+      <Filter>Algorithm\PreAnalysis\UrlExtractor</Filter>
     </ClCompile>
-    <ClCompile Include="Algorithm\PreAnalysis\typing_analyzer.cpp">
-      <Filter>Algorithm\PreAnalysis</Filter>
+    <ClCompile Include="Algorithm\PreAnalysis\TypingAnalyzer\typing_analyzer.cpp">
+      <Filter>Algorithm\PreAnalysis\TypingAnalyzer</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\Analysis\ShellDetector\shell_detector.cpp">
       <Filter>Algorithm\Analysis\ShellDetector</Filter>
@@ -192,10 +246,43 @@
     <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.cpp">
       <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
     </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_command_analyzer.cpp">
+      <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_executor_analyzer.cpp">
+      <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_result_formatter.cpp">
+      <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
+    </ClCompile>
     <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_db_connect.cpp">
       <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\Analysis\UrlClassifier\url_classifier.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\url_parser.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\ip_filter.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\shortener_filter.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\executable_filter.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\entropy_filter.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\scheme_filter.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\port_filter.cpp">
+      <Filter>Algorithm\Analysis\UrlClassifier</Filter>
+    </ClCompile>
+    <ClCompile Include="Algorithm\Analysis\UrlClassifier\hosting_filter.cpp">
       <Filter>Algorithm\Analysis\UrlClassifier</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\Analysis\CompoundScorer\compound_scorer.cpp">
@@ -206,6 +293,12 @@
     </ClCompile>
     <ClCompile Include="ThirdParty\sqlite3.c">
       <Filter>ThirdParty</Filter>
+    </ClCompile>
+    <ClCompile Include="Policy\device_blocker.cpp">
+      <Filter>Policy</Filter>
+    </ClCompile>
+    <ClCompile Include="Policy\device_finder.cpp">
+      <Filter>Policy</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -136,6 +136,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
         return 0;
 
     case WM_COMMAND:
+        if (UiTabs::HandleCommand(wParam, lParam)) {
+            return 0;
+        }
         if (LOWORD(wParam) == IDM_TRAY_OPEN) {
             ShowWindow(hWnd, SW_SHOW);
             SetForegroundWindow(hWnd);

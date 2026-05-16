@@ -41,7 +41,7 @@ namespace
         // 폴더 없으면 생성
         CreateDirectoryW(dir.c_str(), nullptr);
 
-        return dir + L"\\wb_db.json";
+        return dir + L"\\allow_list.json";
     }
 
     // wstring ↔ UTF-8
@@ -307,6 +307,42 @@ namespace
         return std::any_of(list.begin(), list.end(),
             [fp](const UsbItem& i) { return i.fingerprint == fp; });
     }
+
+    bool HasVidPid(uint16_t vid, uint16_t pid)
+    {
+        return vid != 0 || pid != 0;
+    }
+
+    // 블랙리스트는 VID/PID 단위 차단을 지원한다.
+    // 같은 모델/수신기 계열 장치를 다음 연결부터 함께 막기 위한 기준이다.
+    bool ContainsVidPid(const std::vector<UsbItem>& list, uint16_t vid, uint16_t pid)
+    {
+        if (!HasVidPid(vid, pid)) {
+            return false;
+        }
+
+        return std::any_of(list.begin(), list.end(),
+            [vid, pid](const UsbItem& i) {
+                return i.vid == vid && i.pid == pid;
+            });
+    }
+
+    // whitelist와 blacklist가 동시에 맞는 충돌 상태를 만들지 않도록
+    // fingerprint 또는 VID/PID가 같은 기존 항목을 반대 목록에서 제거한다.
+    void RemoveByFingerprintOrVidPid(std::vector<UsbItem>& list, const UsbItem& item)
+    {
+        list.erase(
+            std::remove_if(list.begin(), list.end(),
+                [&](const UsbItem& i) {
+                    const bool sameFingerprint = i.fingerprint == item.fingerprint;
+                    const bool sameVidPid =
+                        HasVidPid(item.vid, item.pid) &&
+                        i.vid == item.vid &&
+                        i.pid == item.pid;
+                    return sameFingerprint || sameVidPid;
+                }),
+            list.end());
+    }
 }
 
 // ═══════════════════════════════════════════════════
@@ -379,6 +415,25 @@ namespace Policy
         return ofs.good();
     }
 
+    PolicyStatus Evaluate(const UsbItem& item)
+    {
+        std::lock_guard<std::mutex> lk(g_mu);
+        // 차단 정책은 보수적으로 우선 적용한다.
+        // fingerprint가 달라도 같은 VID/PID로 등록된 blacklist면 차단한다.
+        if (Contains(g_blacklist, item.fingerprint) ||
+            ContainsVidPid(g_blacklist, item.vid, item.pid)) {
+            return PolicyStatus::Blacklisted;
+        }
+
+        // 허용은 fingerprint 기준으로만 처리한다.
+        // 같은 VID/PID의 다른 실제 장치를 자동 허용하지 않기 위해서다.
+        if (Contains(g_whitelist, item.fingerprint)) {
+            return PolicyStatus::Whitelisted;
+        }
+
+        return PolicyStatus::Unknown;
+    }
+
     bool IsWhitelisted(uint64_t fp)
     {
         std::lock_guard<std::mutex> lk(g_mu);
@@ -395,11 +450,8 @@ namespace Policy
     {
         {
             std::lock_guard<std::mutex> lk(g_mu);
-            // 블랙리스트에 있으면 제거
-            g_blacklist.erase(
-                std::remove_if(g_blacklist.begin(), g_blacklist.end(),
-                    [&](const UsbItem& i) { return i.fingerprint == item.fingerprint; }),
-                g_blacklist.end());
+            // 허용으로 바꾸는 경우 기존 차단 정책과 충돌하지 않게 먼저 제거한다.
+            RemoveByFingerprintOrVidPid(g_blacklist, item);
 
             if (!Contains(g_whitelist, item.fingerprint)) {
                 UsbItem copy = item;
@@ -414,13 +466,11 @@ namespace Policy
     {
         {
             std::lock_guard<std::mutex> lk(g_mu);
-            // 화이트리스트에 있으면 제거
-            g_whitelist.erase(
-                std::remove_if(g_whitelist.begin(), g_whitelist.end(),
-                    [&](const UsbItem& i) { return i.fingerprint == item.fingerprint; }),
-                g_whitelist.end());
+            // 차단으로 바꾸는 경우 기존 허용 정책과 충돌하지 않게 먼저 제거한다.
+            RemoveByFingerprintOrVidPid(g_whitelist, item);
 
-            if (!Contains(g_blacklist, item.fingerprint)) {
+            if (!Contains(g_blacklist, item.fingerprint) &&
+                !ContainsVidPid(g_blacklist, item.vid, item.pid)) {
                 UsbItem copy = item;
                 copy.allow = false;
                 g_blacklist.push_back(copy);
