@@ -3393,6 +3393,7 @@ QWidget* MainWindow::createAnalyticsPage()
     leftL->setContentsMargins(0, 0, 0, 0);
     leftL->setSpacing(16);
     BarChartWidget* inputSpeedChart = nullptr;
+    LineChartWidget* threatTrendChart = nullptr;
     RiskBreakdownWidget* riskBreakdownChart = nullptr;
     QLabel* riskAverageValue = nullptr;
     QLabel* sessionStartValue = nullptr;
@@ -3480,10 +3481,10 @@ QWidget* MainWindow::createAnalyticsPage()
         subHeader2->addStretch();
         lbL->addLayout(subHeader2);
 
-        auto* breakdownChart = new RiskBreakdownWidget;
-        riskBreakdownChart = breakdownChart;
-        breakdownChart->setMinimumHeight(180);
-        lbL->addWidget(breakdownChart, 1);
+        auto* lineChart = new LineChartWidget;
+        threatTrendChart = lineChart;
+        lineChart->setMinimumHeight(180);
+        lbL->addWidget(lineChart, 1);
 
         auto* legendRow2 = new QHBoxLayout;
         legendRow2->addStretch();
@@ -4131,8 +4132,7 @@ QWidget* MainWindow::createHelpPage()
         }) makeBullet(b, cl);
         cl->addSpacing(8);
         auto* note = new QFrame;
-        note->setStyleSheet(QString("QFrame { background: %1; border: 1px solid %2; border-radius: 8px; }")
-            .arg(UiTheme::PrimarySoft, UiTheme::PrimarySoftBorder));
+        note->setStyleSheet("QFrame { background: transparent; border: none; }");
         auto* nl = new QHBoxLayout(note);
         nl->setContentsMargins(17, 14, 17, 14);
         auto* noteLbl = new QLabel("참고: 설치 후 트레이 아이콘이 나타나면 정상적으로 보호가 시작된 것입니다.");
