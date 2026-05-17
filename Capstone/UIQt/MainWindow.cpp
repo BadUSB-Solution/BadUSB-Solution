@@ -1136,6 +1136,7 @@ namespace
 
         auto* dlg = new QDialog(parent, Qt::Dialog | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->setWindowTitle("장치 위험도 모니터링");
         // Non-modal: WindowStaysOnTopHint keeps it visible.
         // setModal(true) was blocking all input to the main window even when
         // the dialog was opened manually without a suspected device.
@@ -1210,7 +1211,7 @@ namespace
         hdrL->setContentsMargins(24, 0, 16, 0);
         hdrL->setSpacing(10);
         hdrL->addWidget(iconLabel(":/icons/brand-mark.png", 20));
-        auto* title = new QLabel("장치 승인 및 버퍼 모니터");
+        auto* title = new QLabel("장치 위험도 모니터링");
         title->setFont(pretendardFont(FontRole::SemiBold));
         title->setStyleSheet("font-size: 16px; color: #1D293D;");
         title->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -2072,7 +2073,7 @@ QWidget* MainWindow::createDashboardPage()
         header->addStretch();
         header->addWidget(label("마지막 업데이트: " + nowTimestamp(), "mutedText"));
         header->addSpacing(16);
-        auto* bufferButton = new QPushButton("버퍼 모니터 팝업 열기");
+        auto* bufferButton = new QPushButton("장치 위험도 모니터링 열기");
         bufferButton->setObjectName("bufferButton");
         bufferButton->setFont(pretendardFont(FontRole::SemiBold));
         bufferButton->setIcon(QIcon(":/icons/ui-lock.svg"));
@@ -3430,7 +3431,7 @@ QWidget* MainWindow::createAnalyticsPage()
 
     // Bar chart card "입력 속도 (keys/sec)"
     {
-        auto* rangeLabel = new QLabel("최근 30분");
+        auto* rangeLabel = new QLabel("최근 30초");
         rangeLabel->setFont(pretendardFont(FontRole::Medium));
         rangeLabel->setStyleSheet("color: #62748E; font-size: 13px;");
 
@@ -3464,7 +3465,7 @@ QWidget* MainWindow::createAnalyticsPage()
 
     // Line chart card "위험 점수 추이"
     {
-        auto* rangeLabel2 = new QLabel("최근 30분");
+        auto* rangeLabel2 = new QLabel("최근 30초");
         rangeLabel2->setFont(pretendardFont(FontRole::Medium));
         rangeLabel2->setStyleSheet("color: #62748E; font-size: 13px;");
 
