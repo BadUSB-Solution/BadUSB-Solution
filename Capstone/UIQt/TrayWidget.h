@@ -7,7 +7,7 @@ class QLabel;
 class QPushButton;
 
 // ---------------------------------------------------------------------------
-// TrayWidget — compact system-tray popup (470 × 249 px)
+// TrayWidget - compact system-tray popup (560 x 258 px)
 //
 // Three security states:
 //   Normal  — green  "정상"   / "안전"       badge
