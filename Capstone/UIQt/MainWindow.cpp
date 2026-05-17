@@ -24,6 +24,7 @@
 #include <QCloseEvent>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QPainterPath>
 #include <QPaintEvent>
 #include <QPushButton>
 #include <QScrollArea>
@@ -387,6 +388,41 @@ namespace
         g_inputSpeedTrend.append(qMakePair(std::clamp(keysPerSecond, 0.0, 16.0), isAnomaly));
         while (g_inputSpeedTrend.size() > 30)
             g_inputSpeedTrend.removeFirst();
+    }
+
+    QStringList blockReasonLines(const LiveAnalysisSnapshot& snapshot)
+    {
+        QStringList reasons;
+        if (snapshot.typing.classification == TypingAnalyzer::TYPING_AUTOMATED
+            || snapshot.typingScore >= 6.0) {
+            reasons << QStringLiteral("자동 입력으로 의심되는 빠르고 균일한 키 입력이 감지되었습니다.");
+        }
+        if (!snapshot.threat.commands.empty() || snapshot.threat.session_score >= 3.0) {
+            reasons << QStringLiteral("실행/명령 입력 패턴이 감지되었습니다.");
+        }
+        if (!snapshot.hotkey.matches.empty() || snapshot.hotkey.final_score >= 3.0) {
+            reasons << QStringLiteral("위험 단축키 조합이 포함되어 있습니다.");
+        }
+        if (!snapshot.urls.items.empty() && snapshot.urlScore > 0.0) {
+            reasons << QStringLiteral("의심 URL 또는 실행 파일 URL 패턴이 포함되어 있습니다.");
+        }
+        if (reasons.isEmpty()) {
+            reasons << QStringLiteral("여러 입력 신호가 조합되어 위험 점수가 상승했습니다.");
+        }
+        return reasons;
+    }
+
+    QString blockReasonHtml(const QStringList& reasons)
+    {
+        QString html;
+        for (const QString& reason : reasons) {
+            html += QStringLiteral(
+                "<div style='margin-bottom:4px;'>"
+                "<span style='color:#F97316; font-weight:800;'>•</span>"
+                "<span style='color:#45556C;'>&nbsp;&nbsp;%1</span>"
+                "</div>").arg(reason.toHtmlEscaped());
+        }
+        return html;
     }
 
     QString fromWString(const std::wstring& value)
@@ -788,7 +824,7 @@ namespace
         }
     };
 
-    // ---- Bar chart widget ----
+    // ---- Input speed trend widget ----
     class BarChartWidget : public QWidget
     {
     public:
@@ -812,13 +848,13 @@ namespace
 
             const QVector<QPair<double, bool>> data = data_;
 
-            const double maxV = 16.0;
-            const int lm = 38, rm = 12, tm = 10, bm = 28;
+            const double maxV = 20.0;
+            const int lm = 42, rm = 20, tm = 14, bm = 30;
             const int cw = width() - lm - rm;
             const int ch = height() - tm - bm;
 
             // Grid lines + Y labels
-            const QStringList yLabels = {"0", "4", "8", "12", "16"};
+            const QStringList yLabels = {"0", "5", "10", "15", "20"};
             for (int i = 0; i < 5; ++i) {
                 const double ratio = i / 4.0;
                 const int y = tm + ch - static_cast<int>(ratio * ch);
@@ -836,18 +872,43 @@ namespace
                 p.drawText(lm, tm, cw, ch, Qt::AlignCenter, "입력 대기중...");
             }
 
-            // Bars
+            const int thresholdY = tm + ch - static_cast<int>((8.0 / maxV) * ch);
+            p.setPen(QPen(QColor("#94A3B8"), 1.3, Qt::DashLine));
+            p.drawLine(lm, thresholdY, lm + cw, thresholdY);
+
+            // Input speed line
             const int n = data.size();
-            const double barW = n > 0 ? static_cast<double>(cw) / n : 0.0;
-            const double gap = 2.0;
-            for (int i = 0; i < n; ++i) {
-                const double val = data[i].first;
-                const bool anom = data[i].second;
-                const double bh = (val / maxV) * ch;
-                const double x = lm + i * barW + gap / 2.0;
-                const double y = tm + ch - bh;
-                p.fillRect(QRectF(x, y, barW - gap, bh),
-                           QColor(anom ? UiTheme::ChartThreshold : UiTheme::ChartNormal));
+            if (n > 0) {
+                QVector<QPointF> pts;
+                pts.reserve(n);
+                for (int i = 0; i < n; ++i) {
+                    const double x = n == 1 ? lm + cw : lm + (static_cast<double>(i) / (n - 1)) * cw;
+                    const double y = tm + ch - (std::clamp(data[i].first, 0.0, maxV) / maxV) * ch;
+                    pts.append(QPointF(x, y));
+                }
+
+                QPainterPath fillPath;
+                fillPath.moveTo(pts.first());
+                for (int i = 1; i < pts.size(); ++i)
+                    fillPath.lineTo(pts[i]);
+                fillPath.lineTo(pts.last().x(), tm + ch);
+                fillPath.lineTo(pts.first().x(), tm + ch);
+                fillPath.closeSubpath();
+                p.fillPath(fillPath, QColor(11, 115, 246, 26));
+
+                QPainterPath linePath;
+                linePath.moveTo(pts.first());
+                for (int i = 1; i < pts.size(); ++i)
+                    linePath.lineTo(pts[i]);
+                p.setPen(QPen(QColor(UiTheme::ChartRisk), 2.2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+                p.drawPath(linePath);
+
+                for (int i = 0; i < pts.size(); ++i) {
+                    const bool anom = data[i].second;
+                    p.setPen(QPen(QColor("#FFFFFF"), 2));
+                    p.setBrush(QColor(anom ? "#7C3AED" : UiTheme::ChartRisk));
+                    p.drawEllipse(pts[i], anom ? 4.5 : 3.5, anom ? 4.5 : 3.5);
+                }
             }
 
             // X-axis labels
@@ -941,6 +1002,92 @@ namespace
         QVector<double> data_;
     };
 
+    class RiskBreakdownWidget : public QWidget
+    {
+    public:
+        explicit RiskBreakdownWidget(QWidget* parent = nullptr) : QWidget(parent)
+        {
+            setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+        }
+
+        void setScores(double command, double url, double typing, double hotkey)
+        {
+            scores_ = {
+                {QStringLiteral("명령어"), std::clamp(command, 0.0, 10.0), QColor("#2563C7")},
+                {QStringLiteral("URL"), std::clamp(url, 0.0, 10.0), QColor("#7C3AED")},
+                {QStringLiteral("입력 속도"), std::clamp(typing, 0.0, 10.0), QColor("#0891B2")},
+                {QStringLiteral("핫키"), std::clamp(hotkey, 0.0, 10.0), QColor("#DB2777")},
+            };
+            update();
+        }
+
+        double averageScore() const
+        {
+            if (scores_.isEmpty())
+                return 0.0;
+            double sum = 0.0;
+            for (const auto& score : scores_)
+                sum += score.value;
+            return sum / scores_.size();
+        }
+
+    protected:
+        void paintEvent(QPaintEvent*) override
+        {
+            QPainter p(this);
+            p.setRenderHint(QPainter::Antialiasing);
+
+            const int leftLabelW = 78;
+            const int rightValueW = 54;
+            const int top = 18;
+            const int rowH = 34;
+            const int gap = 10;
+            const int barH = 12;
+            const int barX = leftLabelW + 12;
+            const int barW = width() - barX - rightValueW - 18;
+
+            if (scores_.isEmpty()) {
+                p.setPen(QColor("#94A3B8"));
+                p.setFont(QFont("Inter", 10));
+                p.drawText(rect(), Qt::AlignCenter, QStringLiteral("분석 대기 중..."));
+                return;
+            }
+
+            for (int i = 0; i < scores_.size(); ++i) {
+                const auto& item = scores_[i];
+                const int y = top + i * (rowH + gap);
+                const int barY = y + 12;
+
+                p.setPen(QColor("#45556C"));
+                p.setFont(QFont("Inter", 10, QFont::DemiBold));
+                p.drawText(0, y, leftLabelW, rowH, Qt::AlignRight | Qt::AlignVCenter, item.label);
+
+                p.setPen(Qt::NoPen);
+                p.setBrush(QColor("#EAF2FF"));
+                p.drawRoundedRect(QRectF(barX, barY, barW, barH), 6, 6);
+
+                const double filled = (item.value / 10.0) * barW;
+                p.setBrush(item.color);
+                p.drawRoundedRect(QRectF(barX, barY, filled, barH), 6, 6);
+
+                p.setPen(QColor("#1D293D"));
+                p.setFont(QFont("Inter", 10, QFont::DemiBold));
+                p.drawText(barX + barW + 10, y, rightValueW, rowH,
+                           Qt::AlignLeft | Qt::AlignVCenter,
+                           QString("%1").arg(item.value, 0, 'f', 1));
+            }
+        }
+
+    private:
+        struct ScoreItem {
+            QString label;
+            double value;
+            QColor color;
+        };
+
+        QVector<ScoreItem> scores_;
+    };
+
     class DialogDragFilter : public QObject {
         QDialog* dialog_;
         bool dragging_ = false;
@@ -993,7 +1140,7 @@ namespace
         // setModal(true) was blocking all input to the main window even when
         // the dialog was opened manually without a suspected device.
         dlg->setModal(false);
-        dlg->setFixedSize(1024, 752);
+        dlg->setFixedSize(1024, 790);
         dlg->setStyleSheet(
             QString(
                 "QDialog { background: #FFFFFF; border-radius: 12px; }"
@@ -1083,11 +1230,16 @@ namespace
         // ── Body scroll area ─────────────────────────────────────────────────
         auto* body = new QWidget;
         auto* bodyL = new QVBoxLayout(body);
-        bodyL->setContentsMargins(24, 20, 24, 0);
-        bodyL->setSpacing(16);
+        bodyL->setContentsMargins(24, 16, 24, 0);
+        bodyL->setSpacing(12);
         QTextEdit* bufText = nullptr;
         auto normalizedMode = std::make_shared<bool>(false);
         std::function<void()> updateBufferText;
+        QFrame* blockReasonCard = nullptr;
+        QLabel* blockScoreValue = nullptr;
+        QLabel* blockThresholdValue = nullptr;
+        QLabel* blockReasonList = nullptr;
+        std::function<void()> updateBlockReasonCard;
 
         // Top: two info cards side by side
         {
@@ -1232,6 +1384,112 @@ namespace
             bodyL->addLayout(topRow);
         }
 
+        // Block recommendation card
+        {
+            auto* card = new QFrame;
+            blockReasonCard = card;
+            card->setStyleSheet(
+                "QFrame { background: #FFFFFF; border: 1px solid #FED7AA; border-radius: 8px; }"
+            );
+            auto* cl = new QVBoxLayout(card);
+            cl->setContentsMargins(0, 0, 0, 0);
+            cl->setSpacing(0);
+
+            auto* ch = new QWidget;
+            ch->setFixedHeight(38);
+            ch->setStyleSheet(
+                "background: #FFFFFF; border-bottom: 1px solid #FED7AA;"
+                "border-top-left-radius: 8px; border-top-right-radius: 8px;"
+            );
+            auto* chl = new QHBoxLayout(ch);
+            chl->setContentsMargins(16, 0, 16, 0);
+            chl->setSpacing(10);
+            auto* title = new QLabel(QStringLiteral("차단 권장 사유"));
+            title->setFont(pretendardFont(FontRole::SemiBold));
+            title->setStyleSheet("font-size: 14px; color: #1D293D; background: transparent; border: none;");
+            chl->addWidget(title);
+            chl->addStretch();
+            auto* badge = new QLabel(QStringLiteral("차단 권장"));
+            badge->setFont(pretendardFont(FontRole::SemiBold));
+            badge->setFixedHeight(24);
+            badge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+            badge->setStyleSheet(
+                "QLabel { color: #EA580C; background: #FFF7ED; border: 1px solid #FDBA74;"
+                " border-radius: 7px; padding: 0 10px; font-size: 12px; }"
+            );
+            chl->addWidget(badge);
+            cl->addWidget(ch);
+
+            auto* content = new QWidget;
+            content->setStyleSheet("background: transparent; border: none;");
+            auto* contentL = new QHBoxLayout(content);
+            contentL->setContentsMargins(16, 10, 16, 10);
+            contentL->setSpacing(18);
+
+            auto* left = new QVBoxLayout;
+            left->setSpacing(8);
+            auto* summary = new QLabel(QStringLiteral("종합 위험 점수가 임계값을 초과했습니다."));
+            summary->setFont(pretendardFont(FontRole::SemiBold));
+            summary->setStyleSheet("color: #1D293D; font-size: 13px; background: transparent; border: none;");
+            left->addWidget(summary);
+
+            auto* scoreBox = new QFrame;
+            scoreBox->setStyleSheet(
+                "QFrame { background: #FFFDFB; border: 1px solid #E2E8F0; border-radius: 8px; }"
+            );
+            auto* scoreL = new QHBoxLayout(scoreBox);
+            scoreL->setContentsMargins(18, 7, 18, 7);
+            scoreL->setSpacing(18);
+
+            auto makeScoreCol = [&](const QString& key, QLabel** out, bool accent) {
+                auto* col = new QVBoxLayout;
+                col->setSpacing(4);
+                auto* k = new QLabel(key);
+                k->setFont(pretendardFont(FontRole::Regular));
+                k->setStyleSheet("color: #45556C; font-size: 12px; background: transparent; border: none;");
+                auto* v = new QLabel(QStringLiteral("-"));
+                v->setFont(pretendardFont(FontRole::Bold));
+                v->setStyleSheet(QString("color: %1; font-size: 18px; background: transparent; border: none;")
+                    .arg(accent ? "#F97316" : "#1D293D"));
+                col->addWidget(k, 0, Qt::AlignCenter);
+                col->addWidget(v, 0, Qt::AlignCenter);
+                scoreL->addLayout(col, 1);
+                *out = v;
+            };
+            makeScoreCol(QStringLiteral("현재 점수:"), &blockScoreValue, true);
+            auto* divider = new QFrame;
+            divider->setFixedWidth(1);
+            divider->setStyleSheet("QFrame { background: #CBD5E1; border: none; }");
+            scoreL->addWidget(divider);
+            makeScoreCol(QStringLiteral("임계값:"), &blockThresholdValue, true);
+            left->addWidget(scoreBox);
+            contentL->addLayout(left, 1);
+
+            auto* midDivider = new QFrame;
+            midDivider->setFixedWidth(1);
+            midDivider->setStyleSheet("QFrame { background: #E2E8F0; border: none; }");
+            contentL->addWidget(midDivider);
+
+            auto* right = new QVBoxLayout;
+            right->setSpacing(6);
+            auto* reasonTitle = new QLabel(QStringLiteral("주요 근거"));
+            reasonTitle->setFont(pretendardFont(FontRole::SemiBold));
+            reasonTitle->setStyleSheet("color: #1D293D; font-size: 13px; background: transparent; border: none;");
+            right->addWidget(reasonTitle);
+            blockReasonList = new QLabel;
+            blockReasonList->setFont(pretendardFont(FontRole::Regular));
+            blockReasonList->setTextFormat(Qt::RichText);
+            blockReasonList->setWordWrap(true);
+            blockReasonList->setStyleSheet("font-size: 11px; background: transparent; border: none;");
+            right->addWidget(blockReasonList);
+            right->addStretch();
+            contentL->addLayout(right, 1);
+
+            cl->addWidget(content);
+            card->setVisible(false);
+            bodyL->addWidget(card);
+        }
+
         // Buffer card
         {
             auto* card = new QFrame;
@@ -1265,7 +1523,7 @@ namespace
             // Text area
             bufText = new QTextEdit;
             bufText->setReadOnly(true);
-            bufText->setMinimumHeight(140);
+            bufText->setMinimumHeight(110);
             bufText->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOn);
             bufText->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
             bufText->setFont(QFont("Consolas", 13));
@@ -1294,9 +1552,33 @@ namespace
             };
             updateBufferText();
 
+            updateBlockReasonCard = [blockReasonCard, blockScoreValue, blockThresholdValue, blockReasonList] {
+                if (!blockReasonCard || !blockScoreValue || !blockThresholdValue || !blockReasonList)
+                    return;
+
+                const LiveAnalysisSnapshot snapshot = buildLiveAnalysisSnapshot();
+                constexpr double blockThreshold = 8.0;
+                const bool shouldShow = snapshot.hasInput
+                    && snapshot.verdict.final_score >= blockThreshold;
+
+                blockReasonCard->setVisible(shouldShow);
+                if (!shouldShow)
+                    return;
+
+                blockScoreValue->setText(QString("%1 / 10.0")
+                    .arg(snapshot.verdict.final_score, 0, 'f', 1));
+                blockThresholdValue->setText(QString("%1").arg(blockThreshold, 0, 'f', 1));
+                blockReasonList->setText(blockReasonHtml(blockReasonLines(snapshot)));
+            };
+            updateBlockReasonCard();
+
             auto* bufferTimer = new QTimer(dlg);
             bufferTimer->setInterval(250);
-            QObject::connect(bufferTimer, &QTimer::timeout, dlg, updateBufferText);
+            QObject::connect(bufferTimer, &QTimer::timeout, dlg, [updateBufferText, updateBlockReasonCard] {
+                updateBufferText();
+                if (updateBlockReasonCard)
+                    updateBlockReasonCard();
+            });
             bufferTimer->start();
 
             QObject::connect(clearBtn, &QPushButton::clicked, dlg, [updateBufferText, normalizedMode] {
@@ -3111,7 +3393,8 @@ QWidget* MainWindow::createAnalyticsPage()
     leftL->setContentsMargins(0, 0, 0, 0);
     leftL->setSpacing(16);
     BarChartWidget* inputSpeedChart = nullptr;
-    LineChartWidget* threatTrendChart = nullptr;
+    RiskBreakdownWidget* riskBreakdownChart = nullptr;
+    QLabel* riskAverageValue = nullptr;
     QLabel* sessionStartValue = nullptr;
     QLabel* durationValue = nullptr;
     QLabel* totalInputValue = nullptr;
@@ -3197,16 +3480,20 @@ QWidget* MainWindow::createAnalyticsPage()
         subHeader2->addStretch();
         lbL->addLayout(subHeader2);
 
-        auto* lineChart = new LineChartWidget;
-        threatTrendChart = lineChart;
-        lineChart->setMinimumHeight(180);
-        lbL->addWidget(lineChart, 1);
+        auto* breakdownChart = new RiskBreakdownWidget;
+        riskBreakdownChart = breakdownChart;
+        breakdownChart->setMinimumHeight(180);
+        lbL->addWidget(breakdownChart, 1);
 
         auto* legendRow2 = new QHBoxLayout;
         legendRow2->addStretch();
-        legendRow2->addWidget(mkLegendItem(UiTheme::ChartRisk, "누적 위험 점수"));
-        legendRow2->addSpacing(16);
-        legendRow2->addWidget(mkLegendItem(UiTheme::ChartThreshold, "임계값 (8.0)", true));
+        legendRow2->addWidget(mkLegendItem("#2563C7", "명령어"));
+        legendRow2->addSpacing(12);
+        legendRow2->addWidget(mkLegendItem("#7C3AED", "URL"));
+        legendRow2->addSpacing(12);
+        legendRow2->addWidget(mkLegendItem("#0891B2", "입력 속도"));
+        legendRow2->addSpacing(12);
+        legendRow2->addWidget(mkLegendItem("#DB2777", "핫키"));
         lbL->addLayout(legendRow2);
 
         leftL->addWidget(createCard("위험 점수 추이", lineBody, rangeLabel2), 1);
