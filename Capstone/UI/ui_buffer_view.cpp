@@ -603,12 +603,22 @@ namespace BufferViewUI
             {
                 auto cls = UrlClassifier::Classify(decoded);
                 normText += L"\r\n=== URL Classification ===\r\n";
+                {
+                    wchar_t hdr[64];
+                    wsprintfW(hdr, L"final_score: %d.%02d / 10\r\n",
+                              (int)cls.final_score,
+                              (int)((cls.final_score - (int)cls.final_score) * 100));
+                    normText += hdr;
+                }
                 if (cls.items.empty()) {
                     normText += L"(없음)\r\n";
                 } else {
                     for (auto& item : cls.items) {
-                        wchar_t buf[32];
-                        wsprintfW(buf, L"[line %d] ", (int)item.lineIndex);
+                        wchar_t buf[64];
+                        wsprintfW(buf, L"[line %d] (score=%d.%02d) ",
+                                  (int)item.lineIndex,
+                                  (int)item.score,
+                                  (int)((item.score - (int)item.score) * 100));
                         normText += buf;
                         normText += item.url + L"\r\n";
 

@@ -334,14 +334,17 @@ namespace UrlClassifier
         std::wstring url;        // resolved URL 문자열
         size_t       lineIndex;
         uint32_t     flags;      // UrlFlag 비트마스크
+        double       score;      // 이 URL 단독 점수 (0~10, cap)
     };
 
     struct Result {
         std::vector<UrlClassification>  items;
         uint32_t                         aggregateFlags;  // 전체 OR
+        double                           final_score;     // 세션 종합 점수 (0~10, CompoundScorer 입력)
     };
 
     Result Classify(const KeyDecoder::DecodeResult& decoded);
+    double ScoreFlags(uint32_t flags);   // 플래그 → 점수 변환 (외부 노출)
 }
 ```
 
@@ -352,7 +355,11 @@ namespace UrlClassifier
 ```cpp
 namespace UrlClassifier
 {
+    // 메인 진입점
     Result Classify(const KeyDecoder::DecodeResult& decoded);
+
+    // 플래그 → 점수 변환 (정책 단일 출처). 외부에서 임의 flags 평가용.
+    double ScoreFlags(uint32_t flags);
 }
 ```
 
@@ -363,13 +370,84 @@ for each line in decoded.lines:
         ParsedUrl p = ParseUrl(url.resolved);
         flags = 0;
         // 규칙 1~11 적용
-        items.push_back({ url.resolved, url.lineIndex, flags });
+        score = ScoreFlags(flags);
+        items.push_back({ url.resolved, url.lineIndex, flags, score });
         aggregateFlags |= flags;
+        rawSum += score;
+
+final_score = min(10.0, rawSum)
 ```
 
 ---
 
-## 7. 작업 순서
+## 7. 점수 산정 (Scoring)
+
+### 7.1 정책 개요
+
+각 URL 의 `flags` 비트마스크를 받아서 가중치 합으로 0~10 점수 산출.  
+세션 단위 `final_score` 는 URL별 점수 합 후 cap 10.
+
+```
+url.score   = min(10, Σ 매칭된 플래그 가중치)
+final_score = min(10, Σ url.score)
+```
+
+### 7.2 플래그별 가중치 (임시값 — calibration 시 조정)
+
+| 플래그 | 가중치 | 근거 |
+|--------|-------|------|
+| `URL_FLAG_IP_ADDRESS` | **3.0** | 도메인 대신 IP 직접 접근 — C2 의심 |
+| `URL_FLAG_IP_PRIVATE` | +1.0 | 사설 IP (10/172.16/192.168) — 내부망 공격 |
+| `URL_FLAG_IP_LOOPBACK` | +0.5 | 127.x — 로컬 페이로드 (BadUSB 약함) |
+| `URL_FLAG_IP_LINKLOCAL` | +1.5 | 169.254 — 비정상 |
+| `URL_FLAG_SHORTENER` | **2.5** | bit.ly 등 — 경로 은닉 |
+| `URL_FLAG_EXE_EXTENSION` | **2.5** | .exe / .ps1 / .hta 등 직접 다운로드 |
+| `URL_FLAG_HIGH_ENTROPY` | 2.0 | DGA 의심 |
+| `URL_FLAG_ABNORMAL_SCHEME` | **3.0** | file:// / ftp:// 등 |
+| `URL_FLAG_UNUSUAL_PORT` | 1.5 | 비표준 포트 |
+| `URL_FLAG_FREE_TLD` | **3.5** | .tk / .ml 등 — 거의 무조건 악성 |
+| `URL_FLAG_FREE_HOSTING` | 1.0 | github.io 등 — 단독 약함, 조합 시 강해짐 |
+| `URL_FLAG_DYNAMIC_DNS` | **2.5** | duckdns 등 — C2 서버 흔적 |
+| `URL_FLAG_FILE_SHARING` | 1.5 | mega.nz 등 |
+| `URL_FLAG_TUNNELING` | **2.5** | ngrok 등 — 임시 노출 |
+
+**설계 원칙:**
+- 단독 신호로 강한 것 (FREE_TLD, ABNORMAL_SCHEME, IP_ADDRESS) → **높음** (3.0~3.5)
+- 정상 사용이 흔한 것 (FREE_HOSTING, IP_LOOPBACK) → **낮음** (0.5~1.0) — 조합으로만 의미
+- IP 세부 플래그는 IP_ADDRESS 위에 가산
+
+### 7.3 점수 예시
+
+| URL | 매칭 플래그 | 점수 계산 | url.score |
+|-----|----------|---------|---------|
+| `https://github.com/...` | (없음) | 0 | 0.0 |
+| `https://bit.ly/47OkUuD` | SHORTENER | 2.5 | 2.5 |
+| `https://attacker.github.io/payload.exe` | EXE_EXTENSION + FREE_HOSTING | 2.5 + 1.0 | 3.5 |
+| `http://192.168.1.100:4444/x.ps1` | IP_ADDRESS + IP_PRIVATE + EXE_EXTENSION + UNUSUAL_PORT | 3.0 + 1.0 + 2.5 + 1.5 | 8.0 |
+| `https://kj3xq8a9z.tk/c2` | FREE_TLD + HIGH_ENTROPY | 3.5 + 2.0 | 5.5 |
+| `https://atk.duckdns.org:8888/c2` | DYNAMIC_DNS + UNUSUAL_PORT | 2.5 + 1.5 | 4.0 |
+| `file:///C:/payload.exe` | ABNORMAL_SCHEME + EXE_EXTENSION | 3.0 + 2.5 | 5.5 |
+
+### 7.4 CompoundScorer 연계
+
+```cpp
+auto cls = UrlClassifier::Classify(decoded);
+auto v = CompoundScorer::Combine(tm_score, cls.final_score, typing_score, hk_score);
+```
+
+CompoundScorer 가중치:
+```
+W_TM     = 1.0
+W_URL    = 0.2   ← UrlClassifier 기여도
+W_TYPING = 0.0   ← 미구현
+W_HOTKEY = 0.5
+```
+
+→ URL 단독으로 `final_score=10` 일 때 종합에 +2.0 기여.
+
+---
+
+## 8. 작업 순서
 
 | # | 작업 | 비고 |
 |---|------|------|
@@ -389,25 +467,28 @@ for each line in decoded.lines:
 
 ---
 
-## 8. 디버그 창 표시 (제안)
+## 9. 디버그 창 표시
 
-`OpenNormalizeDebug` 의 URLs 섹션 확장:
+`OpenNormalizeDebug` 의 URL Classification 섹션:
 
 ```
-=== URLs ===
-[line 0] https://bit.ly/47OkUuD
-         flags: SHORTENER
-[line 1] https://attacker.github.io/payload.exe
-         flags: FREE_HOSTING | EXE_EXTENSION
-[line 2] http://192.168.1.100:4444/x.ps1
-         flags: IP_ADDRESS | IP_PRIVATE | EXE_EXTENSION | UNUSUAL_PORT
-[line 3] https://kj3xq8a9z.tk/c2
-         flags: FREE_TLD | HIGH_ENTROPY
+=== URL Classification ===
+final_score: 8.00 / 10
+[line 0] (score=2.50) https://bit.ly/47OkUuD
+          flags: SHORTENER
+[line 1] (score=3.50) https://attacker.github.io/payload.exe
+          flags: EXE_EXTENSION FREE_HOSTING
+[line 2] (score=8.00) http://192.168.1.100:4444/x.ps1
+          flags: IP_ADDRESS IP_PRIVATE EXE_EXTENSION UNUSUAL_PORT
+[line 3] (score=5.50) https://kj3xq8a9z.tk/c2
+          flags: FREE_TLD HIGH_ENTROPY
 ```
+
+세션 `final_score` = 모든 URL `score` 합 (cap 10).
 
 ---
 
-## 9. 테스트 케이스
+## 10. 테스트 케이스
 
 | URL | 예상 flags |
 |-----|----------|
@@ -425,7 +506,7 @@ for each line in decoded.lines:
 
 ---
 
-## 10. DB 활용 여부
+## 11. DB 활용 여부
 
 - 단축/무료 호스팅/DDNS 도메인 리스트는 **수십 개 수준** → static array 충분
 - DB 쿼리 오버헤드 불필요
@@ -433,7 +514,7 @@ for each line in decoded.lines:
 
 ---
 
-## 11. 알려진 한계
+## 12. 알려진 한계
 
 | 항목 | 설명 |
 |------|------|
@@ -447,31 +528,38 @@ for each line in decoded.lines:
 
 ---
 
-## 12. CompoundScorer 와의 관계
+## 13. CompoundScorer 와의 관계
 
-UrlClassifier는 **사실 분류만** 한다. 점수 산정 안 함.
-
-CompoundScorer 에서 다음과 같이 활용:
+UrlClassifier 는 분류 + **0~10 점수** 까지 산출. CompoundScorer 에서 가중치 합산.
 
 ```
-ShellDetector(SHELL_CMD/PS) +
-ThreatMatcher(DOWNLOAD/EXECUTOR 명령어) +
-UrlClassifier(SHORTENER + EXE_EXTENSION + FREE_TLD)
-        ↓
-"BadUSB 공격 패턴" 종합 판정
+auto cls = UrlClassifier::Classify(decoded);
+auto v = CompoundScorer::Combine(tm_score, cls.final_score, typing_score, hk_score);
 ```
 
-특히 강한 조합:
+CompoundScorer 가중치 (`compound_scorer.cpp`):
+```
+W_TM     = 1.0
+W_URL    = 0.2   ← UrlClassifier 기여도 (활성화됨)
+W_TYPING = 0.0   ← 미구현
+W_HOTKEY = 0.5
+```
+
+→ URL `final_score=10` 일 때 종합에 +2.0 기여.
+
+### 패턴 조합 (참고)
+
+특히 강한 조합 (각각 별개 점수가 합쳐져 종합에서 부각됨):
 - `Win+R` 핫키 + DOWNLOAD 명령어 + `SHORTENER` + `EXE_EXTENSION`  → BADUSB_CLASSIC
 - `mshta` (EXECUTOR) + `FREE_TLD`/`DYNAMIC_DNS`                       → DIRECT_REMOTE_EXEC
 - DOWNLOAD + `IP_ADDRESS` + `UNUSUAL_PORT`                            → C2_DOWNLOAD
 - `iwr` -OutFile `%TEMP%\hack.exe` + `FREE_HOSTING`                   → 무료 호스팅 페이로드
 
-CompoundScorer 영역은 이 명세 밖.
+복합 패턴 인식 자체는 CompoundScorer 영역.
 
 ---
 
-## 13. 구현 우선순위
+## 14. 구현 우선순위
 
 1. **헬퍼 + 규칙 1~3** (IP, 단축 URL, 실행파일 확장자) — 가장 직관적, 효과 큼
 2. **규칙 5, 6** (비정상 스킴, 비표준 포트) — 단순 비교
