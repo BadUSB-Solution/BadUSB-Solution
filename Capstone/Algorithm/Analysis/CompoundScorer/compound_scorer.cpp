@@ -34,7 +34,7 @@ namespace CompoundScorer
         // ─── 가중치 (calibration 시 조정) ────────────────────────
         constexpr double W_TM     = 1.0;   // ThreatMatcher
         constexpr double W_URL    = 0.2;   // UrlClassifier
-        constexpr double W_TYPING = 0.0;   // TypingAnalyzer 미구현
+        constexpr double W_TYPING = 0.3;   // TypingAnalyzer
         constexpr double W_HOTKEY = 0.5;   // HotkeyScorer (보조)
         constexpr double SCORE_CAP = 10.0;
 

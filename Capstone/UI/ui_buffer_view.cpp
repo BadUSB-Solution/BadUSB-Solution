@@ -677,9 +677,12 @@ namespace BufferViewUI
                                                                             L"UNKNOWN";
                 wchar_t buf[256];
                 wsprintfW(buf,
-                          L"Classification: %s   keys=%d  WPM=%d\r\n"
+                          L"Classification: %s   score=%d.%02d / 10   keys=%d  WPM=%d\r\n"
                           L"  median=%dms  MAD=%dms  mean=%dms  range=%d..%dms\r\n",
-                          cls, (int)ta.keyCount, (int)ta.overallWpm,
+                          cls,
+                          (int)ta.score,
+                          (int)((ta.score - (int)ta.score) * 100),
+                          (int)ta.keyCount, (int)ta.overallWpm,
                           (int)ta.medianMs, (int)ta.madMs, (int)ta.meanMs,
                           (int)ta.minMs, (int)ta.maxMs);
                 normText += buf;

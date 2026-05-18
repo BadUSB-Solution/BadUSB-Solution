@@ -105,6 +105,42 @@ namespace TypingAnalyzer
                                                           : TYPING_HUMAN;
         }
 
+        // 6) 점수
+        r.score = ComputeScore(r);
+
         return r;
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    // 점수 정책
+    //   - HUMAN / UNKNOWN: 0
+    //   - AUTOMATED 베이스: 5
+    //     median 이 임계값보다 훨씬 짧으면 가산:
+    //       < 10ms → +3 (매우 명백한 자동화)
+    //       < 20ms → +1.5
+    //     MAD 가 임계값보다 훨씬 작으면 가산:
+    //       <  1ms → +2 (거의 완벽한 균일성)
+    //       <  3ms → +1
+    //
+    //   → 최대 10점 (매우 빠르고 매우 균일한 BadUSB 입력)
+    //   → 최소 5점 (AUTOMATED 분류만 받은 상태)
+    // ──────────────────────────────────────────────────────────────────
+    static constexpr double SCORE_CAP = 10.0;
+
+    double ComputeScore(const Result& r)
+    {
+        if (r.classification != TYPING_AUTOMATED) return 0.0;
+
+        double s = 5.0;  // AUTOMATED 베이스
+
+        // median 추가 점수 (더 빠를수록 강한 시그널)
+        if (r.medianMs < 10.0)      s += 3.0;
+        else if (r.medianMs < 20.0) s += 1.5;
+
+        // MAD 추가 점수 (더 균일할수록 강한 시그널)
+        if (r.madMs < 1.0)      s += 2.0;
+        else if (r.madMs < 3.0) s += 1.0;
+
+        return (std::min)(SCORE_CAP, s);
     }
 }
