@@ -31,13 +31,13 @@
     <Filter Include="Algorithm\PreAnalysis\UrlExtractor">
       <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556703}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Algorithm\PreAnalysis\TypingAnalyzer">
+    <Filter Include="Algorithm\Analysis\TypingAnalyzer">
       <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556704}</UniqueIdentifier>
     </Filter>
     <Filter Include="Algorithm\Analysis">
       <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556688}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Algorithm\Analysis\ShellDetector">
+    <Filter Include="Algorithm\PreAnalysis\ShellDetector">
       <UniqueIdentifier>{A1B2C3D4-1111-2222-3333-444455556699}</UniqueIdentifier>
     </Filter>
     <Filter Include="Algorithm\Analysis\ThreatMatcher">
@@ -123,11 +123,11 @@
     <ClInclude Include="Algorithm\PreAnalysis\KeyNormalizer\keyboard_shortcuts_ref.h">
       <Filter>Algorithm\PreAnalysis\KeyNormalizer</Filter>
     </ClInclude>
-    <ClInclude Include="Algorithm\PreAnalysis\TypingAnalyzer\typing_analyzer.h">
-      <Filter>Algorithm\PreAnalysis\TypingAnalyzer</Filter>
+    <ClInclude Include="Algorithm\Analysis\TypingAnalyzer\typing_analyzer.h">
+      <Filter>Algorithm\Analysis\TypingAnalyzer</Filter>
     </ClInclude>
-    <ClInclude Include="Algorithm\Analysis\ShellDetector\shell_detector.h">
-      <Filter>Algorithm\Analysis\ShellDetector</Filter>
+    <ClInclude Include="Algorithm\PreAnalysis\ShellDetector\shell_detector.h">
+      <Filter>Algorithm\PreAnalysis\ShellDetector</Filter>
     </ClInclude>
     <ClInclude Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.h">
       <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
@@ -219,11 +219,11 @@
     <ClCompile Include="Algorithm\PreAnalysis\UrlExtractor\url_extractor.cpp">
       <Filter>Algorithm\PreAnalysis\UrlExtractor</Filter>
     </ClCompile>
-    <ClCompile Include="Algorithm\PreAnalysis\TypingAnalyzer\typing_analyzer.cpp">
-      <Filter>Algorithm\PreAnalysis\TypingAnalyzer</Filter>
+    <ClCompile Include="Algorithm\Analysis\TypingAnalyzer\typing_analyzer.cpp">
+      <Filter>Algorithm\Analysis\TypingAnalyzer</Filter>
     </ClCompile>
-    <ClCompile Include="Algorithm\Analysis\ShellDetector\shell_detector.cpp">
-      <Filter>Algorithm\Analysis\ShellDetector</Filter>
+    <ClCompile Include="Algorithm\PreAnalysis\ShellDetector\shell_detector.cpp">
+      <Filter>Algorithm\PreAnalysis\ShellDetector</Filter>
     </ClCompile>
     <ClCompile Include="Algorithm\Analysis\ThreatMatcher\threat_matcher.cpp">
       <Filter>Algorithm\Analysis\ThreatMatcher</Filter>
