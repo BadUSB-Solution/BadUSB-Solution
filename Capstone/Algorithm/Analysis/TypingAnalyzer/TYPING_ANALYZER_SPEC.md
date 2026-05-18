@@ -94,9 +94,13 @@ namespace TypingAnalyzer
         DWORD   maxMs;
         double  meanMs;
         double  overallWpm;
+
+        // 0~10 위협 점수 (CompoundScorer 입력)
+        double  score;
     };
 
     Result Analyze(const std::vector<KeyboardHook::KeyRecord>& keys);
+    double ComputeScore(const Result& r);   // 정책 단일 출처 (외부 노출)
 }
 ```
 
@@ -107,7 +111,11 @@ namespace TypingAnalyzer
 ```cpp
 namespace TypingAnalyzer
 {
+    // 메인 진입점
     Result Analyze(const std::vector<KeyboardHook::KeyRecord>& keys);
+
+    // Result → 0~10 점수 변환 (정책 단일 출처). 외부에서 임의 평가 가능.
+    double ComputeScore(const Result& r);
 }
 ```
 
@@ -195,29 +203,93 @@ overallWpm = (keyCount / 5.0) / minutes;
 
 대기 포함되면 실제 타이핑 속도보다 낮게 나오지만 디버그 표시용.
 
+### 6.6 점수 (Score)
+
+분류 결과와 통계를 바탕으로 0~10 점수 산출. CompoundScorer 입력으로 사용.
+
+```cpp
+r.score = ComputeScore(r);
+```
+
+자세한 정책은 §7 참고.
+
 ---
 
-## 7. 임계값 정리
+## 7. 점수 산정 (Scoring)
+
+### 7.1 정책 개요
+
+```
+HUMAN / UNKNOWN: 0
+AUTOMATED 베이스: 5
+  median 추가 점수 (더 빠를수록 강한 시그널):
+    < 10ms  →  +3.0
+    < 20ms  →  +1.5
+  MAD 추가 점수 (더 균일할수록 강한 시그널):
+    <  1ms  →  +2.0
+    <  3ms  →  +1.0
+최종 점수: min(10, base + median 보정 + MAD 보정)
+```
+
+**결과 범위:**
+- `TYPING_HUMAN` / `TYPING_UNKNOWN` → 0점
+- `TYPING_AUTOMATED` 만 받은 경우 → 최소 **5점** (베이스만)
+- 매우 빠르고 매우 균일한 BadUSB → **10점 만점**
+
+### 7.2 점수 예시
+
+| 시나리오 | classification | median | MAD | 점수 |
+|---------|--------------|--------|-----|------|
+| 사람 정상 타이핑 | HUMAN | 120 | 50 | **0** |
+| 데이터 부족 | UNKNOWN | — | — | **0** |
+| AUTOMATED 임계값 근처 | AUTOMATED | 25 | 4 | 5.0 |
+| 빠른 AUTOMATED | AUTOMATED | 15 | 4 | 5.0 + 1.5 = **6.5** |
+| 매우 빠르고 매우 균일 (BadUSB 전형) | AUTOMATED | 5 | 0 | 5.0 + 3.0 + 2.0 = **10.0** |
+| 빠르지만 약간 변동 | AUTOMATED | 8 | 2 | 5.0 + 3.0 + 1.0 = **9.0** |
+
+### 7.3 CompoundScorer 연계
+
+```cpp
+auto ta = TypingAnalyzer::Analyze(keys);
+auto v  = CompoundScorer::Combine(tm_score, url_score, ta.score, hk_score);
+```
+
+CompoundScorer 가중치:
+```
+W_TM     = 1.0
+W_URL    = 0.2
+W_TYPING = 0.3   ← TypingAnalyzer 기여도
+W_HOTKEY = 0.5
+```
+
+→ TypingAnalyzer `score=10` 일 때 종합에 +3.0 기여.
+
+---
+
+## 8. 임계값 정리
 
 | 상수 | 값 | 의미 |
 |------|----|----|
 | `MIN_SAMPLES` | 5 | 분류 위한 최소 인터벌 수 |
 | `FAST_THRESHOLD_MS` | 30 | 중앙값이 이보다 작으면 "빠름" |
 | `UNIFORM_MAD_MS` | 5 | MAD가 이보다 작으면 "균일" |
+| (점수 가산) median 추가 | 10 / 20 | +3.0 / +1.5 |
+| (점수 가산) MAD 추가 | 1 / 3 | +2.0 / +1.0 |
 
 모두 실험값. BadUSB 샘플로 조정 필요.
 
 ---
 
-## 8. 디버그 창 표시
+## 9. 디버그 창 표시
 
 ```
 === Typing Analysis ===
-Classification: AUTOMATED   keys=83  WPM=156
+Classification: AUTOMATED   score=10.00 / 10   keys=83  WPM=156
   median=7ms  MAD=1ms  mean=152ms  range=3..5000ms
 ```
 
 해석:
+- `score=10.00` → AUTOMATED 베이스(5) + median<10(+3) + MAD<1(+2) = 10
 - `median=7ms` → 매우 빠름 (FAST_THRESHOLD 30 미만)
 - `MAD=1ms` → 매우 균일 (UNIFORM_MAD 5 미만)
 - `max=5000ms` → 대기 구간 있음. **median/MAD 는 영향 없음.**
@@ -225,7 +297,7 @@ Classification: AUTOMATED   keys=83  WPM=156
 
 ---
 
-## 9. 처리 흐름 요약
+## 10. 처리 흐름 요약
 
 ```
 KeyRecord[]
@@ -240,7 +312,7 @@ Result
 
 ---
 
-## 10. 파일 구조
+## 11. 파일 구조
 
 ```
 Capstone/Algorithm/PreAnalysis/TypingAnalyzer/
@@ -253,7 +325,7 @@ vcxproj 등록 완료. 추가 작업 없음.
 
 ---
 
-## 11. 테스트 시나리오
+## 12. 테스트 시나리오
 
 | 시나리오 | 입력 | 예상 결과 |
 |---------|------|---------|
@@ -266,7 +338,7 @@ vcxproj 등록 완료. 추가 작업 없음.
 
 ---
 
-## 12. 알려진 한계
+## 13. 알려진 한계
 
 | 항목 | 설명 |
 |------|------|
@@ -279,18 +351,34 @@ vcxproj 등록 완료. 추가 작업 없음.
 
 ---
 
-## 13. CompoundScorer 와의 관계
+## 14. CompoundScorer 와의 관계
 
-TypingAnalyzer 는 **사실 분류만** 한다. 점수 계산 안 함.
+TypingAnalyzer 는 분류 + **0~10 점수** 까지 산출. CompoundScorer 에서 가중치 합산.
 
-CompoundScorer 에서 활용:
-- `TYPING_AUTOMATED` + 다른 모듈 시그널 (Win+R + DOWNLOAD + 단축 URL 등) → BadUSB 강한 증거
-- `TYPING_HUMAN` + 위협 명령어 → 사용자 의도 가능성 (false positive 감소 단서)
-- `TYPING_UNKNOWN` → 다른 모듈 결과에 가중치 양보
+```cpp
+auto ta = TypingAnalyzer::Analyze(keys);
+auto v  = CompoundScorer::Combine(tm_score, url_score, ta.score, hk_score);
+```
+
+CompoundScorer 가중치 (`compound_scorer.cpp`):
+```
+W_TM     = 1.0
+W_URL    = 0.2
+W_TYPING = 0.3   ← TypingAnalyzer 기여도 (활성화됨)
+W_HOTKEY = 0.5
+```
+
+→ TypingAnalyzer `score=10` 일 때 종합에 +3.0 기여.
+
+### 패턴 조합 (참고)
+
+- `TYPING_AUTOMATED` (score≥8) + 다른 모듈 시그널 (Win+R + DOWNLOAD + 단축 URL 등) → BadUSB 강한 증거
+- `TYPING_HUMAN` (score=0) + 위협 명령어 → 사용자 의도 가능성 (false positive 감소 단서)
+- `TYPING_UNKNOWN` (score=0) → 다른 모듈 결과에 가중치 양보
 
 ---
 
-## 14. 향후 보강 옵션 (선택)
+## 15. 향후 보강 옵션 (선택)
 
 기본 구현 후 정확도 더 올리고 싶을 때:
 
@@ -305,9 +393,10 @@ CompoundScorer 에서 활용:
 
 ---
 
-## 15. 설계 변경 이력
+## 16. 설계 변경 이력
 
 | 버전 | 변경 | 이유 |
 |------|------|------|
 | 초안 | 버스트 분할 (gap > 500ms 기준) | 대기 구간 대응 |
-| **현재** | 버스트 분할 제거, 단일 통계 | median + MAD가 이미 outlier에 강건해서 분할 불필요. 코드 단순화 |
+| v2 | 버스트 분할 제거, 단일 통계 | median + MAD가 이미 outlier에 강건해서 분할 불필요. 코드 단순화 |
+| **현재** | `score` 필드 + `ComputeScore()` 추가, CompoundScorer 가중치 0.0→0.3 활성화 | 0~10 점수 산출로 CompoundScorer 입력 표준화 |
