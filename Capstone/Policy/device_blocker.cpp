@@ -52,19 +52,32 @@ namespace
         return true;
     }
 
+    // 장치 노드의 상태(enable/disable)를 한 번 변경한다.
+    //  stateChange : DICS_ENABLE 또는 DICS_DISABLE
+    //  scope       : DICS_FLAG_GLOBAL       → 모든 하드웨어 프로파일에 적용 (전역)
+    //                DICS_FLAG_CONFIGSPECIFIC → 현재 하드웨어 프로파일에만 적용 (개별)
+    //
+    //  Windows는 두 스코프에 disable 플래그를 별도로 저장한다. 그래서
+    //  GLOBAL로만 disable 했더라도 CONFIGSPECIFIC 쪽에 과거 disable 흔적이
+    //  남아 있으면 GLOBAL enable만으로는 장치가 살아나지 않을 수 있다.
+    //  이 함수는 "한쪽 스코프 한 번"만 처리하므로, 호출자가 필요에 따라
+    //  두 번 호출하는 식으로 조합한다.
     bool ChangeDeviceNodeState(
         HDEVINFO deviceInfoSet,
         SP_DEVINFO_DATA& devInfo,
         DWORD stateChange,
+        DWORD scope,
         const wchar_t* label,
         std::wstring* detail)
     {
+        // SetupAPI에 전달할 "장치 상태를 바꿔달라"는 요청 파라미터.
+        // 장치 관리자 GUI에서 "사용 안 함 / 사용"을 누르는 것과 같은 경로다.
         SP_PROPCHANGE_PARAMS params{};
         params.ClassInstallHeader.cbSize = sizeof(SP_CLASSINSTALL_HEADER);
         params.ClassInstallHeader.InstallFunction = DIF_PROPERTYCHANGE;
         params.StateChange = stateChange;
-        params.Scope = DICS_FLAG_GLOBAL;
-        params.HwProfile = 0;
+        params.Scope = scope;
+        params.HwProfile = 0; // 0 = 현재 하드웨어 프로파일
 
         if (!SetupDiSetClassInstallParamsW(
             deviceInfoSet,
@@ -140,16 +153,55 @@ namespace
             return false;
         }
 
-        std::wstring enableDetail;
-        const bool enabled = ChangeDeviceNodeState(
+        // ─────────────────────────────────────────────────────────────
+        //  왜 두 번 호출하는가?
+        //
+        //  Windows는 장치 disable 상태를 두 군데에 따로 기록한다.
+        //    1) GLOBAL       : "모든 하드웨어 프로파일에서 disable"
+        //    2) CONFIGSPECIFIC: "지금 쓰는 하드웨어 프로파일에서만 disable"
+        //
+        //  과거에 어느 경로로든 disable이 들어갔는지 알기 어렵고,
+        //  한쪽만 enable 하면 다른 쪽 플래그가 남아서 장치가 안 살아나는
+        //  케이스가 실제로 있다. (MSDN의 SP_PROPCHANGE_PARAMS 문서와
+        //  Microsoft devcon 샘플 모두 ENABLE은 두 스코프 다 호출하라고
+        //  권장한다.)
+        //
+        //  그래서 GLOBAL → CONFIGSPECIFIC 순서로 한 번씩, 총 두 번 호출한다.
+        //  실패 사유는 각각 따로 받아두고, 한 쪽만 성공해도 장치가 살아나는
+        //  경우가 많으니 OR 결과로 성공/실패를 판정한다.
+        // ─────────────────────────────────────────────────────────────
+
+        // (1) 전역 스코프 enable
+        std::wstring globalDetail;
+        const bool globalOk = ChangeDeviceNodeState(
             deviceInfoSet,
             devInfo,
             DICS_ENABLE,
-            L"enabled",
-            &enableDetail);
+            DICS_FLAG_GLOBAL,
+            L"enabled(global)",
+            &globalDetail);
+
+        // (2) 현재 하드웨어 프로파일 스코프 enable
+        std::wstring configDetail;
+        const bool configOk = ChangeDeviceNodeState(
+            deviceInfoSet,
+            devInfo,
+            DICS_ENABLE,
+            DICS_FLAG_CONFIGSPECIFIC,
+            L"enabled(config)",
+            &configDetail);
+
         SetupDiDestroyDeviceInfoList(deviceInfoSet);
-        SetDetail(detail, enableDetail);
-        return enabled;
+
+        // 로그에 어느 쪽이 성공/실패했는지 둘 다 남긴다.
+        // 나중에 enable이 안 풀리는 케이스 디버깅할 때 어느 스코프 문제인지
+        // 바로 보일 수 있게 하기 위함이다.
+        std::wstring combined = L"global=" + globalDetail + L"; config=" + configDetail;
+        SetDetail(detail, combined);
+
+        // 한 스코프만 풀려도 장치가 살아나는 경우가 있어
+        // 둘 중 하나라도 성공이면 enabled로 본다.
+        return globalOk || configOk;
     }
 
     bool RemoveByInstanceId(const std::wstring& instanceId, std::wstring* detail)
