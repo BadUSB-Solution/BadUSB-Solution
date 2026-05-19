@@ -3,6 +3,8 @@
 #include "key_decoder.h"
 #include "shell_detector.h"
 #include "threat_matcher.h"
+#include "url_classifier.h"
+#include "typing_analyzer.h"
 #include "compound_scorer.h"
 #include "hotkey_scorer.h"
 #include <string>
@@ -38,22 +40,63 @@ namespace {
         auto decoded = KeyDecoder::Decode(keys);
         auto shell   = ShellDetector::Detect(decoded);
         auto tm      = ThreatMatcher::Analyze(decoded, shell.shell);
+        auto url     = UrlClassifier::Classify(decoded);
+        auto typing  = TypingAnalyzer::Analyze(keys);
         auto hk      = HotkeyScorer::Analyze(decoded.hotkeys);
 
-        // URL / Typing 모듈은 미구현 — 0점 전달
-        // double url    = UrlClassifier::Score(decoded);   // 미구현
-        // double typing = TypingAnalyzer::Score(keys);     // 미구현
         auto verdict = CompoundScorer::Combine(
             tm.session_score,
-            /*url   */ 0.0,
-            /*typing*/ 0.0,
+            url.final_score,
+            typing.score,
             hk.final_score
         );
 
         SetWindowTextW(g_hVerdict, CompoundScorer::FormatVerdict(verdict).c_str());
-        // 상세 영역에 ThreatMatcher + HotkeyScorer 로그 모두 표시
-        std::wstring detail = ThreatMatcher::FormatLog(tm)
-                            + L"\r\n" + HotkeyScorer::FormatLog(hk);
+
+        // 상세 영역: ThreatMatcher + URL/Typing 요약 + HotkeyScorer
+        std::wstring detail = ThreatMatcher::FormatLog(tm);
+
+        auto fmtDouble = [](double v, int prec = 2) {
+            wchar_t buf[32];
+            _snwprintf_s(buf, _TRUNCATE, L"%.*f", prec, v);
+            return std::wstring(buf);
+        };
+
+        // UrlClassifier 요약
+        {
+            detail += L"\r\n========================================\r\n"
+                      L" UrlClassifier\r\n"
+                      L"========================================\r\n";
+            detail += L"  final_score : " + fmtDouble(url.final_score) + L" / 10\r\n";
+            detail += L"  URL count   : " + std::to_wstring(url.items.size()) + L"\r\n";
+            for (const auto& item : url.items) {
+                detail += L"  [line " + std::to_wstring(item.lineIndex)
+                       +  L"] score=" + fmtDouble(item.score)
+                       +  L"  " + item.url + L"\r\n";
+            }
+        }
+
+        // TypingAnalyzer 요약
+        {
+            const wchar_t* cls =
+                typing.classification == TypingAnalyzer::TYPING_AUTOMATED ? L"AUTOMATED" :
+                typing.classification == TypingAnalyzer::TYPING_HUMAN     ? L"HUMAN"     :
+                                                                            L"UNKNOWN";
+            detail += L"\r\n========================================\r\n"
+                      L" TypingAnalyzer\r\n"
+                      L"========================================\r\n";
+            detail += L"  classification : ";
+            detail += cls;
+            detail += L"\r\n";
+            detail += L"  score          : " + fmtDouble(typing.score) + L" / 10\r\n";
+            detail += L"  keys="    + std::to_wstring(typing.keyCount)
+                   +  L"  median=" + fmtDouble(typing.medianMs, 1)
+                   +  L"ms  MAD="  + fmtDouble(typing.madMs, 1)
+                   +  L"ms  WPM="  + fmtDouble(typing.overallWpm, 0)
+                   +  L"\r\n";
+        }
+
+        detail += L"\r\n" + HotkeyScorer::FormatLog(hk);
         SetWindowTextW(g_hDetail, detail.c_str());
     }
 
