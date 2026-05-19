@@ -603,12 +603,22 @@ namespace BufferViewUI
             {
                 auto cls = UrlClassifier::Classify(decoded);
                 normText += L"\r\n=== URL Classification ===\r\n";
+                {
+                    wchar_t hdr[64];
+                    wsprintfW(hdr, L"final_score: %d.%02d / 10\r\n",
+                              (int)cls.final_score,
+                              (int)((cls.final_score - (int)cls.final_score) * 100));
+                    normText += hdr;
+                }
                 if (cls.items.empty()) {
                     normText += L"(없음)\r\n";
                 } else {
                     for (auto& item : cls.items) {
-                        wchar_t buf[32];
-                        wsprintfW(buf, L"[line %d] ", (int)item.lineIndex);
+                        wchar_t buf[64];
+                        wsprintfW(buf, L"[line %d] (score=%d.%02d) ",
+                                  (int)item.lineIndex,
+                                  (int)item.score,
+                                  (int)((item.score - (int)item.score) * 100));
                         normText += buf;
                         normText += item.url + L"\r\n";
 
@@ -667,9 +677,12 @@ namespace BufferViewUI
                                                                             L"UNKNOWN";
                 wchar_t buf[256];
                 wsprintfW(buf,
-                          L"Classification: %s   keys=%d  WPM=%d\r\n"
+                          L"Classification: %s   score=%d.%02d / 10   keys=%d  WPM=%d\r\n"
                           L"  median=%dms  MAD=%dms  mean=%dms  range=%d..%dms\r\n",
-                          cls, (int)ta.keyCount, (int)ta.overallWpm,
+                          cls,
+                          (int)ta.score,
+                          (int)((ta.score - (int)ta.score) * 100),
+                          (int)ta.keyCount, (int)ta.overallWpm,
                           (int)ta.medianMs, (int)ta.madMs, (int)ta.meanMs,
                           (int)ta.minMs, (int)ta.maxMs);
                 normText += buf;

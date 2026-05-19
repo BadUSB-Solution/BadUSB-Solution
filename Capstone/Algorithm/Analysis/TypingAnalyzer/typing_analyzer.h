@@ -29,7 +29,13 @@ namespace TypingAnalyzer
         // 참고
         double  meanMs;
         double  overallWpm;
+
+        // 0~10 위협 점수 (CompoundScorer 입력)
+        double  score;
     };
 
     Result Analyze(const std::vector<KeyboardHook::KeyRecord>& keys);
+
+    // Result → 0~10 점수 변환 (정책 단일 출처). 외부에서 임의 평가 가능.
+    double ComputeScore(const Result& r);
 }

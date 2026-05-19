@@ -48,12 +48,18 @@ namespace UrlClassifier
         std::wstring url;        // resolved URL
         size_t       lineIndex;
         uint32_t     flags;      // UrlFlag 비트마스크
+        double       score;      // 이 URL 단독 점수 (cap 10)
     };
 
     struct Result {
         std::vector<UrlClassification>  items;
         uint32_t                         aggregateFlags;  // 전체 OR
+        double                           final_score;     // 세션 종합 점수 (0~10, CompoundScorer 입력)
     };
 
     Result Classify(const KeyDecoder::DecodeResult& decoded);
+
+    // 플래그 비트마스크 → 점수 변환 (정책 단일 출처)
+    // 외부에서도 임의 flags 평가 가능하도록 노출.
+    double ScoreFlags(uint32_t flags);
 }

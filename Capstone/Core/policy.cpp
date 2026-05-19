@@ -425,9 +425,11 @@ namespace Policy
             return PolicyStatus::Blacklisted;
         }
 
-        // 허용은 fingerprint 기준으로만 처리한다.
-        // 같은 VID/PID의 다른 실제 장치를 자동 허용하지 않기 위해서다.
-        if (Contains(g_whitelist, item.fingerprint)) {
+        // 허용도 VID/PID 단위로 매칭한다.
+        // 핫플러그 도착 순간 ContainerId/identity 키가 완성되기 전에 fingerprint가
+        // 달라질 수 있어 fingerprint 단독 매칭으로는 재연결 시 whitelist를 놓친다.
+        if (Contains(g_whitelist, item.fingerprint) ||
+            ContainsVidPid(g_whitelist, item.vid, item.pid)) {
             return PolicyStatus::Whitelisted;
         }
 
