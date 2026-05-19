@@ -238,6 +238,32 @@ namespace
         }
     }
 
+    QString blockCurrentDevice(const UsbItem& item, const std::wstring& source)
+    {
+        if (item.devicePath.empty()) {
+            Logger::Add(L"[Qt] " + source + L" block skipped: missing device path");
+            return QStringLiteral("차단 목록에 저장했습니다. 장치 경로가 없어 현재 연결 차단은 건너뛰었습니다.");
+        }
+
+        std::wstring blockDetail;
+        const DeviceBlocker::BlockResult blockResult =
+            DeviceBlocker::BlockByDevicePath(item.devicePath, &blockDetail);
+        Logger::Add(L"[Qt] " + source + L" block result=" +
+            std::to_wstring(static_cast<int>(blockResult)) + L", " + blockDetail);
+
+        switch (blockResult) {
+        case DeviceBlocker::BlockResult::Disabled:
+            return QStringLiteral("차단 목록에 저장하고 현재 장치를 비활성화했습니다.");
+        case DeviceBlocker::BlockResult::Ejected:
+            return QStringLiteral("차단 목록에 저장하고 현재 장치 제거를 요청했습니다.");
+        case DeviceBlocker::BlockResult::NotFound:
+            return QStringLiteral("차단 목록에 저장했지만 현재 장치 노드를 찾지 못했습니다.");
+        case DeviceBlocker::BlockResult::Failed:
+        default:
+            return QStringLiteral("차단 목록에 저장했지만 현재 장치 차단 요청은 실패했습니다. 관리자 권한으로 실행했는지 확인하세요.");
+        }
+    }
+
     QString scoreText(double score, double maxScore = 10.0)
     {
         return QString("%1 / %2")
@@ -445,10 +471,11 @@ namespace
         return hex4(vid) + ":" + hex4(pid);
     }
 
-    QString policyTextForFingerprint(uint64_t fp)
+    QString policyTextForItem(const UsbItem& item)
     {
-        if (Policy::IsWhitelisted(fp)) return "허용";
-        if (Policy::IsBlacklisted(fp)) return "차단";
+        const Policy::PolicyStatus status = Policy::Evaluate(item);
+        if (status == Policy::PolicyStatus::Whitelisted) return "허용";
+        if (status == Policy::PolicyStatus::Blacklisted) return "차단";
         return "승인 대기";
     }
 
@@ -1694,6 +1721,7 @@ namespace
                             Logger::Add(L"[Qt] Buffer monitor allow: " + device_->name);
                         } else {
                             Policy::AddBlacklist(*device_);
+                            blockCurrentDevice(*device_, L"Buffer monitor block");
                             Logger::Add(L"[Qt] Buffer monitor block: " + device_->name);
                         }
                         if (onPolicyChanged_) onPolicyChanged_();
@@ -1952,8 +1980,9 @@ void MainWindow::refreshTrayWidget()
         if (seenKeys.contains(key)) continue;
         seenKeys.insert(key);
 
-        if (Policy::IsBlacklisted(item.fingerprint))      ++blacklistConnected;
-        else if (!Policy::IsWhitelisted(item.fingerprint)) ++pendingCount;
+        const Policy::PolicyStatus policyStatus = Policy::Evaluate(item);
+        if (policyStatus == Policy::PolicyStatus::Blacklisted)      ++blacklistConnected;
+        else if (policyStatus != Policy::PolicyStatus::Whitelisted) ++pendingCount;
     }
     trayWidget_->setUsbCount(static_cast<int>(seenKeys.size()));
 
@@ -2110,10 +2139,11 @@ QWidget* MainWindow::createDashboardPage()
             if (seenName.contains(displayName)) continue;
             seenName.insert(displayName, true);
 
-            const bool wl = Policy::IsWhitelisted(item.fingerprint);
-            const bool bl = Policy::IsBlacklisted(item.fingerprint);
-            if (!wl && !bl) ++pendingCount;
-            const QString pol = wl ? "허용" : bl ? "차단" : "승인 대기";
+            const Policy::PolicyStatus policyStatus = Policy::Evaluate(item);
+            if (policyStatus == Policy::PolicyStatus::Unknown) ++pendingCount;
+            const QString pol = policyStatus == Policy::PolicyStatus::Whitelisted ? "허용"
+                : policyStatus == Policy::PolicyStatus::Blacklisted ? "차단"
+                : "승인 대기";
             const QString mfr = item.vid == 0 ? "-" : "HID Device";
             dashDevRows.push_back({nowTimestamp().mid(11, 5), "입력 장치", mfr, displayName, pol});
         }
@@ -2594,6 +2624,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         item.name        = toWString(r.name);
         item.vid         = r.vid;
         item.pid         = r.pid;
+        item.devicePath  = r.devicePaths.empty() ? L"" : r.devicePaths.front();
         item.allow       = true;
         if (!confirmPolicyChange(this, r.name, true)) return;
         Policy::AddWhitelist(item);
@@ -2616,15 +2647,17 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         item.name        = toWString(r.name);
         item.vid         = r.vid;
         item.pid         = r.pid;
+        item.devicePath  = r.devicePaths.empty() ? L"" : r.devicePaths.front();
         item.allow       = false;
         if (!confirmPolicyChange(this, r.name, false)) return;
         Policy::AddBlacklist(item);
+        const QString feedback = blockCurrentDevice(item, L"Policy block");
         enforceBlockedDeviceHook();
         Logger::Add(L"[Qt] Policy block: " + toWString(r.name));
         r.policy = "차단";
         usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("차단", "dangerBadge"));
         applyUsbDetailPanel(usbSelectedRow_);
-        showUsbActionFeedback("차단 목록에 저장하고 입력 차단 상태를 갱신했습니다.", "#C10007");
+        showUsbActionFeedback(feedback, "#C10007");
     });
 
     connect(usbRemoveRuleBtn_, &QPushButton::clicked, this, [this] {
@@ -2698,7 +2731,7 @@ void MainWindow::refreshUsbTable()
         if (displayKey.isEmpty() || displayKey == "unknown hid device")
             displayKey = vidPidText(item.vid, item.pid).toLower();
 
-        const QString itemPolicy = policyTextForFingerprint(item.fingerprint);
+        const QString itemPolicy = policyTextForItem(item);
         if (rowIndexByDisplayKey.contains(displayKey)) {
             auto& existing = usbRows_[rowIndexByDisplayKey.value(displayKey)];
             existing.devicePaths.push_back(item.devicePath);
@@ -2871,8 +2904,9 @@ QWidget* MainWindow::createDashboardUsbListPage()
             rowIndexByKey.insert(displayName, rows.size());
 
             QString policy = "승인 대기";
-            if (Policy::IsWhitelisted(item.fingerprint))      policy = "허용";
-            else if (Policy::IsBlacklisted(item.fingerprint)) policy = "차단";
+            const Policy::PolicyStatus policyStatus = Policy::Evaluate(item);
+            if (policyStatus == Policy::PolicyStatus::Whitelisted)      policy = "허용";
+            else if (policyStatus == Policy::PolicyStatus::Blacklisted) policy = "차단";
 
             const QString mfr = item.vid == 0 ? "-" : "HID Device";
             const QString type = "입력 장치";
@@ -4455,7 +4489,7 @@ void MainWindow::enforceBlockedDeviceHook()
             continue;
 
         const UsbItem item = HidFingerprint::BuildUsbItemFromPath(path);
-        if (item.fingerprint != 0 && Policy::IsBlacklisted(item.fingerprint)) {
+        if (item.fingerprint != 0 && Policy::Evaluate(item) == Policy::PolicyStatus::Blacklisted) {
             hasBlockedDevice = true;
             blockedName = item.name;
             break;
@@ -4719,14 +4753,16 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                 };
 
                                 if (item.fingerprint != 0) {
-                                    if (Policy::IsWhitelisted(item.fingerprint)) {
+                                    const Policy::PolicyStatus policyStatus = Policy::Evaluate(item);
+                                    if (policyStatus == Policy::PolicyStatus::Whitelisted) {
                                         // Trusted — silently close the pre-opened dialog.
                                         Logger::Add(L"[Qt] Whitelisted; closing immediate dialog: " + item.name);
                                         if (g_activeBufferDlg) g_activeBufferDlg->close();
                                         enforceBlockedDeviceHook();
-                                    } else if (Policy::IsBlacklisted(item.fingerprint)) {
+                                    } else if (policyStatus == Policy::PolicyStatus::Blacklisted) {
                                         Logger::Add(L"[Qt] Blocked HID device; hook active: " + item.name);
                                         updateDlgInfo();
+                                        blockCurrentDevice(item, L"Reconnect blacklist");
                                         if (settingEnabled("alert/popup") && trayIcon_) {
                                             trayIcon_->showMessage(
                                                 "Abang-All",
@@ -4743,6 +4779,7 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                         if (unknownDeviceAction_ == 1) {
                                             // Auto-block
                                             Policy::AddBlacklist(item);
+                                            blockCurrentDevice(item, L"Auto-block setting");
                                             Logger::Add(L"[Qt] Auto-blocked (설정): " + item.name);
                                             if (settingEnabled("alert/popup") && trayIcon_) {
                                                 trayIcon_->showMessage(

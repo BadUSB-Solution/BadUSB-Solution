@@ -99,6 +99,10 @@ if(BUILD_QT_UI)
         Qt6::Widgets
     )
 
+    if(MSVC)
+        target_link_options(CapstoneQtApp PRIVATE "/MANIFESTUAC:level='requireAdministrator' uiAccess='false'")
+    endif()
+
     target_include_directories(CapstoneQtApp PRIVATE
         Capstone/UIQt
     )
