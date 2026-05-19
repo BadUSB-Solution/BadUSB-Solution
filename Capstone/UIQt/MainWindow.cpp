@@ -493,7 +493,7 @@ namespace
         if (downIntervals > 0) {
             const double avgMs = intervalSum / downIntervals;
             if (avgMs < 50.0) {
-                lines << QString("[ANOMALY] 입력 속도 임계값 초과: %1ms/key (임계값 50ms)")
+                lines << QString("[ANOMALY] 비정상 입력 속도 감지: %1ms/key")
                     .arg(avgMs, 0, 'f', 1);
             }
         }
@@ -821,11 +821,10 @@ namespace
             const QVector<QPair<double, bool>> data = data_;
 
             const double maxV = 20.0;
-            const int lm = 42, rm = 20, tm = 14, bm = 30;
+            const int lm = 42, rm = 20, tm = 14, bm = 10;
             const int cw = width() - lm - rm;
             const int ch = height() - tm - bm;
 
-            // Grid lines + Y labels
             const QStringList yLabels = {"0", "5", "10", "15", "20"};
             for (int i = 0; i < 5; ++i) {
                 const double ratio = i / 4.0;
@@ -833,22 +832,24 @@ namespace
                 p.setPen(QPen(QColor("#E2E8F0"), 1, Qt::DashLine));
                 p.drawLine(lm, y, lm + cw, y);
                 p.setPen(QColor("#94A3B8"));
-                QFont f("Inter", 9); p.setFont(f);
+                QFont f("Inter", 9);
+                p.setFont(f);
                 p.drawText(0, y - 7, lm - 4, 14, Qt::AlignRight | Qt::AlignVCenter, yLabels[i]);
             }
 
             if (data.isEmpty()) {
                 p.setPen(QColor("#94A3B8"));
-                QFont emptyFont("Inter", 10);
+                QFont emptyFont = pretendardFont(FontRole::Medium);
+                emptyFont.setPointSize(10);
                 p.setFont(emptyFont);
-                p.drawText(lm, tm, cw, ch, Qt::AlignCenter, "입력 대기중...");
+                p.drawText(lm, tm, cw, ch, Qt::AlignCenter, "입력 대기 중");
+                return;
             }
 
             const int thresholdY = tm + ch - static_cast<int>((8.0 / maxV) * ch);
             p.setPen(QPen(QColor("#94A3B8"), 1.3, Qt::DashLine));
             p.drawLine(lm, thresholdY, lm + cw, thresholdY);
 
-            // Input speed line
             const int n = data.size();
             if (n > 0) {
                 QVector<QPointF> pts;
@@ -881,16 +882,6 @@ namespace
                     p.setBrush(QColor(anom ? "#7C3AED" : UiTheme::ChartRisk));
                     p.drawEllipse(pts[i], anom ? 4.5 : 3.5, anom ? 4.5 : 3.5);
                 }
-            }
-
-            // X-axis labels
-            const QStringList xLabels = {"0초", "5초", "10초", "15초", "20초", "25초", "30초"};
-            p.setPen(QColor("#94A3B8"));
-            QFont xf("Inter", 9); p.setFont(xf);
-            for (int i = 0; i < xLabels.size(); ++i) {
-                const double x = lm + (i / 6.0) * cw;
-                p.drawText(static_cast<int>(x) - 20, tm + ch + 6, 40, 16,
-                           Qt::AlignCenter, xLabels[i]);
             }
         }
 
@@ -1030,8 +1021,10 @@ namespace
                 const int y = top + i * (rowH + gap);
                 const int barY = y + 12;
 
+                QFont labelFont = pretendardFont(FontRole::Bold);
+                labelFont.setPointSize(10);
                 p.setPen(QColor("#45556C"));
-                p.setFont(QFont("Inter", 10, QFont::DemiBold));
+                p.setFont(labelFont);
                 p.drawText(0, y, leftLabelW, rowH, Qt::AlignRight | Qt::AlignVCenter, item.label);
 
                 p.setPen(Qt::NoPen);
@@ -1043,7 +1036,7 @@ namespace
                 p.drawRoundedRect(QRectF(barX, barY, filled, barH), 6, 6);
 
                 p.setPen(QColor("#1D293D"));
-                p.setFont(QFont("Inter", 10, QFont::DemiBold));
+                p.setFont(labelFont);
                 p.drawText(barX + barW + 10, y, rightValueW, rowH,
                            Qt::AlignLeft | Qt::AlignVCenter,
                            QString("%1").arg(item.value, 0, 'f', 1));
@@ -2523,7 +2516,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
     };
     usbAllowBtn_      = makeActionBtn("이 장치 허용",   "#2563C7", "#1E4F9E", "#FFFFFF", "none");
     usbBlockBtn_      = makeActionBtn("이 장치 차단",   "#D21F4A", "#AD183B", "#FFFFFF", "none");
-    usbRemoveRuleBtn_ = makeActionBtn("예외 규칙 삭제", "#FFFFFF", "#F8FAFC", "#62748E", "1px solid #E2E8F0");
+    usbRemoveRuleBtn_ = makeActionBtn("승인 대기로", "#FFFFFF", "#F8FAFC", "#62748E", "1px solid #E2E8F0");
     dcBL->addWidget(usbAllowBtn_);
     dcBL->addSpacing(8);
     dcBL->addWidget(usbBlockBtn_);
@@ -2649,7 +2642,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         r.policy = "승인 대기";
         usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("승인 대기", "warningBadge"));
         applyUsbDetailPanel(usbSelectedRow_);
-        showUsbActionFeedback("예외 규칙을 삭제했습니다. 연결 중인 장치는 다시 검토합니다.", UiTheme::PrimaryText);
+        showUsbActionFeedback("승인 대기 상태로 변경했습니다. 연결 중인 장치는 다시 검토합니다.", UiTheme::PrimaryText);
     });
 
     // Initial data fill
@@ -2797,7 +2790,7 @@ void MainWindow::applyUsbDetailPanel(int row)
     }
     if (usbRemoveRuleBtn_) {
         usbRemoveRuleBtn_->setEnabled(hasDevice && r.policy != "승인 대기");
-        usbRemoveRuleBtn_->setToolTip(r.policy == "승인 대기" ? "삭제할 허용/차단 규칙이 없습니다." : "이 장치의 허용/차단 규칙을 삭제합니다.");
+        usbRemoveRuleBtn_->setToolTip(r.policy == "승인 대기" ? "이미 승인 대기 상태입니다." : "이 장치를 승인 대기 상태로 되돌립니다.");
     }
 
     // Row highlight
@@ -3409,7 +3402,7 @@ QWidget* MainWindow::createAnalyticsPage()
 
     // Bar chart card "입력 속도 (keys/sec)"
     {
-        auto* rangeLabel = new QLabel("최근 30초");
+        auto* rangeLabel = new QLabel("실시간");
         rangeLabel->setFont(pretendardFont(FontRole::Medium));
         rangeLabel->setStyleSheet("color: #62748E; font-size: 13px;");
 
@@ -3430,13 +3423,6 @@ QWidget* MainWindow::createAnalyticsPage()
         inputSpeedChart = barChart;
         barChart->setMinimumHeight(200);
         cbL->addWidget(barChart, 1);
-
-        auto* legendRow = new QHBoxLayout;
-        legendRow->addStretch();
-        legendRow->addWidget(mkLegendItem(UiTheme::ChartNormal, "정상 범위"));
-        legendRow->addSpacing(16);
-        legendRow->addWidget(mkLegendItem(UiTheme::ChartThreshold, "이상 구간"));
-        cbL->addLayout(legendRow);
 
         leftL->addWidget(createCard("입력 속도 (keys/sec)", chartBody, rangeLabel), 1);
     }
@@ -3840,11 +3826,11 @@ QWidget* MainWindow::createSettingsPage()
 
             auto* toggleTextBox = new QVBoxLayout;
             toggleTextBox->setSpacing(4);
-            auto* toggleTitle = new QLabel("행위 기반 입력 장치 모니터링 활성화");
+            auto* toggleTitle = new QLabel("행위 기반 위협 모니터링 활성화");
             toggleTitle->setFont(pretendardFont(FontRole::Regular));
             toggleTitle->setStyleSheet("color: #1D293D; font-size: 14px; border: none; background: transparent;");
             auto* toggleDesc = new QLabel(
-                "인간의 물리적 한계를 넘어서는 빠른 키 입력(매크로/스크립트)을 감지하고 차단합니다.");
+                "명령어, URL, 입력 속도, 핫키 패턴을 종합해 위험 점수를 산출하고 차단합니다.");
             toggleDesc->setFont(pretendardFont(FontRole::Regular));
             toggleDesc->setStyleSheet("color: #62748E; font-size: 12px; border: none; background: transparent;");
             toggleDesc->setWordWrap(true);
@@ -3861,15 +3847,15 @@ QWidget* MainWindow::createSettingsPage()
             auto* threshRow = new QHBoxLayout;
             threshRow->setContentsMargins(4, 0, 0, 0);
             threshRow->setSpacing(0);
-            auto* threshLabel = new QLabel("경고 임계치 (키 입력 속도):");
+            auto* threshLabel = new QLabel("차단 임계치 (종합 위험 점수):");
             threshLabel->setFont(pretendardFont(FontRole::Regular));
             threshLabel->setStyleSheet("color: #314158; font-size: 14px;");
             threshRow->addWidget(threshLabel);
             threshRow->addSpacing(16);
 
             threshSpin = new QSpinBox;
-            threshSpin->setValue(50);
-            threshSpin->setRange(1, 9999);
+            threshSpin->setValue(8);
+            threshSpin->setRange(1, 10);
             threshSpin->setFixedSize(80, 34);
             threshSpin->setObjectName("numberInput");
             threshSpin->setFont(pretendardFont(FontRole::Regular));
@@ -3877,7 +3863,7 @@ QWidget* MainWindow::createSettingsPage()
             threshRow->addWidget(threshSpin);
             threshRow->addSpacing(8);
 
-            auto* threshUnit = new QLabel("ms/key 이하일 경우 차단");
+            auto* threshUnit = new QLabel("/ 10 이상일 경우 차단");
             threshUnit->setFont(pretendardFont(FontRole::Regular));
             threshUnit->setStyleSheet("color: #62748E; font-size: 14px;");
             threshRow->addWidget(threshUnit);
@@ -4008,7 +3994,7 @@ QWidget* MainWindow::createSettingsPage()
         if (cbMinimize)   cbMinimize->setChecked( s.value("general/minimize",   false).toBool());
         if (comboDev)     comboDev->setCurrentIndex(s.value("policy/unknownDeviceAction", 0).toInt());
         if (toggleSw)     toggleSw->setChecked(s.value("policy/behaviorMonitor", true).toBool());
-        if (threshSpin)   threshSpin->setValue(s.value("policy/thresholdMs", 50).toInt());
+        if (threshSpin)   threshSpin->setValue(s.value("policy/riskThreshold", 8).toInt());
         if (cbNotif)      cbNotif->setChecked(s.value("alert/popup", true).toBool());
     }
 
@@ -4025,7 +4011,7 @@ QWidget* MainWindow::createSettingsPage()
                     unknownDeviceAction_ = idx;
                 }
                 if (toggleSw)   s.setValue("policy/behaviorMonitor", toggleSw->isChecked());
-                if (threshSpin) s.setValue("policy/thresholdMs",     threshSpin->value());
+                if (threshSpin) s.setValue("policy/riskThreshold",   threshSpin->value());
                 if (cbNotif)    s.setValue("alert/popup", cbNotif->isChecked());
                 s.sync();
             });
@@ -4161,9 +4147,9 @@ QWidget* MainWindow::createHelpPage()
         cl->addWidget(makeH3("탐지 및 차단 방식"));
         cl->addSpacing(16);
         for (const auto& b : {
-            "인간의 물리적인 키 입력 속도의 한계(일반적으로 50ms 이상)를 모니터링합니다.",
-            "설정된 임계치(기본 50ms)보다 빠른 속도로 키 입력이 연속 발생하면, 매크로 또는 스크립트 공격으로 간주합니다.",
-            "즉시 해당 인터페이스의 입력을 무효화하고 장치를 차단합니다.",
+            "명령어, URL, 입력 속도, 핫키 패턴을 함께 분석해 종합 위험 점수를 계산합니다.",
+            "위험 점수가 설정된 임계치(기본 8.0 / 10.0)에 도달하면 BadUSB 또는 자동화 공격으로 간주합니다.",
+            "정책에 따라 해당 장치를 차단하고 입력을 무효화합니다.",
         }) makeBullet(b, cl);
         cl->addStretch();
         contentStack->addWidget(card);
@@ -4314,7 +4300,7 @@ QWidget* MainWindow::createPolicySummaryPage()
 
     const QList<QStringList> rows = {
         {"미등록 장치 동작", "차단 및 알림",   "policyDangerText"},
-        {"행위 분석 임계값", "8.0 keys/sec",   "policyValueText"},
+        {"행위 분석 임계값", "8.0 / 10",       "policyValueText"},
         {"로그 보관 기간",   "30일",           "policyValueText"},
         {"실시간 모니터링",  "사용 중",        "policySuccessText"},
     };
