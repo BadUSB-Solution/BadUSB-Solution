@@ -3373,7 +3373,6 @@ QWidget* MainWindow::createAnalyticsPage()
     leftL->setContentsMargins(0, 0, 0, 0);
     leftL->setSpacing(16);
     BarChartWidget* inputSpeedChart = nullptr;
-    LineChartWidget* threatTrendChart = nullptr;
     RiskBreakdownWidget* riskBreakdownChart = nullptr;
     QLabel* riskAverageValue = nullptr;
     QLabel* sessionStartValue = nullptr;
@@ -3442,18 +3441,18 @@ QWidget* MainWindow::createAnalyticsPage()
         leftL->addWidget(createCard("입력 속도 (keys/sec)", chartBody, rangeLabel), 1);
     }
 
-    // Line chart card "위험 점수 추이"
+    // Risk breakdown card "탐지 기준별 위험도"
     {
-        auto* rangeLabel2 = new QLabel("최근 30초");
+        auto* rangeLabel2 = new QLabel("실시간");
         rangeLabel2->setFont(pretendardFont(FontRole::Medium));
         rangeLabel2->setStyleSheet("color: #62748E; font-size: 13px;");
 
-        auto* lineBody = new QWidget;
-        auto* lbL = new QVBoxLayout(lineBody);
+        auto* breakdownBody = new QWidget;
+        auto* lbL = new QVBoxLayout(breakdownBody);
         lbL->setContentsMargins(16, 8, 16, 16);
         lbL->setSpacing(8);
 
-        auto* cumulLabel = new QLabel("누적 위험 점수");
+        auto* cumulLabel = new QLabel("알고리즘별 위험도 (0-10)");
         cumulLabel->setFont(pretendardFont(FontRole::Regular));
         cumulLabel->setStyleSheet("color: #62748E; font-size: 12px;");
         auto* subHeader2 = new QHBoxLayout;
@@ -3461,10 +3460,10 @@ QWidget* MainWindow::createAnalyticsPage()
         subHeader2->addStretch();
         lbL->addLayout(subHeader2);
 
-        auto* lineChart = new LineChartWidget;
-        threatTrendChart = lineChart;
-        lineChart->setMinimumHeight(180);
-        lbL->addWidget(lineChart, 1);
+        auto* breakdownChart = new RiskBreakdownWidget;
+        riskBreakdownChart = breakdownChart;
+        breakdownChart->setMinimumHeight(180);
+        lbL->addWidget(breakdownChart, 1);
 
         auto* legendRow2 = new QHBoxLayout;
         legendRow2->addStretch();
@@ -3477,7 +3476,7 @@ QWidget* MainWindow::createAnalyticsPage()
         legendRow2->addWidget(mkLegendItem("#DB2777", "핫키"));
         lbL->addLayout(legendRow2);
 
-        leftL->addWidget(createCard("위험 점수 추이", lineBody, rangeLabel2), 1);
+        leftL->addWidget(createCard("탐지 기준별 위험도", breakdownBody, rangeLabel2), 1);
     }
 
     contentRow->addWidget(leftPanel, 1);
@@ -3593,7 +3592,7 @@ QWidget* MainWindow::createAnalyticsPage()
     }
 
     auto* analyticsTimer = new QTimer(page);
-    auto updateThreatTrend = [inputSpeedChart, threatTrendChart, analyticsSessionStart, durationValue,
+    auto updateThreatTrend = [inputSpeedChart, riskBreakdownChart, analyticsSessionStart, durationValue,
                               totalInputValue, avgSpeedValue, commandCountValue,
                               hotkeyCountValue, commandScoreValue, urlScoreValue,
                               typingScoreValue, hotkeyScoreValue, threatScoreValue, levelValue,
@@ -3613,12 +3612,16 @@ QWidget* MainWindow::createAnalyticsPage()
                 );
                 if (inputSpeedChart)
                     inputSpeedChart->setData(g_inputSpeedTrend);
-                appendThreatTrendSample(lastSnapshot.verdict.final_score);
-                if (threatTrendChart)
-                    threatTrendChart->setData(g_threatScoreTrend);
             }
         }
         const auto& snapshot = lastSnapshot;
+        if (riskBreakdownChart) {
+            riskBreakdownChart->setScores(
+                snapshot.threat.session_score,
+                snapshot.urlScore,
+                snapshot.typingScore,
+                snapshot.hotkey.final_score);
+        }
         const qint64 elapsed = analyticsSessionStart.secsTo(QDateTime::currentDateTime());
         if (durationValue) {
             durationValue->setText(QString("%1:%2:%3")
