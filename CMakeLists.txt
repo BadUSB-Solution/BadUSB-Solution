@@ -17,8 +17,8 @@ add_library(CapstoneCore STATIC
     Capstone/Algorithm/PreAnalysis/KeyDecoder/key_decoder.cpp
     Capstone/Algorithm/PreAnalysis/KeyNormalizer/key_normalizer.cpp
     Capstone/Algorithm/PreAnalysis/UrlExtractor/url_extractor.cpp
-    Capstone/Algorithm/PreAnalysis/TypingAnalyzer/typing_analyzer.cpp
-    Capstone/Algorithm/Analysis/ShellDetector/shell_detector.cpp
+    Capstone/Algorithm/PreAnalysis/ShellDetector/shell_detector.cpp
+    Capstone/Algorithm/Analysis/TypingAnalyzer/typing_analyzer.cpp
     Capstone/Algorithm/Analysis/ThreatMatcher/threat_matcher.cpp
     Capstone/Algorithm/Analysis/ThreatMatcher/threat_command_analyzer.cpp
     Capstone/Algorithm/Analysis/ThreatMatcher/threat_executor_analyzer.cpp
@@ -48,8 +48,8 @@ target_include_directories(CapstoneCore PUBLIC
     Capstone/Algorithm/PreAnalysis/KeyDecoder
     Capstone/Algorithm/PreAnalysis/KeyNormalizer
     Capstone/Algorithm/PreAnalysis/UrlExtractor
-    Capstone/Algorithm/PreAnalysis/TypingAnalyzer
-    Capstone/Algorithm/Analysis/ShellDetector
+    Capstone/Algorithm/PreAnalysis/ShellDetector
+    Capstone/Algorithm/Analysis/TypingAnalyzer
     Capstone/Algorithm/Analysis/ThreatMatcher
     Capstone/Algorithm/Analysis/UrlClassifier
     Capstone/Algorithm/Analysis/CompoundScorer

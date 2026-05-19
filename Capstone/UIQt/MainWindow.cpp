@@ -299,61 +299,6 @@ namespace
         return count;
     }
 
-    double scoreTypingResult(const TypingAnalyzer::Result& typing)
-    {
-        if (typing.intervalCount < 5)
-            return 0.0;
-
-        double score = 0.0;
-        if (typing.classification == TypingAnalyzer::TYPING_AUTOMATED) {
-            score = 6.0;
-        } else if (typing.classification == TypingAnalyzer::TYPING_HUMAN) {
-            score = 1.0;
-        }
-
-        if (typing.medianMs < 30.0)
-            score += 2.0;
-        else if (typing.medianMs < 50.0)
-            score += 1.0;
-
-        if (typing.madMs < 5.0)
-            score += 2.0;
-        else if (typing.madMs < 12.0)
-            score += 1.0;
-
-        return std::clamp(score, 0.0, 10.0);
-    }
-
-    double scoreUrlFlags(uint32_t flags)
-    {
-        double score = 0.0;
-        const auto has = [flags](UrlClassifier::UrlFlag flag) {
-            return (flags & static_cast<uint32_t>(flag)) != 0;
-        };
-
-        if (has(UrlClassifier::URL_FLAG_EXE_EXTENSION))   score += 3.0;
-        if (has(UrlClassifier::URL_FLAG_HIGH_ENTROPY))    score += 2.0;
-        if (has(UrlClassifier::URL_FLAG_ABNORMAL_SCHEME)) score += 2.0;
-        if (has(UrlClassifier::URL_FLAG_UNUSUAL_PORT))    score += 2.0;
-        if (has(UrlClassifier::URL_FLAG_SHORTENER))       score += 2.0;
-        if (has(UrlClassifier::URL_FLAG_IP_ADDRESS))      score += 1.5;
-        if (has(UrlClassifier::URL_FLAG_FREE_TLD))        score += 2.0;
-        if (has(UrlClassifier::URL_FLAG_DYNAMIC_DNS))     score += 2.0;
-        if (has(UrlClassifier::URL_FLAG_TUNNELING))       score += 2.0;
-        if (has(UrlClassifier::URL_FLAG_FILE_SHARING))    score += 1.5;
-        if (has(UrlClassifier::URL_FLAG_FREE_HOSTING))    score += 1.0;
-
-        return std::clamp(score, 0.0, 10.0);
-    }
-
-    double scoreUrlResult(const UrlClassifier::Result& urls)
-    {
-        double maxScore = 0.0;
-        for (const auto& item : urls.items)
-            maxScore = (std::max)(maxScore, scoreUrlFlags(item.flags));
-        return maxScore;
-    }
-
     LiveAnalysisSnapshot buildLiveAnalysisSnapshot()
     {
         LiveAnalysisSnapshot snapshot;
@@ -381,7 +326,7 @@ namespace
             snapshot.averageIntervalMs = intervalSum / intervalCount;
 
         snapshot.typing = TypingAnalyzer::Analyze(keys);
-        snapshot.typingScore = scoreTypingResult(snapshot.typing);
+        snapshot.typingScore = snapshot.typing.score;
         if (snapshot.typing.meanMs > 0.0)
             snapshot.keysPerSecond = 1000.0 / snapshot.typing.meanMs;
         else if (snapshot.averageIntervalMs > 0.0)
@@ -389,7 +334,7 @@ namespace
 
         snapshot.decoded = KeyDecoder::Decode(keys);
         snapshot.urls = UrlClassifier::Classify(snapshot.decoded);
-        snapshot.urlScore = scoreUrlResult(snapshot.urls);
+        snapshot.urlScore = snapshot.urls.final_score;
         snapshot.shell = ShellDetector::Detect(snapshot.decoded);
         snapshot.threat = ThreatMatcher::Analyze(snapshot.decoded, static_cast<int>(snapshot.shell.shell));
         snapshot.hotkey = HotkeyScorer::Analyze(snapshot.decoded.hotkeys);
@@ -1323,9 +1268,9 @@ namespace
                 };
 
                 addDevRow("장치 이름",  deviceName, "dlg_device_name");
-                addDevRow("장치 유형",  "HID (Human Interface Device)");
+                addDevRow("탐지 인터페이스",  "HID");
                 addDevRow("VID / PID",  vidPid, "dlg_vid_pid");
-                addDevRow("연결 포트",  "HID Interface");
+                addDevRow("탐지 경로",  "HID Interface");
                 addDevRow("첫 감지 시간", detectedAt);
 
                 // 상태 badge row
