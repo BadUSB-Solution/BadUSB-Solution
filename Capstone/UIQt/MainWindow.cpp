@@ -26,9 +26,11 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QPaintEvent>
+#include <QPixmap>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QShortcut>
 #include <QSize>
 #include <QSpacerItem>
 #include <QSpinBox>
@@ -90,6 +92,8 @@ static QVector<QPair<double, bool>> g_inputSpeedTrend;
 namespace
 {
     enum class FontRole { Regular, Medium, SemiBold, Bold };
+
+    QFont pretendardFont(FontRole role);
 
     struct LiveAnalysisSnapshot {
         bool hasInput = false;
@@ -280,6 +284,158 @@ namespace
         case CompoundScorer::DANGER: return QStringLiteral("DANGER");
         default:                     return QStringLiteral("-");
         }
+    }
+
+    struct PageHelpContent {
+        QString title;
+        QString summary;
+        QStringList steps;
+    };
+
+    PageHelpContent helpContentForPage(int page)
+    {
+        switch (page) {
+        case 0:
+            return {
+                QStringLiteral("대시보드 도움말"),
+                QStringLiteral("현재 보호 상태, 최근 이벤트, 연결 장치와 운영 정책을 한 화면에서 확인합니다."),
+                {
+                    QStringLiteral("상단 카드는 허용/차단/승인 대기/보안 이벤트 수를 요약합니다."),
+                    QStringLiteral("보호 상태 개요는 주요 보안 모듈의 동작 여부를 보여줍니다."),
+                    QStringLiteral("운영 정책 요약에서 미등록 장치 처리 방식과 분석 임계값을 확인합니다.")
+                }
+            };
+        case 1:
+            return {
+                QStringLiteral("USB 제어 도움말"),
+                QStringLiteral("탐지된 HID 장치를 확인하고 허용 또는 차단 정책을 적용합니다."),
+                {
+                    QStringLiteral("장치를 선택하면 오른쪽 상세 정보에서 VID/PID와 정책 상태를 확인합니다."),
+                    QStringLiteral("신뢰 가능한 장치는 허용 목록에 등록합니다."),
+                    QStringLiteral("의심 장치는 차단 목록에 등록하고 필요하면 장치 연결을 종료합니다.")
+                }
+            };
+        case 2:
+            return {
+                QStringLiteral("로그 도움말"),
+                QStringLiteral("장치 탐지, 정책 변경, 차단 이벤트 기록을 확인합니다."),
+                {
+                    QStringLiteral("검색과 필터로 필요한 이벤트만 좁혀봅니다."),
+                    QStringLiteral("차단 또는 허용 이벤트는 정책 적용 여부를 확인하는 기준이 됩니다."),
+                    QStringLiteral("실제 테스트 후 이벤트가 없으면 장치가 HID로 정상 인식됐는지 먼저 확인합니다.")
+                }
+            };
+        case 3:
+            return {
+                QStringLiteral("행위 분석 도움말"),
+                QStringLiteral("입력 패턴, 명령 실행, URL, 단축키 조합을 종합해 위험도를 분석합니다."),
+                {
+                    QStringLiteral("탐지 기준별 위험도는 각 알고리즘 점수를 0-10 범위로 표시합니다."),
+                    QStringLiteral("입력 속도 그래프는 자동 입력으로 의심되는 패턴을 확인하는 용도입니다."),
+                    QStringLiteral("위험 점수가 임계값을 넘으면 차단 권장 상태로 판단합니다.")
+                }
+            };
+        case 4:
+            return {
+                QStringLiteral("설정 도움말"),
+                QStringLiteral("미등록 장치 처리 방식과 행위 분석 임계값 같은 운영 정책을 조정합니다."),
+                {
+                    QStringLiteral("자동 차단은 테스트 전 관리자 권한 실행이 필요합니다."),
+                    QStringLiteral("임계값을 낮추면 민감하게 탐지하고, 높이면 오탐 가능성이 줄어듭니다."),
+                    QStringLiteral("저장 후 대시보드 정책 요약에 반영되는지 확인합니다.")
+                }
+            };
+        case 5:
+        default:
+            return {
+                QStringLiteral("도움말"),
+                QStringLiteral("현재 화면의 주요 사용 흐름을 안내합니다."),
+                {
+                    QStringLiteral("각 페이지에서 F1을 누르면 해당 화면의 빠른 도움말이 열립니다."),
+                    QStringLiteral("상세 설명은 도움말 페이지의 항목별 문서를 확인합니다."),
+                    QStringLiteral("팝오버 바깥을 클릭하면 도움말이 닫힙니다.")
+                }
+            };
+        }
+    }
+
+    void showPageHelpPopover(QWidget* parent, int page)
+    {
+        if (!parent)
+            return;
+
+        const PageHelpContent content = helpContentForPage(page);
+        auto* popover = new QDialog(parent, Qt::Popup | Qt::FramelessWindowHint);
+        popover->setAttribute(Qt::WA_DeleteOnClose);
+        popover->setFixedWidth(390);
+        popover->setStyleSheet(
+            "QDialog { background: #FFFFFF; border: 1px solid #D7E0EA; border-radius: 12px; }"
+            "QLabel { background: transparent; border: none; }"
+        );
+
+        auto* root = new QVBoxLayout(popover);
+        root->setContentsMargins(18, 16, 18, 16);
+        root->setSpacing(12);
+
+        auto* header = new QHBoxLayout;
+        header->setSpacing(10);
+        auto* icon = new QLabel("?");
+        icon->setFixedSize(28, 28);
+        icon->setAlignment(Qt::AlignCenter);
+        icon->setFont(pretendardFont(FontRole::Bold));
+        icon->setStyleSheet("QLabel { color: #2563C7; background: #EFF6FF; border: 1px solid #BFDBFE;"
+                            " border-radius: 14px; font-size: 15px; }");
+        auto* title = new QLabel(content.title);
+        title->setFont(pretendardFont(FontRole::SemiBold));
+        title->setStyleSheet("font-size: 15px; color: #1D293D;");
+        header->addWidget(icon);
+        header->addWidget(title, 1);
+        auto* closeBtn = new QPushButton("×");
+        closeBtn->setFixedSize(28, 28);
+        closeBtn->setCursor(Qt::PointingHandCursor);
+        closeBtn->setStyleSheet("QPushButton { color: #62748E; background: #F8FAFC; border: none;"
+                                " border-radius: 14px; font-size: 16px; }"
+                                "QPushButton:hover { background: #E2E8F0; color: #1D293D; }");
+        QObject::connect(closeBtn, &QPushButton::clicked, popover, &QDialog::close);
+        header->addWidget(closeBtn);
+        root->addLayout(header);
+
+        auto* summary = new QLabel(content.summary);
+        summary->setWordWrap(true);
+        summary->setFont(pretendardFont(FontRole::Regular));
+        summary->setStyleSheet("font-size: 12px; color: #62748E; line-height: 150%;");
+        root->addWidget(summary);
+
+        for (int i = 0; i < content.steps.size(); ++i) {
+            auto* row = new QWidget;
+            row->setObjectName("helpStepRow");
+            row->setStyleSheet("QWidget#helpStepRow { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; }"
+                               "QWidget#helpStepRow QLabel { background: transparent; border: none; }");
+            auto* rowL = new QHBoxLayout(row);
+            rowL->setContentsMargins(10, 9, 10, 9);
+            rowL->setSpacing(10);
+            auto* num = new QLabel(QString::number(i + 1));
+            num->setFixedSize(20, 20);
+            num->setAlignment(Qt::AlignCenter);
+            num->setFont(pretendardFont(FontRole::SemiBold));
+            num->setStyleSheet("QLabel { color: #2563C7; background: #DBEAFE; border-radius: 10px; font-size: 11px; }");
+            auto* text = new QLabel(content.steps[i]);
+            text->setWordWrap(true);
+            text->setFont(pretendardFont(FontRole::Medium));
+            text->setStyleSheet("font-size: 12px; color: #314158;");
+            rowL->addWidget(num, 0, Qt::AlignTop);
+            rowL->addWidget(text, 1);
+            root->addWidget(row);
+        }
+
+        auto* hint = new QLabel("F1 · 현재 화면 도움말");
+        hint->setFont(pretendardFont(FontRole::Regular));
+        hint->setStyleSheet("font-size: 11px; color: #94A3B8;");
+        root->addWidget(hint, 0, Qt::AlignRight);
+
+        const QPoint globalTopRight = parent->mapToGlobal(QPoint(parent->width() - popover->width() - 32, 88));
+        popover->move(globalTopRight);
+        popover->show();
     }
 
     bool settingEnabled(const QString& key, bool fallback = true)
@@ -796,6 +952,73 @@ namespace
         }
     };
 
+    class DotPulseLoader : public QWidget
+    {
+        QString color_ = "#60A5FA";
+        int phase_ = 0;
+        bool animated_ = true;
+
+    public:
+        explicit DotPulseLoader(QWidget* parent = nullptr) : QWidget(parent)
+        {
+            setFixedSize(48, 18);
+            setAttribute(Qt::WA_TransparentForMouseEvents);
+        }
+
+        void setLoading(const QString& color, int phase)
+        {
+            color_ = color;
+            phase_ = phase;
+            animated_ = true;
+            update();
+        }
+
+        void setComplete(const QString& color)
+        {
+            color_ = color;
+            animated_ = false;
+            update();
+        }
+
+    protected:
+        void paintEvent(QPaintEvent*) override
+        {
+            QPainter p(this);
+            p.setRenderHint(QPainter::Antialiasing);
+            p.setPen(Qt::NoPen);
+
+            const QColor base(color_);
+            const int phase = phase_ % 6;
+            const QVector<QPointF> centers = {
+                QPointF(8, height() / 2.0),
+                QPointF(24, height() / 2.0),
+                QPointF(40, height() / 2.0)
+            };
+            const double wave[6] = {0.0, 0.35, 0.95, 0.55, 0.15, 0.0};
+
+            for (int i = 0; i < centers.size(); ++i) {
+                QColor dot = base;
+                double radius = 3.8;
+                double yOffset = 0.0;
+                double opacity = animated_ ? 0.36 : 0.72;
+
+                if (animated_) {
+                    const int localPhase = (phase + 6 - i * 2) % 6;
+                    const double lift = wave[localPhase];
+                    radius = 3.8 + lift * 1.2;
+                    yOffset = -5.0 * lift;
+                    opacity = 0.36 + lift * 0.42;
+                }
+
+                dot.setAlphaF(opacity);
+                p.setBrush(dot);
+                QPointF center = centers[i];
+                center.setY(center.y() + yOffset);
+                p.drawEllipse(center, radius, radius);
+            }
+        }
+    };
+
     // ---- Input speed trend widget ----
     class BarChartWidget : public QWidget
     {
@@ -1199,13 +1422,18 @@ namespace
         bodyL->setContentsMargins(24, 16, 24, 0);
         bodyL->setSpacing(12);
         QTextEdit* bufText = nullptr;
+        QStackedWidget* monitorStack = nullptr;
+        QPushButton* bufferToggleBtn = nullptr;
         auto normalizedMode = std::make_shared<bool>(false);
         std::function<void()> updateBufferText;
-        QFrame* blockReasonCard = nullptr;
-        QLabel* blockScoreValue = nullptr;
-        QLabel* blockThresholdValue = nullptr;
-        QLabel* blockReasonList = nullptr;
-        std::function<void()> updateBlockReasonCard;
+        QLabel* statusBadge = nullptr;
+        QLabel* scanImage = nullptr;
+        QLabel* scanBadge = nullptr;
+        QLabel* scanTitle = nullptr;
+        QLabel* scanDescription = nullptr;
+        QList<QLabel*> scanRowLabels;
+        QList<DotPulseLoader*> scanRowDots;
+        std::function<void()> updateScanStatus;
 
         // Top: two info cards side by side
         {
@@ -1277,6 +1505,7 @@ namespace
                 stKey->setStyleSheet("color: #62748E; font-size: 13px;");
                 stKey->setFixedWidth(100);
                 auto* stBadge = new QLabel("자동 차단됨");
+                statusBadge = stBadge;
                 stBadge->setObjectName("blockBadge");
                 stBadge->setFont(pretendardFont(FontRole::SemiBold));
                 stBadge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
@@ -1350,114 +1579,100 @@ namespace
             bodyL->addLayout(topRow);
         }
 
-        // Block recommendation card
+        // Scan status / input buffer stack
         {
-            auto* card = new QFrame;
-            blockReasonCard = card;
-            card->setStyleSheet(
-                "QFrame { background: #FFFFFF; border: 1px solid #FED7AA; border-radius: 8px; }"
-            );
-            auto* cl = new QVBoxLayout(card);
-            cl->setContentsMargins(0, 0, 0, 0);
-            cl->setSpacing(0);
+            monitorStack = new QStackedWidget;
 
-            auto* ch = new QWidget;
-            ch->setFixedHeight(38);
-            ch->setStyleSheet(
-                "background: #FFFFFF; border-bottom: 1px solid #FED7AA;"
-                "border-top-left-radius: 8px; border-top-right-radius: 8px;"
-            );
-            auto* chl = new QHBoxLayout(ch);
-            chl->setContentsMargins(16, 0, 16, 0);
-            chl->setSpacing(10);
-            auto* title = new QLabel(QStringLiteral("차단 권장 사유"));
-            title->setFont(pretendardFont(FontRole::SemiBold));
-            title->setStyleSheet("font-size: 14px; color: #1D293D; background: transparent; border: none;");
-            chl->addWidget(title);
-            chl->addStretch();
-            auto* badge = new QLabel(QStringLiteral("차단 권장"));
-            badge->setFont(pretendardFont(FontRole::SemiBold));
-            badge->setFixedHeight(24);
-            badge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-            badge->setStyleSheet(
-                "QLabel { color: #EA580C; background: #FFF7ED; border: 1px solid #FDBA74;"
-                " border-radius: 7px; padding: 0 10px; font-size: 12px; }"
-            );
-            chl->addWidget(badge);
-            cl->addWidget(ch);
+            auto* scanCard = new QFrame;
+            scanCard->setStyleSheet("QFrame { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; }");
+            auto* scanL = new QVBoxLayout(scanCard);
+            scanL->setContentsMargins(0, 0, 0, 0);
+            scanL->setSpacing(0);
 
-            auto* content = new QWidget;
-            content->setStyleSheet("background: transparent; border: none;");
-            auto* contentL = new QHBoxLayout(content);
-            contentL->setContentsMargins(16, 10, 16, 10);
-            contentL->setSpacing(18);
+            auto* scanHeader = new QWidget;
+            scanHeader->setFixedHeight(40);
+            scanHeader->setStyleSheet("background: #FFFFFF; border-bottom: 1px solid #E2E8F0;"
+                                      "border-top-left-radius: 8px; border-top-right-radius: 8px;");
+            auto* scanHeaderL = new QHBoxLayout(scanHeader);
+            scanHeaderL->setContentsMargins(16, 0, 16, 0);
+            auto* scanHeaderTitle = new QLabel("검사 상태");
+            scanHeaderTitle->setFont(pretendardFont(FontRole::SemiBold));
+            scanHeaderTitle->setStyleSheet("font-size: 13px; color: #1D293D; background: transparent; border: none;");
+            scanHeaderL->addWidget(scanHeaderTitle);
+            scanL->addWidget(scanHeader);
 
-            auto* left = new QVBoxLayout;
-            left->setSpacing(8);
-            auto* summary = new QLabel(QStringLiteral("종합 위험 점수가 임계값을 초과했습니다."));
-            summary->setFont(pretendardFont(FontRole::SemiBold));
-            summary->setStyleSheet("color: #1D293D; font-size: 13px; background: transparent; border: none;");
-            left->addWidget(summary);
+            auto* scanBody = new QWidget;
+            scanBody->setStyleSheet("background: transparent; border: none;");
+            auto* scanBodyL = new QHBoxLayout(scanBody);
+            scanBodyL->setContentsMargins(28, 18, 28, 18);
+            scanBodyL->setSpacing(28);
 
-            auto* scoreBox = new QFrame;
-            scoreBox->setStyleSheet(
-                "QFrame { background: #FFFDFB; border: 1px solid #E2E8F0; border-radius: 8px; }"
-            );
-            auto* scoreL = new QHBoxLayout(scoreBox);
-            scoreL->setContentsMargins(18, 7, 18, 7);
-            scoreL->setSpacing(18);
+            scanImage = new QLabel;
+            scanImage->setFixedSize(330, 250);
+            scanImage->setAlignment(Qt::AlignCenter);
+            scanImage->setStyleSheet("background: transparent; border: none;");
+            scanBodyL->addWidget(scanImage, 0, Qt::AlignVCenter);
 
-            auto makeScoreCol = [&](const QString& key, QLabel** out, bool accent) {
-                auto* col = new QVBoxLayout;
-                col->setSpacing(4);
-                auto* k = new QLabel(key);
-                k->setFont(pretendardFont(FontRole::Regular));
-                k->setStyleSheet("color: #45556C; font-size: 12px; background: transparent; border: none;");
-                auto* v = new QLabel(QStringLiteral("-"));
-                v->setFont(pretendardFont(FontRole::Bold));
-                v->setStyleSheet(QString("color: %1; font-size: 18px; background: transparent; border: none;")
-                    .arg(accent ? "#F97316" : "#1D293D"));
-                col->addWidget(k, 0, Qt::AlignCenter);
-                col->addWidget(v, 0, Qt::AlignCenter);
-                scoreL->addLayout(col, 1);
-                *out = v;
+            auto* scanTexts = new QVBoxLayout;
+            scanTexts->setSpacing(10);
+            scanTexts->addStretch();
+
+            scanBadge = new QLabel("검사중");
+            scanBadge->setFont(pretendardFont(FontRole::SemiBold));
+            scanBadge->setFixedHeight(30);
+            scanBadge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+            scanBadge->setStyleSheet("QLabel { color: #FFFFFF; background: #1473E6; border: none;"
+                                     " border-radius: 8px; padding: 0 18px; font-size: 13px; }");
+            scanTexts->addWidget(scanBadge, 0, Qt::AlignLeft);
+
+            scanTitle = new QLabel("의심 장치를 검사하고 있습니다.");
+            scanTitle->setFont(pretendardFont(FontRole::Bold));
+            scanTitle->setStyleSheet("font-size: 22px; color: #1D293D; background: transparent; border: none;");
+            scanTexts->addWidget(scanTitle);
+
+            scanDescription = new QLabel("입력 패턴과 장치 정보를 분석하여 안전 여부를 확인하는 중입니다.");
+            scanDescription->setFont(pretendardFont(FontRole::Regular));
+            scanDescription->setStyleSheet("font-size: 12px; color: #62748E; background: transparent; border: none;");
+            scanDescription->setWordWrap(true);
+            scanTexts->addWidget(scanDescription);
+
+            auto makeScanRow = [&](const QString& iconText, const QString& text) {
+                auto* row = new QFrame;
+                row->setStyleSheet("QFrame { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; }");
+                auto* rowL = new QHBoxLayout(row);
+                rowL->setContentsMargins(14, 0, 14, 0);
+                rowL->setSpacing(10);
+                auto* icon = new QLabel(iconText);
+                icon->setFont(pretendardFont(FontRole::SemiBold));
+                icon->setStyleSheet("font-size: 18px; color: #1473E6; background: transparent; border: none;");
+                icon->setFixedWidth(24);
+                auto* label = new QLabel(text);
+                label->setFont(pretendardFont(FontRole::SemiBold));
+                label->setStyleSheet("font-size: 13px; color: #1D293D; background: transparent; border: none;");
+                auto* dots = new DotPulseLoader;
+                rowL->addWidget(icon);
+                rowL->addWidget(label, 1);
+                rowL->addWidget(dots);
+                row->setFixedHeight(44);
+                scanRowLabels << label;
+                scanRowDots << dots;
+                scanTexts->addWidget(row);
             };
-            makeScoreCol(QStringLiteral("현재 점수:"), &blockScoreValue, true);
-            auto* divider = new QFrame;
-            divider->setFixedWidth(1);
-            divider->setStyleSheet("QFrame { background: #CBD5E1; border: none; }");
-            scoreL->addWidget(divider);
-            makeScoreCol(QStringLiteral("임계값:"), &blockThresholdValue, true);
-            left->addWidget(scoreBox);
-            contentL->addLayout(left, 1);
 
-            auto* midDivider = new QFrame;
-            midDivider->setFixedWidth(1);
-            midDivider->setStyleSheet("QFrame { background: #E2E8F0; border: none; }");
-            contentL->addWidget(midDivider);
+            makeScanRow("⌕", "입력 패턴 분석 중");
+            makeScanRow(">_", "명령/실행 패턴 확인 중");
+            makeScanRow("◎", "URL 및 위험 조합 확인 중");
 
-            auto* right = new QVBoxLayout;
-            right->setSpacing(6);
-            auto* reasonTitle = new QLabel(QStringLiteral("주요 근거"));
-            reasonTitle->setFont(pretendardFont(FontRole::SemiBold));
-            reasonTitle->setStyleSheet("color: #1D293D; font-size: 13px; background: transparent; border: none;");
-            right->addWidget(reasonTitle);
-            blockReasonList = new QLabel;
-            blockReasonList->setFont(pretendardFont(FontRole::Regular));
-            blockReasonList->setTextFormat(Qt::RichText);
-            blockReasonList->setWordWrap(true);
-            blockReasonList->setStyleSheet("font-size: 11px; background: transparent; border: none;");
-            right->addWidget(blockReasonList);
-            right->addStretch();
-            contentL->addLayout(right, 1);
+            auto* scanNote = new QLabel("검사가 완료되기 전까지는 이 장치로부터의 입력이 실시간으로 분석됩니다.");
+            scanNote->setFont(pretendardFont(FontRole::Regular));
+            scanNote->setStyleSheet("font-size: 12px; color: #62748E; background: transparent; border: none;");
+            scanNote->setWordWrap(true);
+            scanTexts->addWidget(scanNote);
+            scanTexts->addStretch();
+            scanBodyL->addLayout(scanTexts, 1);
+            scanL->addWidget(scanBody, 1);
+            monitorStack->addWidget(scanCard);
 
-            cl->addWidget(content);
-            card->setVisible(false);
-            bodyL->addWidget(card);
-        }
-
-        // Buffer card
-        {
             auto* card = new QFrame;
             card->setStyleSheet("QFrame { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 8px; }");
             auto* cl = new QVBoxLayout(card);
@@ -1476,13 +1691,23 @@ namespace
             chTitle->setStyleSheet("font-size: 13px; color: #314158; background: transparent; border: none;");
             chl->addWidget(chTitle);
             chl->addStretch();
-            auto* clearBtn = new QPushButton("지우기");
-            clearBtn->setObjectName("secondaryButton");
-            clearBtn->setFont(pretendardFont(FontRole::Medium));
-            clearBtn->setFixedHeight(30);
-            clearBtn->setFixedWidth(72);
-            clearBtn->setStyleSheet("QPushButton { background: #FFFFFF; color: #62748E; border: 1px solid #E2E8F0;"
-                                    "border-radius: 6px; font-size: 12px; } QPushButton:hover { background: #F1F5F9; }");
+            auto makeBufferHeaderBtn = [](const QString& text) {
+                auto* btn = new QPushButton(text);
+                btn->setFont(pretendardFont(FontRole::Medium));
+                btn->setFixedHeight(30);
+                btn->setMinimumWidth(66);
+                btn->setStyleSheet(
+                    "QPushButton { background: #FFFFFF; color: #45556C; border: 1px solid #E2E8F0;"
+                    " border-radius: 6px; padding: 0 12px; font-size: 12px; }"
+                    "QPushButton:hover { background: #F1F5F9; color: #1D293D; }"
+                );
+                return btn;
+            };
+            auto* copyBtn = makeBufferHeaderBtn("복사");
+            auto* normalizeBtn = makeBufferHeaderBtn("정규화");
+            auto* clearBtn = makeBufferHeaderBtn("지우기");
+            chl->addWidget(copyBtn);
+            chl->addWidget(normalizeBtn);
             chl->addWidget(clearBtn);
             cl->addWidget(ch);
 
@@ -1518,34 +1743,134 @@ namespace
             };
             updateBufferText();
 
-            updateBlockReasonCard = [blockReasonCard, blockScoreValue, blockThresholdValue, blockReasonList] {
-                if (!blockReasonCard || !blockScoreValue || !blockThresholdValue || !blockReasonList)
+            auto scanPhase = std::make_shared<int>(0);
+            auto lastScanKeyCount = std::make_shared<int>(currentBufferedKeyDownCount());
+            auto idleScanTicks = std::make_shared<int>(0);
+            updateScanStatus = [scanImage, scanBadge, scanTitle, scanDescription, statusBadge,
+                                scanRowLabels, scanRowDots, scanPhase, lastScanKeyCount, idleScanTicks] {
+                if (!scanImage || !scanBadge || !scanTitle || !scanDescription)
                     return;
 
                 const LiveAnalysisSnapshot snapshot = buildLiveAnalysisSnapshot();
                 constexpr double blockThreshold = 8.0;
-                const bool shouldShow = snapshot.hasInput
-                    && snapshot.verdict.final_score >= blockThreshold;
+                const int keyCount = currentBufferedKeyDownCount();
+                if (keyCount != *lastScanKeyCount) {
+                    *lastScanKeyCount = keyCount;
+                    *idleScanTicks = 0;
+                } else {
+                    *idleScanTicks = (*idleScanTicks >= 12) ? 12 : (*idleScanTicks + 1);
+                }
 
-                blockReasonCard->setVisible(shouldShow);
-                if (!shouldShow)
+                const bool isDanger = snapshot.hasInput && snapshot.verdict.final_score >= blockThreshold;
+                const bool isSafe = snapshot.hasInput && !isDanger && *idleScanTicks >= 8;
+
+                auto setMascot = [scanImage](const QString& res) {
+                    scanImage->setPixmap(QPixmap(res).scaled(
+                        scanImage->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+                };
+                auto setBadgeStyle = [](QLabel* label, const QString& bg) {
+                    label->setStyleSheet(QString("QLabel { color: #FFFFFF; background: %1; border: none;"
+                                                 " border-radius: 8px; padding: 0 18px; font-size: 13px; }").arg(bg));
+                };
+                auto setStatusBadge = [](QLabel* label, const QString& text, const QString& color) {
+                    if (!label) return;
+                    label->setText(text);
+                    label->setStyleSheet(QString("QLabel { color: %1; background: transparent; border: none;"
+                                                 " font-size: 13px; }").arg(color));
+                };
+                auto setDots = [&scanRowDots](const QString& text, const QString& color, bool animated) {
+                    int filled = static_cast<int>(text.count(QChar(0x25CF)));
+                    if (filled < 1) filled = 1;
+                    if (filled > 6) filled = 6;
+                    for (auto* dots : scanRowDots) {
+                        if (!dots) continue;
+                        if (animated)
+                            dots->setLoading(color, filled - 1);
+                        else
+                            dots->setComplete(color);
+                    }
+                };
+
+                if (isDanger) {
+                    setMascot(":/icons/detect_bad.png");
+                    scanBadge->setText("검사 완료");
+                    setBadgeStyle(scanBadge, "#EF3B2D");
+                    scanTitle->setText("검사 결과 위험");
+                    scanTitle->setStyleSheet("font-size: 22px; color: #EF3B2D; background: transparent; border: none;");
+                    scanDescription->setText("이 장치에서 위험한 입력 패턴이 감지되어 차단을 권장합니다.");
+                    setStatusBadge(statusBadge, "자동 차단됨", "#EF3B2D");
+
+                    QStringList reasons = blockReasonLines(snapshot);
+                    while (reasons.size() < 3)
+                        reasons << "위험 입력 조합이 감지되었습니다.";
+                    for (int i = 0; i < scanRowLabels.size() && i < 3; ++i)
+                        scanRowLabels[i]->setText(reasons[i]);
+                    setDots("●●●", "#EF3B2D", false);
                     return;
+                }
 
-                blockScoreValue->setText(QString("%1 / 10.0")
-                    .arg(snapshot.verdict.final_score, 0, 'f', 1));
-                blockThresholdValue->setText(QString("%1").arg(blockThreshold, 0, 'f', 1));
-                blockReasonList->setText(blockReasonHtml(blockReasonLines(snapshot)));
+                if (isSafe) {
+                    setMascot(":/icons/detect_good.png");
+                    scanBadge->setText("검사 완료");
+                    setBadgeStyle(scanBadge, "#16A34A");
+                    scanTitle->setText("검사 결과 안전");
+                    scanTitle->setStyleSheet("font-size: 22px; color: #1D293D; background: transparent; border: none;");
+                    scanDescription->setText("이 장치는 현재까지 확인된 위험 패턴이 없어 안전한 장치로 판단되었습니다.");
+                    setStatusBadge(statusBadge, "안전", "#16A34A");
+                    const QStringList safeRows = {
+                        "비정상 입력 패턴 없음",
+                        "명령/실행 패턴 미검출",
+                        "위험 URL 및 조합 미검출"
+                    };
+                    for (int i = 0; i < scanRowLabels.size() && i < safeRows.size(); ++i)
+                        scanRowLabels[i]->setText(safeRows[i]);
+                    setDots("●●●", "#94A3B8", false);
+                    return;
+                }
+
+                setMascot(":/icons/detecting.png");
+                scanBadge->setText("검사중");
+                setBadgeStyle(scanBadge, "#3B82F6");
+                scanTitle->setText("의심 장치를 검사하고 있습니다.");
+                scanTitle->setStyleSheet("font-size: 22px; color: #1D293D; background: transparent; border: none;");
+                scanDescription->setText("입력 패턴과 장치 정보를 분석하여 안전 여부를 확인하는 중입니다.");
+                setStatusBadge(statusBadge, "검사중", "#60A5FA");
+                const QStringList scanningRows = {
+                    "입력 패턴 분석 중",
+                    "명령/실행 패턴 확인 중",
+                    "URL 및 위험 조합 확인 중"
+                };
+                for (int i = 0; i < scanRowLabels.size() && i < scanningRows.size(); ++i)
+                    scanRowLabels[i]->setText(scanningRows[i]);
+
+                const int activeCount = ((*scanPhase)++ % 6) + 1;
+                QString dots;
+                for (int i = 0; i < 6; ++i)
+                    dots += i < activeCount ? "●" : "○";
+                setDots(dots, "#60A5FA", true);
             };
-            updateBlockReasonCard();
+            updateScanStatus();
 
             auto* bufferTimer = new QTimer(dlg);
-            bufferTimer->setInterval(250);
-            QObject::connect(bufferTimer, &QTimer::timeout, dlg, [updateBufferText, updateBlockReasonCard] {
+            bufferTimer->setInterval(140);
+            QObject::connect(bufferTimer, &QTimer::timeout, dlg, [updateBufferText, updateScanStatus] {
                 updateBufferText();
-                if (updateBlockReasonCard)
-                    updateBlockReasonCard();
+                if (updateScanStatus)
+                    updateScanStatus();
             });
             bufferTimer->start();
+
+            QObject::connect(copyBtn, &QPushButton::clicked, dlg, [bufText] {
+                if (bufText)
+                    QApplication::clipboard()->setText(bufText->toPlainText());
+            });
+
+            QObject::connect(normalizeBtn, &QPushButton::clicked, dlg,
+                [normalizedMode, normalizeBtn, updateBufferText] {
+                    *normalizedMode = !*normalizedMode;
+                    normalizeBtn->setText(*normalizedMode ? "원본 보기" : "정규화");
+                    updateBufferText();
+                });
 
             QObject::connect(clearBtn, &QPushButton::clicked, dlg, [updateBufferText, normalizedMode] {
                 *normalizedMode = false;
@@ -1554,7 +1879,9 @@ namespace
             });
             cl->addWidget(bufText, 1);
 
-            bodyL->addWidget(card, 1);
+            monitorStack->addWidget(card);
+            monitorStack->setCurrentIndex(0);
+            bodyL->addWidget(monitorStack, 1);
         }
 
         root->addWidget(body, 1);
@@ -1577,31 +1904,28 @@ namespace
             return btn;
         };
 
-        auto* copyBtn = mkFooterBtn("복사");
-        auto* normalizeBtn = mkFooterBtn("정규화");
         auto* analyticsBtn = mkFooterBtn("행위 분석 보기");
-        fl->addWidget(copyBtn);
-        fl->addWidget(normalizeBtn);
+        bufferToggleBtn = mkFooterBtn("입력 버퍼 보기");
         fl->addWidget(analyticsBtn);
+        fl->addWidget(bufferToggleBtn);
         fl->addStretch();
-
-        QObject::connect(copyBtn, &QPushButton::clicked, dlg, [bufText] {
-            if (bufText)
-                QApplication::clipboard()->setText(bufText->toPlainText());
-        });
-
-        QObject::connect(normalizeBtn, &QPushButton::clicked, dlg,
-            [normalizedMode, normalizeBtn, updateBufferText] {
-                *normalizedMode = !*normalizedMode;
-                normalizeBtn->setText(*normalizedMode ? "원본 보기" : "정규화");
-                updateBufferText();
-            });
 
         QObject::connect(analyticsBtn, &QPushButton::clicked, dlg, [dlg, onOpenAnalytics] {
             if (onOpenAnalytics)
                 onOpenAnalytics();
             dlg->showMinimized();
         });
+
+        QObject::connect(bufferToggleBtn, &QPushButton::clicked, dlg,
+            [monitorStack, bufferToggleBtn, updateBufferText] {
+                if (!monitorStack || !bufferToggleBtn)
+                    return;
+                const bool showBuffer = monitorStack->currentIndex() == 0;
+                monitorStack->setCurrentIndex(showBuffer ? 1 : 0);
+                bufferToggleBtn->setText(showBuffer ? "검사 상태 보기" : "입력 버퍼 보기");
+                if (showBuffer && updateBufferText)
+                    updateBufferText();
+            });
 
         // Action buttons as clickable QWidget (QPushButton can't host child labels reliably)
         auto mkActionBtn = [dlg](const QString& text, const QString& sub,
@@ -1825,6 +2149,12 @@ MainWindow::MainWindow(QWidget* parent)
     registerHidNotifications();
     enforceBlockedDeviceHook();
     refreshNavState();
+
+    auto* helpShortcut = new QShortcut(QKeySequence(Qt::Key_F1), this);
+    helpShortcut->setContext(Qt::ApplicationShortcut);
+    connect(helpShortcut, &QShortcut::activated, this, [this] {
+        showPageHelpPopover(this, currentPage_);
+    });
 
     // Load persisted unknownDeviceAction
     {
