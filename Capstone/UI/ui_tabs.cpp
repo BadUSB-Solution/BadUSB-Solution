@@ -4,6 +4,7 @@
 
 #include "logger.h"
 #include "ui_policy_tab.h"
+#include "ui_settings_tab.h"
 
 #pragma comment(lib, "Comctl32.lib")
 
@@ -12,22 +13,27 @@ namespace UiTabs
     static HWND g_tabWnd = nullptr;
     static HWND g_tabStatus = nullptr;
     static HWND g_tabPolicy = nullptr;
+    static HWND g_tabSettings = nullptr;
     static HWND g_tabLogs = nullptr;
 
     static void SwitchTab(int idx)
     {
-        if (!g_tabStatus || !g_tabPolicy || !g_tabLogs) {
+        if (!g_tabStatus || !g_tabPolicy || !g_tabSettings || !g_tabLogs) {
             return;
         }
 
-        ShowWindow(g_tabStatus, idx == 0 ? SW_SHOW : SW_HIDE);
-        ShowWindow(g_tabPolicy, idx == 1 ? SW_SHOW : SW_HIDE);
-        ShowWindow(g_tabLogs, idx == 2 ? SW_SHOW : SW_HIDE);
+        ShowWindow(g_tabStatus,   idx == 0 ? SW_SHOW : SW_HIDE);
+        ShowWindow(g_tabPolicy,   idx == 1 ? SW_SHOW : SW_HIDE);
+        ShowWindow(g_tabSettings, idx == 2 ? SW_SHOW : SW_HIDE);
+        ShowWindow(g_tabLogs,     idx == 3 ? SW_SHOW : SW_HIDE);
 
         if (idx == 1) {
             UiPolicyTab::Refresh();
         }
         if (idx == 2) {
+            UiSettingsTab::Refresh();
+        }
+        if (idx == 3) {
             UpdateLogs();
         }
     }
@@ -51,8 +57,10 @@ namespace UiTabs
         TabCtrl_InsertItem(g_tabWnd, 0, &ti);
         ti.pszText = (LPWSTR)L"Policy";
         TabCtrl_InsertItem(g_tabWnd, 1, &ti);
-        ti.pszText = (LPWSTR)L"Logs";
+        ti.pszText = (LPWSTR)L"Settings";
         TabCtrl_InsertItem(g_tabWnd, 2, &ti);
+        ti.pszText = (LPWSTR)L"Logs";
+        TabCtrl_InsertItem(g_tabWnd, 3, &ti);
 
         RECT trc;
         GetClientRect(g_tabWnd, &trc);
@@ -73,6 +81,7 @@ namespace UiTabs
             g_tabWnd, nullptr, hInst, nullptr);
 
         g_tabPolicy = UiPolicyTab::Create(g_tabWnd, hInst, trc);
+        g_tabSettings = UiSettingsTab::Create(g_tabWnd, hInst, trc);
 
         g_tabLogs = CreateWindowExW(
             WS_EX_CLIENTEDGE, L"EDIT", L"",
@@ -83,8 +92,9 @@ namespace UiTabs
             trc.bottom - trc.top - 12,
             g_tabWnd, nullptr, hInst, nullptr);
 
-        ShowWindow(g_tabPolicy, SW_HIDE);
-        ShowWindow(g_tabLogs, SW_HIDE);
+        ShowWindow(g_tabPolicy,   SW_HIDE);
+        ShowWindow(g_tabSettings, SW_HIDE);
+        ShowWindow(g_tabLogs,     SW_HIDE);
     }
 
     void OnSelChange()
@@ -99,7 +109,9 @@ namespace UiTabs
 
     bool HandleCommand(WPARAM wParam, LPARAM lParam)
     {
-        return UiPolicyTab::HandleCommand(wParam, lParam);
+        if (UiPolicyTab::HandleCommand(wParam, lParam)) return true;
+        if (UiSettingsTab::HandleCommand(wParam, lParam)) return true;
+        return false;
     }
 
     bool IsLogsTabActive()
@@ -107,7 +119,7 @@ namespace UiTabs
         if (!g_tabWnd) {
             return false;
         }
-        return TabCtrl_GetCurSel(g_tabWnd) == 2;
+        return TabCtrl_GetCurSel(g_tabWnd) == 3;
     }
 
     void UpdateLogs()

@@ -21,6 +21,7 @@
 #include "keyboard_hook.h"
 #include "ui_buffer_view.h"
 #include "policy.h"
+#include "settings.h"
 
 #pragma comment(lib, "Shell32.lib")
 
@@ -45,6 +46,11 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int)
     LoadStringW(hInstance, IDC_CAPSTONE, szWindowClass, MAX_LOADSTRING);
 
     MyRegisterClass(hInstance);
+
+    // 사용자 환경설정 로드 (없으면 기본값으로 첫 생성)
+    if (Policy::LoadSettings()) {
+        Logger::Add(L"[A] Settings loaded.");
+    }
 
     // DB 먼저 로드 시도 (InitInstance 내부에서 참조)
     if (Policy::Load()) {

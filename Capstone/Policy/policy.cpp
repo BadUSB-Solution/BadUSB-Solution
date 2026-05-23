@@ -3,17 +3,15 @@
 // 각 항목: { "vid": "046D", "pid": "C52B", "name": "Logitech USB Receiver", "fingerprint": "0x046DC52B1A2B3C4D" }
 
 #include "policy.h"
-#include <windows.h>
-#include <shlobj.h>
+#include "app_paths.h"
 
-#pragma comment(lib, "Shell32.lib")
+#include <windows.h>  // WideCharToMultiByte / MultiByteToWideChar
 
 #include <fstream>
 #include <sstream>
 #include <iomanip>
 #include <mutex>
 #include <algorithm>
-#include <cwchar>
 
 namespace
 {
@@ -23,26 +21,6 @@ namespace
     std::wstring g_dbPath;
 
     // ── 유틸 ──
-
-    std::wstring GetDefaultDbPath()
-    {
-        wchar_t appData[MAX_PATH]{};
-        if (SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, appData) != S_OK)
-        {
-            // fallback: 환경변수
-            DWORD len = GetEnvironmentVariableW(L"APPDATA", appData, MAX_PATH);
-            if (len == 0 || len >= MAX_PATH)
-                wcscpy_s(appData, L"C:\\Temp");
-        }
-
-        std::wstring dir(appData);
-        dir += L"\\AbangAll";
-
-        // 폴더 없으면 생성
-        CreateDirectoryW(dir.c_str(), nullptr);
-
-        return dir + L"\\allow_list.json";
-    }
 
     // wstring ↔ UTF-8
     std::string WtoU8(const std::wstring& ws)
@@ -361,7 +339,7 @@ namespace Policy
     {
         std::lock_guard<std::mutex> lk(g_mu);
         if (g_dbPath.empty())
-            g_dbPath = GetDefaultDbPath();
+            g_dbPath = Storage::GetAllowListPath();
         return g_dbPath;
     }
 
@@ -386,6 +364,10 @@ namespace Policy
         for (auto& item : wl) item.allow = true;
         for (auto& item : bl) item.allow = false;
 
+        // 기존에 만들어진 파일도 startup에서 한 번 hidden 처리
+        // (Save() 가 호출되기 전이라도 보장)
+        Storage::MarkHidden(path);
+
         std::lock_guard<std::mutex> lk(g_mu);
         g_whitelist = std::move(wl);
         g_blacklist = std::move(bl);
@@ -406,13 +388,20 @@ namespace Policy
         }
 
         const std::wstring path = GetDbPath();
+
+        // hidden 속성이 걸린 파일은 ofstream(trunc)으로 못 열 수 있어 잠시 해제 후 다시 hidden 처리.
+        Storage::UnhideForWrite(path);
+
         std::ofstream ofs(path, std::ios::binary | std::ios::trunc);
         if (!ofs.is_open())
             return false;
 
         ofs << json;
         ofs.close();
-        return ofs.good();
+        const bool ok = ofs.good();
+
+        Storage::MarkHidden(path);
+        return ok;
     }
 
     PolicyStatus Evaluate(const UsbItem& item)
