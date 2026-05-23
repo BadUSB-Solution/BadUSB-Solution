@@ -33,7 +33,6 @@
 #include <QShortcut>
 #include <QSize>
 #include <QSpacerItem>
-#include <QSpinBox>
 #include <QStackedWidget>
 #include <QStringList>
 #include <QStyle>
@@ -4003,8 +4002,6 @@ QWidget* MainWindow::createSettingsPage()
 
     // Hoist settable widget pointers
     QComboBox*        comboDev    = nullptr;
-    ToggleSwitchWidget* toggleSw  = nullptr;
-    QSpinBox*         threshSpin  = nullptr;
     QCheckBox*        cbAutostart = nullptr;
     QCheckBox*        cbMinimize  = nullptr;
     QCheckBox*        cbNotif     = nullptr;
@@ -4135,71 +4132,6 @@ QWidget* MainWindow::createSettingsPage()
             comboDev->setFixedHeight(36);
             comboDev->setFont(pretendardFont(FontRole::Regular));
             wl->addWidget(comboDev);
-            wl->addSpacing(32);
-
-            wl->addWidget(makeDivider());
-            wl->addSpacing(32);
-
-            // Section: BadUSB 차단
-            auto* secLabel2 = label("BadUSB 및 키로거 차단 (행위 기반)", "sectionHeading");
-            secLabel2->setFont(pretendardFont(FontRole::Regular));
-            wl->addWidget(secLabel2);
-            wl->addSpacing(16);
-
-            // Toggle card
-            auto* toggleCard = new QFrame;
-            toggleCard->setStyleSheet(
-                "QFrame { background: #F8FAFC; border-radius: 8px; border: 1px solid #E2E8F0; }");
-            auto* toggleCardL = new QHBoxLayout(toggleCard);
-            toggleCardL->setContentsMargins(17, 17, 17, 17);
-            toggleCardL->setSpacing(16);
-
-            auto* toggleTextBox = new QVBoxLayout;
-            toggleTextBox->setSpacing(4);
-            auto* toggleTitle = new QLabel("행위 기반 위협 모니터링 활성화");
-            toggleTitle->setFont(pretendardFont(FontRole::Regular));
-            toggleTitle->setStyleSheet("color: #1D293D; font-size: 14px; border: none; background: transparent;");
-            auto* toggleDesc = new QLabel(
-                "명령어, URL, 입력 속도, 핫키 패턴을 종합해 위험 점수를 산출하고 차단합니다.");
-            toggleDesc->setFont(pretendardFont(FontRole::Regular));
-            toggleDesc->setStyleSheet("color: #62748E; font-size: 12px; border: none; background: transparent;");
-            toggleDesc->setWordWrap(true);
-            toggleTextBox->addWidget(toggleTitle);
-            toggleTextBox->addWidget(toggleDesc);
-
-            toggleSw = new ToggleSwitchWidget(true);
-            toggleCardL->addLayout(toggleTextBox, 1);
-            toggleCardL->addWidget(toggleSw);
-            wl->addWidget(toggleCard);
-            wl->addSpacing(20);
-
-            // Threshold row
-            auto* threshRow = new QHBoxLayout;
-            threshRow->setContentsMargins(4, 0, 0, 0);
-            threshRow->setSpacing(0);
-            auto* threshLabel = new QLabel("차단 임계치 (종합 위험 점수):");
-            threshLabel->setFont(pretendardFont(FontRole::Regular));
-            threshLabel->setStyleSheet("color: #314158; font-size: 14px;");
-            threshRow->addWidget(threshLabel);
-            threshRow->addSpacing(16);
-
-            threshSpin = new QSpinBox;
-            threshSpin->setValue(8);
-            threshSpin->setRange(1, 10);
-            threshSpin->setFixedSize(80, 34);
-            threshSpin->setObjectName("numberInput");
-            threshSpin->setFont(pretendardFont(FontRole::Regular));
-            threshSpin->setAlignment(Qt::AlignRight);
-            threshRow->addWidget(threshSpin);
-            threshRow->addSpacing(8);
-
-            auto* threshUnit = new QLabel("/ 10 이상일 경우 차단");
-            threshUnit->setFont(pretendardFont(FontRole::Regular));
-            threshUnit->setStyleSheet("color: #62748E; font-size: 14px;");
-            threshRow->addWidget(threshUnit);
-            threshRow->addStretch();
-
-            wl->addLayout(threshRow);
             wl->addStretch();
             tabStack->addWidget(w);
         }
@@ -4277,40 +4209,6 @@ QWidget* MainWindow::createSettingsPage()
             sidebarL->addWidget(createCard("적용된 정책 요약", body));
         }
 
-        // System info card
-        {
-            auto* body = new QWidget;
-            auto* bl = new QVBoxLayout(body);
-            bl->setContentsMargins(16, 16, 16, 16);
-            bl->setSpacing(0);
-
-            struct SysInfo { QString lbl, val; };
-            const QList<SysInfo> infos = {
-                {"에이전트 버전",     "Abang-All Agent v1.4.2 (64-bit)"},
-                {"엔진 데이터베이스", "2023.10.25.01 (최신)"},
-                {"라이선스 만료일",   "2024-12-31"},
-            };
-            for (int idx = 0; idx < infos.size(); ++idx) {
-                const auto& info = infos[idx];
-                auto* col = new QVBoxLayout;
-                col->setSpacing(4);
-                auto* lbl = label(info.lbl, "systemInfoLabel");
-                col->addWidget(lbl);
-                auto* val = label(info.val, "systemInfoValue");
-                col->addWidget(val);
-                bl->addLayout(col);
-                if (idx < infos.size() - 1) bl->addSpacing(16);
-            }
-            bl->addSpacing(16);
-
-            auto* licenseBtn = new QPushButton("라이선스 상세 정보");
-            licenseBtn->setObjectName("secondaryButton");
-            licenseBtn->setFont(pretendardFont(FontRole::Medium));
-            bl->addWidget(licenseBtn);
-
-            sidebarL->addWidget(createCard("시스템 정보", body));
-        }
-
         sidebarL->addStretch();
         contentRow->addWidget(sidebar);
     }
@@ -4323,15 +4221,13 @@ QWidget* MainWindow::createSettingsPage()
         if (cbAutostart)  cbAutostart->setChecked(s.value("general/autostart",  false).toBool());
         if (cbMinimize)   cbMinimize->setChecked( s.value("general/minimize",   false).toBool());
         if (comboDev)     comboDev->setCurrentIndex(s.value("policy/unknownDeviceAction", 0).toInt());
-        if (toggleSw)     toggleSw->setChecked(s.value("policy/behaviorMonitor", true).toBool());
-        if (threshSpin)   threshSpin->setValue(s.value("policy/riskThreshold", 8).toInt());
         if (cbNotif)      cbNotif->setChecked(s.value("alert/popup", true).toBool());
     }
 
     // Wire Save button
     if (saveBtn) {
         connect(saveBtn, &QPushButton::clicked, this,
-            [this, cbAutostart, cbMinimize, comboDev, toggleSw, threshSpin, cbNotif] {
+            [this, cbAutostart, cbMinimize, comboDev, cbNotif] {
                 QSettings s("Abang-All", "Abang-All");
                 if (cbAutostart)  s.setValue("general/autostart",  cbAutostart->isChecked());
                 if (cbMinimize)   s.setValue("general/minimize",   cbMinimize->isChecked());
@@ -4340,8 +4236,6 @@ QWidget* MainWindow::createSettingsPage()
                     s.setValue("policy/unknownDeviceAction", idx);
                     unknownDeviceAction_ = idx;
                 }
-                if (toggleSw)   s.setValue("policy/behaviorMonitor", toggleSw->isChecked());
-                if (threshSpin) s.setValue("policy/riskThreshold",   threshSpin->value());
                 if (cbNotif)    s.setValue("alert/popup", cbNotif->isChecked());
                 s.sync();
             });
