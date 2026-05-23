@@ -55,7 +55,7 @@
     <Filter Include="Policy">
       <UniqueIdentifier>{0E8A2F08-4E66-4D8F-925A-9C7E2470BE4E}</UniqueIdentifier>
     </Filter>
-    <Filter Include="logs">
+    <Filter Include="Logger">
       <UniqueIdentifier>{6D0F1A12-7B3C-4E2F-90A1-1D2E3F4051A2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -72,11 +72,11 @@
     <ClInclude Include="Core\ui_message_id.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="logs\logger.h">
-      <Filter>logs</Filter>
+    <ClInclude Include="Logger\logger.h">
+      <Filter>Logger</Filter>
     </ClInclude>
-    <ClInclude Include="Core\policy.h">
-      <Filter>Core</Filter>
+    <ClInclude Include="Policy\policy.h">
+      <Filter>Policy</Filter>
     </ClInclude>
     <ClInclude Include="Detect\hid_monitor.h">
       <Filter>Detect</Filter>
@@ -192,11 +192,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="logs\logger.cpp">
-      <Filter>logs</Filter>
+    <ClCompile Include="Logger\logger.cpp">
+      <Filter>Logger</Filter>
     </ClCompile>
-    <ClCompile Include="Core\policy.cpp">
-      <Filter>Core</Filter>
+    <ClCompile Include="Policy\policy.cpp">
+      <Filter>Policy</Filter>
     </ClCompile>
     <ClCompile Include="Detect\hid_monitor.cpp">
       <Filter>Detect</Filter>
