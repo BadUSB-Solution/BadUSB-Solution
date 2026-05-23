@@ -55,8 +55,11 @@
     <Filter Include="Policy">
       <UniqueIdentifier>{0E8A2F08-4E66-4D8F-925A-9C7E2470BE4E}</UniqueIdentifier>
     </Filter>
-    <Filter Include="logs">
+    <Filter Include="Logger">
       <UniqueIdentifier>{6D0F1A12-7B3C-4E2F-90A1-1D2E3F4051A2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Storage">
+      <UniqueIdentifier>{7E1F2B23-8C4D-4F30-A1B2-2E3F40516283}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -72,11 +75,17 @@
     <ClInclude Include="Core\ui_message_id.h">
       <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="logs\logger.h">
-      <Filter>logs</Filter>
+    <ClInclude Include="Logger\logger.h">
+      <Filter>Logger</Filter>
     </ClInclude>
-    <ClInclude Include="Core\policy.h">
-      <Filter>Core</Filter>
+    <ClInclude Include="Policy\policy.h">
+      <Filter>Policy</Filter>
+    </ClInclude>
+    <ClInclude Include="Policy\settings.h">
+      <Filter>Policy</Filter>
+    </ClInclude>
+    <ClInclude Include="Storage\app_paths.h">
+      <Filter>Storage</Filter>
     </ClInclude>
     <ClInclude Include="Detect\hid_monitor.h">
       <Filter>Detect</Filter>
@@ -118,6 +127,9 @@
       <Filter>UI</Filter>
     </ClInclude>
     <ClInclude Include="UI\ui_policy_tab.h">
+      <Filter>UI</Filter>
+    </ClInclude>
+    <ClInclude Include="UI\ui_settings_tab.h">
       <Filter>UI</Filter>
     </ClInclude>
     <ClInclude Include="Algorithm\PreAnalysis\KeyDecoder\key_decoder.h">
@@ -192,11 +204,17 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="logs\logger.cpp">
-      <Filter>logs</Filter>
+    <ClCompile Include="Logger\logger.cpp">
+      <Filter>Logger</Filter>
     </ClCompile>
-    <ClCompile Include="Core\policy.cpp">
-      <Filter>Core</Filter>
+    <ClCompile Include="Policy\policy.cpp">
+      <Filter>Policy</Filter>
+    </ClCompile>
+    <ClCompile Include="Policy\settings.cpp">
+      <Filter>Policy</Filter>
+    </ClCompile>
+    <ClCompile Include="Storage\app_paths.cpp">
+      <Filter>Storage</Filter>
     </ClCompile>
     <ClCompile Include="Detect\hid_monitor.cpp">
       <Filter>Detect</Filter>
@@ -211,6 +229,9 @@
       <Filter>UI</Filter>
     </ClCompile>
     <ClCompile Include="UI\ui_policy_tab.cpp">
+      <Filter>UI</Filter>
+    </ClCompile>
+    <ClCompile Include="UI\ui_settings_tab.cpp">
       <Filter>UI</Filter>
     </ClCompile>
     <ClCompile Include="Hook\keyboard_hook.cpp">
