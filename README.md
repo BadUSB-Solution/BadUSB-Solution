@@ -97,16 +97,16 @@ Capstone/
 
 | 폴더 | 설명 |
 |------|------|
-| Core | 공용 헤더(framework/targetver/resource/ui_message_id), UsbItem 데이터 모델, matchingDB.db |
-| Logger | 인메모리 링 버퍼(최대 500줄) + UI에 PostMessage 알림 |
+| Core | 공용 헤더, UsbItem 데이터 모델, matchingDB.db |
+| Logger | 인메모리 링 버퍼 + UI에 PostMessage 알림 |
 | Storage | `%APPDATA%\AbangAll\` 경로 헬퍼 + 파일 hidden 속성 처리 |
 | Policy | 화이트/블랙리스트(allow_list.json), 사용자 환경설정(settings.json), Windows 장치 disable/enable |
 | Detect | USB HID 장치 감지, 핑거프린트 생성, 초기 스캔, 승인 흐름 통합 |
-| Hook | WH_KEYBOARD_LL 기반 키보드 입력 후킹 (전체 차단 + 버퍼링) |
-| Algorithm | BadUSB 탐지 알고리즘 — PreAnalysis(키 디코드/정규화/쉘 감지/URL 추출) + Analysis(타이핑/위협 매칭/URL 분류/복합 점수) |
-| UI | 트레이 아이콘, 탭(Status/Policy/Settings/Logs), 승인 다이얼로그, 키입력 버퍼 뷰, 복합 점수 뷰 |
+| Hook | WH_KEYBOARD_LL 기반 키보드 입력 후킹 |
+| Algorithm | BadUSB 탐지 알고리즘 — PreAnalysis + Analysis |
+| UI | 트레이 아이콘, 탭, 승인 다이얼로그, 키입력 버퍼 뷰, 복합 점수 뷰 |
 | Resource | rc 파일, 아이콘 등 리소스 |
-| ThirdParty | 외부 의존성 (sqlite3 amalgamation) |
+| ThirdParty | 외부 의존성 |
 
 ## 사용자 데이터 (런타임 생성)
 
