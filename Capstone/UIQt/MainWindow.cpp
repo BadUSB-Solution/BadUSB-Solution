@@ -799,7 +799,8 @@ namespace
     {
         auto* icon = new QLabel;
         icon->setFixedSize(size, size);
-        icon->setPixmap(QIcon(resource).pixmap(size, size));
+        const int pixmapSize = size > 2 ? size - 2 : 1;
+        icon->setPixmap(QIcon(resource).pixmap(pixmapSize, pixmapSize));
         icon->setAlignment(Qt::AlignCenter);
         icon->setAttribute(Qt::WA_TransparentForMouseEvents);
         return icon;
@@ -2726,13 +2727,14 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         auto* devRow = new QHBoxLayout;
         devRow->setSpacing(12);
         auto* iconBox = new QFrame;
-        iconBox->setFixedSize(38, 38);
-        iconBox->setStyleSheet("QFrame { border: 1px solid #E2E8F0; border-radius: 6px; background: white; }");
+        iconBox->setFixedSize(42, 42);
+        iconBox->setStyleSheet("QFrame { border: none; background: transparent; }");
         auto* iconBoxL = new QHBoxLayout(iconBox);
         iconBoxL->setContentsMargins(0, 0, 0, 0);
         auto* devIconLbl = new QLabel;
-        devIconLbl->setFixedSize(16, 16);
-        devIconLbl->setPixmap(QIcon(":/icons/device-keyboard.svg").pixmap(16, 16));
+        devIconLbl->setFixedSize(22, 22);
+        devIconLbl->setAlignment(Qt::AlignCenter);
+        devIconLbl->setPixmap(QIcon(":/icons/device-keyboard.svg").pixmap(18, 18));
         iconBoxL->addWidget(devIconLbl, 0, Qt::AlignCenter);
 
         auto* nameBox = new QVBoxLayout;
@@ -3445,24 +3447,17 @@ QWidget* MainWindow::createLogPage()
         bodyL->setSpacing(0);
 
         // Mutable widgets for dynamic update
-        auto borderForLogBadge = [](const QString& badge) {
-            if (badge == "blockBadge")   return QStringLiteral("border: 1px solid #FFCCD3;");
-            if (badge == "warningBadge") return QStringLiteral("border: 1px solid #FDE68A;");
-            if (badge == "successBadge") return QStringLiteral("border: 1px solid #ABEFC6;");
-            return QString("border: 1px solid %1;").arg(UiTheme::ChartNormal);
-        };
-
         auto* detIconLabel = new QLabel;
-        detIconLabel->setFixedSize(16, 16);
-        detIconLabel->setPixmap(QIcon(logRows[0].eventIcon).pixmap(16, 16));
+        detIconLabel->setFixedSize(22, 22);
+        detIconLabel->setAlignment(Qt::AlignCenter);
+        detIconLabel->setPixmap(QIcon(logRows[0].eventIcon).pixmap(18, 18));
 
         auto* detIconBox = new QFrame;
-        detIconBox->setFixedSize(34, 34);
-        detIconBox->setStyleSheet(QString(
-            "QFrame { background: white; %1 border-radius: 4px; }").arg(borderForLogBadge(logRows[0].badge)));
+        detIconBox->setFixedSize(38, 38);
+        detIconBox->setStyleSheet("QFrame { background: transparent; border: none; }");
         {
             auto* ibl = new QHBoxLayout(detIconBox);
-            ibl->setContentsMargins(8, 8, 8, 8);
+            ibl->setContentsMargins(0, 0, 0, 0);
             ibl->addWidget(detIconLabel, 0, Qt::AlignCenter);
         }
 
@@ -3617,7 +3612,7 @@ QWidget* MainWindow::createLogPage()
         // Metadata is read from QObject properties on the column-0 cell widget.
         connect(logTable, &QTableWidget::cellClicked,
             [logTable, detIconLabel, detIconBox, detEvTitle, detEvTime,
-             detDevBadge, detDesc, detResultBadge, actionCard, descMap, borderForLogBadge]
+             detDevBadge, detDesc, detResultBadge, actionCard, descMap]
             (int row, int) {
                 auto* w = logTable->cellWidget(row, 0);
                 if (!w) return;
@@ -3629,10 +3624,9 @@ QWidget* MainWindow::createLogPage()
                 const QString result = w->property("log_result").toString();
                 const QString badge  = w->property("log_badge").toString();
 
-                detIconLabel->setPixmap(QIcon(icon).pixmap(16, 16));
+                detIconLabel->setPixmap(QIcon(icon).pixmap(18, 18));
 
-                detIconBox->setStyleSheet(QString(
-                    "QFrame { background: white; %1 border-radius: 4px; }").arg(borderForLogBadge(badge)));
+                detIconBox->setStyleSheet("QFrame { background: transparent; border: none; }");
 
                 detEvTitle->setText(event);
                 detEvTime->setText(time);
@@ -4183,26 +4177,39 @@ QWidget* MainWindow::createSettingsPage()
                 {"활성 정책",   "기본 보안 프리셋", ""},
                 {"미등록 장치", "승인 대기",        "warningBadge"},
                 {"행위 분석",   "가동 중",          "successBadge"},
-                {"허용된 예외", "24개 규칙",        ""},
             };
             for (int i = 0; i < rows.size(); ++i) {
                 const auto& r = rows[i];
-                auto* line = new QHBoxLayout;
-                line->setContentsMargins(0, 8, 0, 8);
+                auto* rowWidget = new QWidget;
+                rowWidget->setFixedHeight(42);
+                rowWidget->setStyleSheet("QWidget { background: transparent; border: none; }");
+                auto* line = new QHBoxLayout(rowWidget);
+                line->setContentsMargins(0, 0, 0, 0);
                 auto* lbl = label(r.lbl);
                 lbl->setStyleSheet("color: #45556C; font-size: 14px;");
                 lbl->setFont(pretendardFont(FontRole::Regular));
                 line->addWidget(lbl);
                 line->addStretch();
-                if (!r.badge.isEmpty())
-                    line->addWidget(label(r.val, r.badge.toUtf8().constData()));
-                else {
+                if (!r.badge.isEmpty()) {
+                    auto* badge = new QLabel(r.val);
+                    badge->setAlignment(Qt::AlignCenter);
+                    badge->setFont(pretendardFont(FontRole::SemiBold));
+                    badge->setFixedSize(58, 24);
+                    const bool warning = r.badge == "warningBadge";
+                    badge->setStyleSheet(QString(
+                        "QLabel { background: %1; color: %2; border: 1px solid %3;"
+                        " border-radius: 6px; font-size: 11px; padding: 0; }"
+                    ).arg(warning ? "#FFF7ED" : "#EFF6FF",
+                          warning ? "#C2410C" : "#2563C7",
+                          warning ? "#FDBA74" : "#BFDBFE"));
+                    line->addWidget(badge);
+                } else {
                     auto* valLbl = label(r.val);
                     valLbl->setStyleSheet("color: #1D293D; font-size: 14px;");
                     valLbl->setFont(pretendardFont(FontRole::Regular));
                     line->addWidget(valLbl);
                 }
-                bl->addLayout(line);
+                bl->addWidget(rowWidget);
                 if (i < rows.size() - 1) bl->addWidget(makeDivider());
             }
 
