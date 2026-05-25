@@ -8,7 +8,6 @@
 #include <QApplication>
 #include <QMenu>
 #include <QRegularExpression>
-#include <QSettings>
 #include <QDateTime>
 #include <QDialog>
 #include <QFrame>
@@ -57,6 +56,7 @@
 #include "keyboard_hook.h"
 #include "logger.h"
 #include "policy.h"
+#include "settings.h"
 #include "device_blocker.h"
 #include "shell_detector.h"
 #include "threat_matcher.h"
@@ -437,10 +437,36 @@ namespace
         popover->show();
     }
 
-    bool settingEnabled(const QString& key, bool fallback = true)
+    bool notifyOnRiskEnabled()
     {
-        QSettings settings("Abang-All", "Abang-All");
-        return settings.value(key, fallback).toBool();
+        Policy::LoadSettings();
+        return Policy::GetSettings().notifyOnRisk;
+    }
+
+    int actionIndexFromSetting(Policy::UnknownDeviceAction action)
+    {
+        switch (action) {
+        case Policy::UnknownDeviceAction::AutoBlock:
+            return 1;
+        case Policy::UnknownDeviceAction::AutoAllow:
+            return 2;
+        case Policy::UnknownDeviceAction::Approval:
+        default:
+            return 0;
+        }
+    }
+
+    Policy::UnknownDeviceAction actionSettingFromIndex(int index)
+    {
+        switch (index) {
+        case 1:
+            return Policy::UnknownDeviceAction::AutoBlock;
+        case 2:
+            return Policy::UnknownDeviceAction::AutoAllow;
+        case 0:
+        default:
+            return Policy::UnknownDeviceAction::Approval;
+        }
     }
 
     int currentBufferedKeyDownCount()
@@ -847,6 +873,23 @@ namespace
         l->addWidget(badge, 0, Qt::AlignLeft | Qt::AlignVCenter);
         l->addStretch();
         return container;
+    }
+
+    void applyCompactPolicyBadge(QLabel* badge, const QString& text)
+    {
+        if (!badge) return;
+
+        const bool isAllow = text == QStringLiteral("허용");
+        const bool isBlock = text == QStringLiteral("차단");
+        const int badgeWidth = (isAllow || isBlock) ? 42 : 64;
+
+        badge->setText(text);
+        badge->setObjectName(isAllow ? "successBadge" : (isBlock ? "dangerBadge" : "warningBadge"));
+        badge->setAlignment(Qt::AlignCenter);
+        badge->setFixedSize(badgeWidth, 24);
+        badge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+        badge->style()->unpolish(badge);
+        badge->style()->polish(badge);
     }
 
     QFrame* makeDivider()
@@ -2158,11 +2201,8 @@ MainWindow::MainWindow(QWidget* parent)
         showPageHelpPopover(this, currentPage_);
     });
 
-    // Load persisted unknownDeviceAction
-    {
-        QSettings s("Abang-All", "Abang-All");
-        unknownDeviceAction_ = s.value("policy/unknownDeviceAction", 0).toInt();
-    }
+    Policy::LoadSettings();
+    unknownDeviceAction_ = actionIndexFromSetting(Policy::GetSettings().unknownDeviceAction);
 
 #ifdef Q_OS_WIN
     Logger::SetNotifyWindow(reinterpret_cast<HWND>(winId()), WM_APP_NEWLOG);
@@ -2794,8 +2834,8 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
     // 적용 정책
     {
         usbDetPolicyLbl_ = new QLabel("승인 대기");
-        usbDetPolicyLbl_->setObjectName("warningBadge");
         usbDetPolicyLbl_->setFont(pretendardFont(FontRole::SemiBold));
+        applyCompactPolicyBadge(usbDetPolicyLbl_, "승인 대기");
         addInfoRow("적용 정책", usbDetPolicyLbl_);
     }
 
@@ -3100,13 +3140,7 @@ void MainWindow::applyUsbDetailPanel(int row)
         .arg(connected ? "#00C950" : "#CAD5E2"));
     usbDetStatusLbl_->setText(r.status);
 
-    const char* badgeName = (r.policy == "허용") ? "successBadge"
-                          : (r.policy == "차단") ? "dangerBadge"
-                          : "warningBadge";
-    usbDetPolicyLbl_->setText(r.policy);
-    usbDetPolicyLbl_->setObjectName(badgeName);
-    usbDetPolicyLbl_->style()->unpolish(usbDetPolicyLbl_);
-    usbDetPolicyLbl_->style()->polish(usbDetPolicyLbl_);
+    applyCompactPolicyBadge(usbDetPolicyLbl_, r.policy);
 
     usbDetTypeV_->setText(r.type);
     usbDetVidV_->setText(r.vidpid.left(4) + " : " + r.vidpid.mid(5));
@@ -4226,27 +4260,29 @@ QWidget* MainWindow::createSettingsPage()
 
     // Load persisted settings into widgets
     {
-        QSettings s("Abang-All", "Abang-All");
-        if (cbAutostart)  cbAutostart->setChecked(s.value("general/autostart",  false).toBool());
-        if (cbMinimize)   cbMinimize->setChecked( s.value("general/minimize",   false).toBool());
-        if (comboDev)     comboDev->setCurrentIndex(s.value("policy/unknownDeviceAction", 0).toInt());
-        if (cbNotif)      cbNotif->setChecked(s.value("alert/popup", true).toBool());
+        Policy::LoadSettings();
+        const Policy::Settings settings = Policy::GetSettings();
+        if (cbAutostart)  cbAutostart->setChecked(settings.autoStart);
+        if (cbMinimize)   cbMinimize->setChecked(settings.minimizeToTray);
+        if (comboDev)     comboDev->setCurrentIndex(actionIndexFromSetting(settings.unknownDeviceAction));
+        if (cbNotif)      cbNotif->setChecked(settings.notifyOnRisk);
     }
 
     // Wire Save button
     if (saveBtn) {
         connect(saveBtn, &QPushButton::clicked, this,
             [this, cbAutostart, cbMinimize, comboDev, cbNotif] {
-                QSettings s("Abang-All", "Abang-All");
-                if (cbAutostart)  s.setValue("general/autostart",  cbAutostart->isChecked());
-                if (cbMinimize)   s.setValue("general/minimize",   cbMinimize->isChecked());
+                Policy::LoadSettings();
+                Policy::Settings settings = Policy::GetSettings();
+                if (cbAutostart)  settings.autoStart = cbAutostart->isChecked();
+                if (cbMinimize)   settings.minimizeToTray = cbMinimize->isChecked();
                 if (comboDev) {
                     const int idx = comboDev->currentIndex();
-                    s.setValue("policy/unknownDeviceAction", idx);
+                    settings.unknownDeviceAction = actionSettingFromIndex(idx);
                     unknownDeviceAction_ = idx;
                 }
-                if (cbNotif)    s.setValue("alert/popup", cbNotif->isChecked());
-                s.sync();
+                if (cbNotif) settings.notifyOnRisk = cbNotif->isChecked();
+                Policy::SetSettings(settings);
             });
     }
 
@@ -4954,7 +4990,7 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                         Logger::Add(L"[Qt] Blocked HID device; hook active: " + item.name);
                                         updateDlgInfo();
                                         blockCurrentDevice(item, L"Reconnect blacklist");
-                                        if (settingEnabled("alert/popup") && trayIcon_) {
+                                        if (notifyOnRiskEnabled() && trayIcon_) {
                                             trayIcon_->showMessage(
                                                 "Abang-All",
                                                 QString("차단된 장치가 연결되었습니다.\n%1").arg(fromWString(item.name)),
@@ -4972,7 +5008,7 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                             Policy::AddBlacklist(item);
                                             blockCurrentDevice(item, L"Auto-block setting");
                                             Logger::Add(L"[Qt] Auto-blocked (설정): " + item.name);
-                                            if (settingEnabled("alert/popup") && trayIcon_) {
+                                            if (notifyOnRiskEnabled() && trayIcon_) {
                                                 trayIcon_->showMessage(
                                                     "Abang-All",
                                                     QString("위험 장치가 자동 차단되었습니다.\n%1").arg(fromWString(item.name)),
@@ -4991,7 +5027,7 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                             enforceBlockedDeviceHook();
                                         } else {
                                             updateDlgInfo();
-                                            if (settingEnabled("alert/popup") && trayIcon_) {
+                                            if (notifyOnRiskEnabled() && trayIcon_) {
                                                 trayIcon_->showMessage(
                                                     "Abang-All",
                                                     QString("승인 대기 장치가 연결되었습니다.\n%1").arg(fromWString(item.name)),

@@ -9,8 +9,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(BUILD_QT_UI "Build the Qt Widgets user interface" OFF)
 
 add_library(CapstoneCore STATIC
-    Capstone/Core/logger.cpp
-    Capstone/Core/policy.cpp
+    Capstone/Logger/logger.cpp
+    Capstone/Policy/policy.cpp
+    Capstone/Policy/settings.cpp
+    Capstone/Storage/app_paths.cpp
     Capstone/Hook/keyboard_hook.cpp
     Capstone/Detect/hid_scan.cpp
     Capstone/Detect/hid_fingerprint.cpp
@@ -41,6 +43,9 @@ add_library(CapstoneCore STATIC
 )
 
 target_include_directories(CapstoneCore PUBLIC
+    Capstone/Logger
+    Capstone/Policy
+    Capstone/Storage
     Capstone/Core
     Capstone/Hook
     Capstone/Detect
@@ -53,7 +58,6 @@ target_include_directories(CapstoneCore PUBLIC
     Capstone/Algorithm/Analysis/ThreatMatcher
     Capstone/Algorithm/Analysis/UrlClassifier
     Capstone/Algorithm/Analysis/CompoundScorer
-    Capstone/Policy
     Capstone/ThirdParty
 )
 
