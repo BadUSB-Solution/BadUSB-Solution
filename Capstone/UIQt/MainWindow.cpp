@@ -1627,6 +1627,7 @@ namespace
 
             scanTitle = new QLabel("의심 장치를 검사하고 있습니다.");
             scanTitle->setFont(pretendardFont(FontRole::Bold));
+            scanTitle->setTextFormat(Qt::RichText);
             scanTitle->setStyleSheet("font-size: 22px; color: #1D293D; background: transparent; border: none;");
             scanTexts->addWidget(scanTitle);
 
@@ -1796,7 +1797,7 @@ namespace
                     setMascot(":/icons/detect_bad.png");
                     scanBadge->setText("검사 완료");
                     setBadgeStyle(scanBadge, "#EF3B2D");
-                    scanTitle->setText("검사 결과 위험");
+                    scanTitle->setText("검사 결과 <span style='color:#EF3B2D;'>위험</span>");
                     scanTitle->setStyleSheet("font-size: 22px; color: #EF3B2D; background: transparent; border: none;");
                     scanDescription->setText("이 장치에서 위험한 입력 패턴이 감지되어 차단을 권장합니다.");
                     setStatusBadge(statusBadge, "자동 차단됨", "#EF3B2D");
@@ -1813,11 +1814,11 @@ namespace
                 if (isSafe) {
                     setMascot(":/icons/detect_good.png");
                     scanBadge->setText("검사 완료");
-                    setBadgeStyle(scanBadge, "#16A34A");
-                    scanTitle->setText("검사 결과 안전");
+                    setBadgeStyle(scanBadge, "#2563C7");
+                    scanTitle->setText("검사 결과 <span style='color:#2563C7;'>안전</span>");
                     scanTitle->setStyleSheet("font-size: 22px; color: #1D293D; background: transparent; border: none;");
                     scanDescription->setText("이 장치는 현재까지 확인된 위험 패턴이 없어 안전한 장치로 판단되었습니다.");
-                    setStatusBadge(statusBadge, "안전", "#16A34A");
+                    setStatusBadge(statusBadge, "안전", "#2563C7");
                     const QStringList safeRows = {
                         "비정상 입력 패턴 없음",
                         "명령/실행 패턴 미검출",
