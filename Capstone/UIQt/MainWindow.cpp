@@ -1663,7 +1663,7 @@ namespace
             makeScanRow(">_", "명령/실행 패턴 확인 중");
             makeScanRow("◎", "URL 및 위험 조합 확인 중");
 
-            auto* scanNote = new QLabel("검사가 완료되기 전까지는 이 장치로부터의 입력이 실시간으로 분석됩니다.");
+            auto* scanNote = new QLabel("마지막 입력 후 3초 동안 추가 입력이 없으면 검사 결과를 안내합니다.");
             scanNote->setFont(pretendardFont(FontRole::Regular));
             scanNote->setStyleSheet("font-size: 12px; color: #62748E; background: transparent; border: none;");
             scanNote->setWordWrap(true);
@@ -1758,11 +1758,12 @@ namespace
                     *lastScanKeyCount = keyCount;
                     *idleScanTicks = 0;
                 } else {
-                    *idleScanTicks = (*idleScanTicks >= 12) ? 12 : (*idleScanTicks + 1);
+                    *idleScanTicks = (*idleScanTicks >= 22) ? 22 : (*idleScanTicks + 1);
                 }
 
-                const bool isDanger = snapshot.hasInput && snapshot.verdict.final_score >= blockThreshold;
-                const bool isSafe = snapshot.hasInput && !isDanger && *idleScanTicks >= 8;
+                const bool inputIdleForResult = snapshot.hasInput && *idleScanTicks >= 22;
+                const bool isDanger = inputIdleForResult && snapshot.verdict.final_score >= blockThreshold;
+                const bool isSafe = inputIdleForResult && !isDanger;
 
                 auto setMascot = [scanImage](const QString& res) {
                     scanImage->setPixmap(QPixmap(res).scaled(
@@ -1833,7 +1834,7 @@ namespace
                 setBadgeStyle(scanBadge, "#3B82F6");
                 scanTitle->setText("의심 장치를 검사하고 있습니다.");
                 scanTitle->setStyleSheet("font-size: 22px; color: #1D293D; background: transparent; border: none;");
-                scanDescription->setText("입력 패턴과 장치 정보를 분석하여 안전 여부를 확인하는 중입니다.");
+                scanDescription->setText("입력이 멈춘 뒤 3초 동안 패턴을 종합해 안전 여부를 확인합니다.");
                 setStatusBadge(statusBadge, "검사중", "#60A5FA");
                 const QStringList scanningRows = {
                     "입력 패턴 분석 중",
@@ -4526,8 +4527,13 @@ QWidget* MainWindow::createPolicySummaryPage()
 {
     auto* page = new QWidget;
     auto* layout = new QVBoxLayout(page);
-    layout->setContentsMargins(20, 8, 20, 16);
-    layout->setSpacing(0);
+    layout->setContentsMargins(16, 8, 16, 14);
+    layout->setSpacing(8);
+
+    auto* content = new QWidget;
+    auto* contentLayout = new QVBoxLayout(content);
+    contentLayout->setContentsMargins(4, 0, 4, 0);
+    contentLayout->setSpacing(0);
 
     const QList<QStringList> rows = {
         {"미등록 장치 동작", "차단 및 알림",   "policyDangerText"},
@@ -4537,16 +4543,35 @@ QWidget* MainWindow::createPolicySummaryPage()
     };
     for (int i = 0; i < rows.size(); ++i) {
         const auto& row = rows[i];
-        auto* line = new QHBoxLayout;
-        line->setContentsMargins(0, 12, 0, 12);
+        auto* lineWidget = new QWidget;
+        lineWidget->setFixedHeight(44);
+        lineWidget->setStyleSheet("QWidget { background: transparent; border: none; }");
+        auto* line = new QHBoxLayout(lineWidget);
+        line->setContentsMargins(0, 0, 0, 0);
         line->addWidget(label(row[0]));
         line->addStretch();
         line->addWidget(label(row[1], row[2].toUtf8().constData()));
-        layout->addLayout(line);
-        if (i < rows.size() - 1) layout->addWidget(makeDivider());
+        contentLayout->addWidget(lineWidget);
+        if (i < rows.size() - 1) contentLayout->addWidget(makeDivider());
     }
 
-    layout->addStretch();
+    auto* scrollArea = new QScrollArea;
+    scrollArea->setObjectName("policySummaryScrollArea");
+    scrollArea->setWidget(content);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setStyleSheet(
+        "QScrollArea#policySummaryScrollArea { background: #FFFFFF; border: none; }"
+        "QScrollArea#policySummaryScrollArea > QWidget > QWidget { background: #FFFFFF; }"
+        "QScrollBar:vertical { background: #FFFFFF; width: 6px; margin: 0; }"
+        "QScrollBar::handle:vertical { background: #B7D4FF; border-radius: 3px; min-height: 24px; }"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
+        "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: #FFFFFF; }"
+    );
+    layout->addWidget(scrollArea, 1);
+
     auto* editButton = new QPushButton("정책 편집");
     editButton->setObjectName("secondaryButton");
     editButton->setFont(pretendardFont(FontRole::SemiBold));
