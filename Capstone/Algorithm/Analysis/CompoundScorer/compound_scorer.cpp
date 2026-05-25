@@ -107,10 +107,8 @@ namespace CompoundScorer
           << L"  (weight " << v.tm_weight << L")\r\n"
           << L"  UrlClassifier    : " << v.url_score
           << L"  (weight " << v.url_weight << L")"
-          << (v.url_weight == 0.0 ? L"  ← 미구현" : L"") << L"\r\n"
           << L"  TypingAnalyzer   : " << v.typing_score
           << L"  (weight " << v.typing_weight << L")"
-          << (v.typing_weight == 0.0 ? L"  ← 미구현" : L"") << L"\r\n"
           << L"  HotkeyScorer     : " << v.hotkey_score
           << L"  (weight " << v.hotkey_weight << L")\r\n"
           << std::wstring(60, L'-') << L"\r\n"

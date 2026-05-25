@@ -7,6 +7,7 @@
 #include "typing_analyzer.h"
 #include "compound_scorer.h"
 #include "hotkey_scorer.h"
+#include "logger.h"
 #include <string>
 
 // ──────────────────────────────────────────────────────────────────────
@@ -50,6 +51,20 @@ namespace {
             typing.score,
             hk.final_score
         );
+
+        // Emit risk score line (logs always English)
+        {
+            const wchar_t* lvName =
+                verdict.level == CompoundScorer::SAFE   ? L"SAFE"   :
+                verdict.level == CompoundScorer::NORMAL ? L"NORMAL" :
+                verdict.level == CompoundScorer::WARN   ? L"WARN"   :
+                verdict.level == CompoundScorer::DANGER ? L"DANGER" :
+                                                          L"UNKNOWN";
+            wchar_t buf[128];
+            _snwprintf_s(buf, _TRUNCATE, L"[Score] final=%.2f, %ls",
+                verdict.final_score, lvName);
+            Logger::Add(buf);
+        }
 
         SetWindowTextW(g_hVerdict, CompoundScorer::FormatVerdict(verdict).c_str());
 
