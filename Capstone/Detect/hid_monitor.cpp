@@ -9,6 +9,7 @@
 
 #include "hid_approval_flow.h"
 #include "logger.h"
+#include "json_log.h"
 
 namespace HidMonitor
 {
@@ -56,6 +57,7 @@ namespace HidMonitor
             }
 
             Logger::Add(L"[Auto] HID arrival detected.");
+            JsonLog::Add(path, L"DEVICE_CONNECTED", L"");
             DeviceApprovalFlow::ApproveDeviceFromPath(hWnd, path);
             return 0;
         }
@@ -72,6 +74,8 @@ namespace HidMonitor
             }
 
             Logger::Add(L"[Auto] HID removed.");
+            JsonLog::Add(path.empty() ? L"(unknown)" : path,
+                         L"DEVICE_DISCONNECTED", L"");
             return 0;
         }
 
