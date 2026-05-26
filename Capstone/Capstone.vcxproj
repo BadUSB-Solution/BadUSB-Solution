@@ -171,6 +171,7 @@
     <ClInclude Include="Core\Capstone.h" />
     <ClInclude Include="Core\ui_message_id.h" />
     <ClInclude Include="Logger\logger.h" />
+    <ClInclude Include="Logger\json_log.h" />
     <ClInclude Include="Policy\policy.h" />
     <ClInclude Include="Policy\settings.h" />
     <ClInclude Include="Storage\app_paths.h" />
@@ -218,6 +219,7 @@
     <ClCompile Include="Detect\hid_scan.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Logger\logger.cpp" />
+    <ClCompile Include="Logger\json_log.cpp" />
     <ClCompile Include="Policy\policy.cpp" />
     <ClCompile Include="Policy\settings.cpp" />
     <ClCompile Include="Storage\app_paths.cpp" />

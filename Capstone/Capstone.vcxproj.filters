@@ -78,6 +78,9 @@
     <ClInclude Include="Logger\logger.h">
       <Filter>Logger</Filter>
     </ClInclude>
+    <ClInclude Include="Logger\json_log.h">
+      <Filter>Logger</Filter>
+    </ClInclude>
     <ClInclude Include="Policy\policy.h">
       <Filter>Policy</Filter>
     </ClInclude>
@@ -205,6 +208,9 @@
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Logger\logger.cpp">
+      <Filter>Logger</Filter>
+    </ClCompile>
+    <ClCompile Include="Logger\json_log.cpp">
       <Filter>Logger</Filter>
     </ClCompile>
     <ClCompile Include="Policy\policy.cpp">
