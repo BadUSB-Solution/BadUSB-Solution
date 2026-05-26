@@ -33,6 +33,7 @@
 #include <QSize>
 #include <QSpacerItem>
 #include <QStackedWidget>
+#include <QSettings>
 #include <QStringList>
 #include <QStyle>
 #include <QTableWidget>
@@ -121,23 +122,33 @@ namespace
         dlg.setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
         dlg.setFixedWidth(438);
         dlg.setObjectName("confirmPolicyDialog");
+        const auto& t = UiTheme::tokens();
         dlg.setStyleSheet(QString(
-            "QDialog#confirmPolicyDialog { background: #FFFFFF; border: 1px solid #E2E8F0; border-radius: 12px; }"
-            "QLabel#confirmTitle { color: #0F172A; font-size: 17px; font-weight: 700; background: transparent; }"
-            "QLabel#confirmSubtitle { color: #475569; font-size: 12px; background: transparent; }"
-            "QLabel#confirmDevice { color: #0F172A; font-size: 14px; font-weight: 600; background: #F8FAFC;"
-            " border: 1px solid #E2E8F0; border-radius: 8px; padding: 10px 12px; }"
-            "QLabel#confirmBody { color: #475569; font-size: 13px; line-height: 150%; background: transparent; }"
-            "QPushButton#confirmClose { color: #64748B; background: transparent; border: none; font-size: 18px; }"
-            "QPushButton#confirmClose:hover { color: #0F172A; }"
-            "QPushButton#confirmCancel { color: #334155; background: #FFFFFF; border: 1px solid #CBD5E1;"
+            "QDialog#confirmPolicyDialog { background: %Surface%; border: 1px solid %Border%; border-radius: 12px; }"
+            "QLabel#confirmTitle { color: %TextDark%; font-size: 17px; font-weight: 700; background: transparent; }"
+            "QLabel#confirmSubtitle { color: %Subtext%; font-size: 12px; background: transparent; }"
+            "QLabel#confirmDevice { color: %TextDark%; font-size: 14px; font-weight: 600; background: %SurfaceAlt%;"
+            " border: 1px solid %Border%; border-radius: 8px; padding: 10px 12px; }"
+            "QLabel#confirmBody { color: %Subtext%; font-size: 13px; line-height: 150%; background: transparent; }"
+            "QPushButton#confirmClose { color: %TextMuted%; background: transparent; border: none; font-size: 18px; }"
+            "QPushButton#confirmClose:hover { color: %TextDark%; }"
+            "QPushButton#confirmCancel { color: %TextMid%; background: %Surface%; border: 1px solid %BorderInput%;"
             " border-radius: 8px; padding: 9px 18px; font-size: 13px; font-weight: 600; }"
-            "QPushButton#confirmCancel:hover { background: #F8FAFC; border-color: #94A3B8; }"
-            "QPushButton#confirmAction { color: #FFFFFF; background: %1; border: none;"
+            "QPushButton#confirmCancel:hover { background: %SurfaceAlt%; border-color: %TextMuted%; }"
+            "QPushButton#confirmAction { color: #FFFFFF; background: %Action%; border: none;"
             " border-radius: 8px; padding: 9px 22px; font-size: 13px; font-weight: 700; }"
-            "QPushButton#confirmAction:hover { background: %2; }"
-        ).arg(allow ? UiTheme::Primary : UiTheme::DangerAction,
-              allow ? UiTheme::PrimaryHover : UiTheme::DangerHover));
+            "QPushButton#confirmAction:hover { background: %ActionHover%; }"
+        )
+        .replace(QStringLiteral("%Surface%"), QLatin1String(t.White))
+        .replace(QStringLiteral("%Border%"), QLatin1String(t.Border))
+        .replace(QStringLiteral("%TextDark%"), QLatin1String(t.TextDark))
+        .replace(QStringLiteral("%Subtext%"), QLatin1String(t.Subtext))
+        .replace(QStringLiteral("%SurfaceAlt%"), QLatin1String(t.Surface))
+        .replace(QStringLiteral("%TextMuted%"), QLatin1String(t.TextMuted))
+        .replace(QStringLiteral("%TextMid%"), QLatin1String(t.TextMid))
+        .replace(QStringLiteral("%BorderInput%"), QLatin1String(t.BorderInput))
+        .replace(QStringLiteral("%Action%"), allow ? QLatin1String(t.Primary) : QLatin1String(t.DangerAction))
+        .replace(QStringLiteral("%ActionHover%"), allow ? QLatin1String(t.PrimaryHover) : QLatin1String(t.DangerHover)));
 
         auto* root = new QVBoxLayout(&dlg);
         root->setContentsMargins(22, 20, 22, 20);
@@ -150,8 +161,8 @@ namespace
         iconWrap->setFixedSize(42, 42);
         iconWrap->setStyleSheet(QString(
             "QFrame { background: %1; border: 1px solid %2; border-radius: 10px; }"
-        ).arg(allow ? UiTheme::PrimarySoft : "#FFF1F2",
-              allow ? UiTheme::PrimarySoftBorder : "#FECDD3"));
+        ).arg(allow ? t.PrimarySoft : t.DangerSoft,
+              allow ? t.PrimarySoftBorder : t.DangerBorder));
         auto* iconLayout = new QHBoxLayout(iconWrap);
         iconLayout->setContentsMargins(0, 0, 0, 0);
         auto* icon = new QLabel;
@@ -841,6 +852,23 @@ namespace
         widget->setPalette(pal);
     }
 
+    QColor cellBackground()
+    {
+        return UiTheme::color(UiTheme::tokens().White);
+    }
+
+    QColor selectedCellBackground()
+    {
+        return UiTheme::isDark() ? QColor("#12294A") : QColor(255, 247, 237);
+    }
+
+    QString themedLabelStyle(const char* color, int size = 14)
+    {
+        return QString("QLabel { color: %1; font-size: %2px; border: none; background: transparent; }")
+            .arg(QLatin1String(color))
+            .arg(size);
+    }
+
     void configureTable(QTableWidget* table)
     {
         table->setFont(pretendardFont(FontRole::Regular));
@@ -867,7 +895,7 @@ namespace
         badge->setAttribute(Qt::WA_TransparentForMouseEvents);
         auto* container = new QWidget;
         container->setAttribute(Qt::WA_TransparentForMouseEvents);
-        setCellWidgetBackground(container, Qt::white);
+        setCellWidgetBackground(container, cellBackground());
         auto* l = new QHBoxLayout(container);
         l->setContentsMargins(10, 0, 10, 0);
         l->addWidget(badge, 0, Qt::AlignLeft | Qt::AlignVCenter);
@@ -903,7 +931,7 @@ namespace
     {
         auto* w = new QWidget;
         w->setAttribute(Qt::WA_TransparentForMouseEvents);
-        setCellWidgetBackground(w, Qt::white);
+        setCellWidgetBackground(w, cellBackground());
         auto* l = new QHBoxLayout(w);
         l->setContentsMargins(10, 0, 6, 0);
         l->setSpacing(6);
@@ -914,7 +942,7 @@ namespace
         auto* txt = new QLabel(status);
         txt->setAttribute(Qt::WA_TransparentForMouseEvents);
         txt->setFont(pretendardFont(FontRole::Regular));
-        txt->setStyleSheet("QLabel { color: #45556C; font-size: 14px; border: none; background: transparent; }");
+        txt->setStyleSheet(themedLabelStyle(UiTheme::tokens().SubtextMid));
         l->addWidget(dot);
         l->addWidget(txt);
         l->addStretch();
@@ -925,7 +953,7 @@ namespace
     {
         auto* w = new QWidget;
         w->setAttribute(Qt::WA_TransparentForMouseEvents);
-        setCellWidgetBackground(w, Qt::white);
+        setCellWidgetBackground(w, cellBackground());
         auto* l = new QHBoxLayout(w);
         l->setContentsMargins(leftPadding, 0, 8, 0);
         l->setSpacing(0);
@@ -944,7 +972,8 @@ namespace
         auto* box = new QWidget;
         box->setFixedHeight(38);
         if (w > 0) box->setFixedWidth(w);
-        box->setStyleSheet("QWidget { background: white; border: 1px solid #CAD5E2; border-radius: 8px; }");
+        box->setStyleSheet(QString("QWidget { background: %1; border: 1px solid %2; border-radius: 8px; }")
+            .arg(UiTheme::tokens().InputBg, UiTheme::tokens().BorderInput));
         auto* bl = new QHBoxLayout(box);
         bl->setContentsMargins(10, 0, 10, 0);
         bl->setSpacing(6);
@@ -957,7 +986,8 @@ namespace
         input->setPlaceholderText(placeholder);
         input->setFont(pretendardFont(FontRole::Regular));
         input->setFrame(false);
-        input->setStyleSheet("QLineEdit { background: transparent; border: none; font-size: 14px; color: #1D293D; }");
+        input->setStyleSheet(QString("QLineEdit { background: transparent; border: none; font-size: 14px; color: %1; }")
+            .arg(UiTheme::tokens().Text));
         bl->addWidget(input, 1);
         return box;
     }
@@ -1095,16 +1125,16 @@ namespace
             for (int i = 0; i < 5; ++i) {
                 const double ratio = i / 4.0;
                 const int y = tm + ch - static_cast<int>(ratio * ch);
-                p.setPen(QPen(QColor("#E2E8F0"), 1, Qt::DashLine));
+                p.setPen(QPen(UiTheme::color(UiTheme::tokens().ChartGrid), 1, Qt::DashLine));
                 p.drawLine(lm, y, lm + cw, y);
-                p.setPen(QColor("#94A3B8"));
+                p.setPen(UiTheme::color(UiTheme::tokens().ChartAxis));
                 QFont f("Inter", 9);
                 p.setFont(f);
                 p.drawText(0, y - 7, lm - 4, 14, Qt::AlignRight | Qt::AlignVCenter, yLabels[i]);
             }
 
             if (data.isEmpty()) {
-                p.setPen(QColor("#94A3B8"));
+                p.setPen(UiTheme::color(UiTheme::tokens().ChartEmpty));
                 QFont emptyFont = pretendardFont(FontRole::Medium);
                 emptyFont.setPointSize(10);
                 p.setFont(emptyFont);
@@ -1113,7 +1143,7 @@ namespace
             }
 
             const int thresholdY = tm + ch - static_cast<int>((8.0 / maxV) * ch);
-            p.setPen(QPen(QColor("#94A3B8"), 1.3, Qt::DashLine));
+            p.setPen(QPen(UiTheme::color(UiTheme::tokens().ChartAxis), 1.3, Qt::DashLine));
             p.drawLine(lm, thresholdY, lm + cw, thresholdY);
 
             const int n = data.size();
@@ -1144,7 +1174,7 @@ namespace
 
                 for (int i = 0; i < pts.size(); ++i) {
                     const bool anom = data[i].second;
-                    p.setPen(QPen(QColor("#FFFFFF"), 2));
+                    p.setPen(QPen(UiTheme::color(UiTheme::tokens().White), 2));
                     p.setBrush(QColor(anom ? "#7C3AED" : UiTheme::ChartRisk));
                     p.drawEllipse(pts[i], anom ? 4.5 : 3.5, anom ? 4.5 : 3.5);
                 }
@@ -1187,9 +1217,9 @@ namespace
             for (int i = 0; i < yLbls.size(); ++i) {
                 const double ratio = i / static_cast<double>(yLbls.size() - 1);
                 const int y = tm + ch - static_cast<int>(ratio * ch);
-                p.setPen(QPen(QColor("#E2E8F0"), 1));
+                p.setPen(QPen(UiTheme::color(UiTheme::tokens().ChartGrid), 1));
                 p.drawLine(lm, y, lm + cw, y);
-                p.setPen(QColor("#94A3B8"));
+                p.setPen(UiTheme::color(UiTheme::tokens().ChartAxis));
                 QFont f("Inter", 9); p.setFont(f);
                 p.drawText(0, y - 7, lm - 4, 14, Qt::AlignRight | Qt::AlignVCenter, yLbls[i]);
             }
@@ -1220,7 +1250,7 @@ namespace
             if (!pts.isEmpty() && *std::max_element(data.cbegin(), data.cend()) > 0.05) {
                 const int cpIndex = std::distance(data.cbegin(), std::max_element(data.cbegin(), data.cend()));
                 const QPointF& cp = pts[std::clamp(cpIndex, 0, static_cast<int>(pts.size()) - 1)];
-                p.setPen(QPen(QColor("#FFFFFF"), 2));
+                p.setPen(QPen(UiTheme::color(UiTheme::tokens().White), 2));
                 p.setBrush(QColor(UiTheme::ChartThreshold));
                 p.drawEllipse(cp, 5.0, 5.0);
             }
@@ -1276,7 +1306,7 @@ namespace
             const int barW = width() - barX - rightValueW - 18;
 
             if (scores_.isEmpty()) {
-                p.setPen(QColor("#94A3B8"));
+                p.setPen(UiTheme::color(UiTheme::tokens().ChartEmpty));
                 p.setFont(QFont("Inter", 10));
                 p.drawText(rect(), Qt::AlignCenter, QStringLiteral("분석 대기 중..."));
                 return;
@@ -1289,19 +1319,19 @@ namespace
 
                 QFont labelFont = pretendardFont(FontRole::Bold);
                 labelFont.setPointSize(10);
-                p.setPen(QColor("#45556C"));
+                p.setPen(UiTheme::color(UiTheme::tokens().SubtextMid));
                 p.setFont(labelFont);
                 p.drawText(0, y, leftLabelW, rowH, Qt::AlignRight | Qt::AlignVCenter, item.label);
 
                 p.setPen(Qt::NoPen);
-                p.setBrush(QColor("#EAF2FF"));
+                p.setBrush(UiTheme::color(UiTheme::tokens().ChartBarBg));
                 p.drawRoundedRect(QRectF(barX, barY, barW, barH), 6, 6);
 
                 const double filled = (item.value / 10.0) * barW;
                 p.setBrush(item.color);
                 p.drawRoundedRect(QRectF(barX, barY, filled, barH), 6, 6);
 
-                p.setPen(QColor("#1D293D"));
+                p.setPen(UiTheme::color(UiTheme::tokens().Text));
                 p.setFont(labelFont);
                 p.drawText(barX + barW + 10, y, rightValueW, rowH,
                            Qt::AlignLeft | Qt::AlignVCenter,
@@ -2073,7 +2103,7 @@ MainWindow::MainWindow(QWidget* parent)
     resize(1440, 900);
     setMinimumSize(1180, 760);
     setWindowTitle("Abang-All");
-    setStyleSheet(UiTheme::appStyle());
+    applyThemeFromSettings();
 
     auto* root = new QWidget;
     root->setObjectName("centralRoot");
@@ -2209,6 +2239,46 @@ MainWindow::MainWindow(QWidget* parent)
 #endif
 
     setupTray();
+}
+
+void MainWindow::applyThemeFromSettings()
+{
+    QSettings settings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+    const QString key = settings.value(QStringLiteral("ui/themeMode"), QStringLiteral("system")).toString();
+    applyTheme(UiTheme::themeModeFromKey(key));
+}
+
+void MainWindow::applyTheme(UiTheme::ThemeMode mode)
+{
+    themeMode_ = mode;
+    const UiTheme::ThemeMode resolved = UiTheme::resolvedMode(mode);
+    UiTheme::setActiveMode(resolved);
+
+    if (auto* app = qobject_cast<QApplication*>(QApplication::instance())) {
+        app->setPalette(UiTheme::appPalette(resolved));
+        app->setStyleSheet(UiTheme::appStyle(resolved));
+    }
+
+    setStyleSheet(UiTheme::appStyle(resolved));
+
+    const auto repolish = [](QWidget* w) {
+        if (!w) return;
+        w->style()->unpolish(w);
+        w->style()->polish(w);
+        w->update();
+        const auto children = w->findChildren<QWidget*>();
+        for (QWidget* child : children) {
+            child->style()->unpolish(child);
+            child->style()->polish(child);
+            child->update();
+        }
+    };
+
+    repolish(this);
+    refreshNavState();
+    if (trayWidget_) {
+        refreshTrayWidget();
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -3098,7 +3168,7 @@ void MainWindow::refreshUsbTable()
 
         auto* nameW = new QWidget;
         nameW->setAttribute(Qt::WA_TransparentForMouseEvents);
-        setCellWidgetBackground(nameW, Qt::white);
+        setCellWidgetBackground(nameW, cellBackground());
         auto* nl = new QHBoxLayout(nameW);
         nl->setContentsMargins(10, 0, 10, 0);
         nl->setSpacing(8);
@@ -3106,16 +3176,16 @@ void MainWindow::refreshUsbTable()
         auto* nameLbl = new QLabel(row.name);
         nameLbl->setAttribute(Qt::WA_TransparentForMouseEvents);
         nameLbl->setFont(pretendardFont(FontRole::Medium));
-        nameLbl->setStyleSheet("QLabel { color: #1D293D; font-size: 14px; border: none; background: transparent; }");
+        nameLbl->setStyleSheet(themedLabelStyle(UiTheme::tokens().Text));
         nl->addWidget(nameLbl);
         nl->addStretch();
         usbTable_->setCellWidget(r, 0, nameW);
 
-        usbTable_->setCellWidget(r, 1, makeUsbTextCell(row.type,    "#45556C", pretendardFont(FontRole::Regular), 10));
-        usbTable_->setCellWidget(r, 2, makeUsbTextCell(row.vidpid,  "#62748E", QFont("Consolas", 12), 10));
+        usbTable_->setCellWidget(r, 1, makeUsbTextCell(row.type,    UiTheme::tokens().SubtextMid, pretendardFont(FontRole::Regular), 10));
+        usbTable_->setCellWidget(r, 2, makeUsbTextCell(row.vidpid,  UiTheme::tokens().Subtext, QFont("Consolas", 12), 10));
         usbTable_->setCellWidget(r, 3, makeUsbStatusCell(row.status));
         usbTable_->setCellWidget(r, 4, makeBadgeCell(row.policy, policyBadge(row.policy)));
-        usbTable_->setCellWidget(r, 5, makeUsbTextCell(row.lastSeen, "#62748E", pretendardFont(FontRole::Regular), 10));
+        usbTable_->setCellWidget(r, 5, makeUsbTextCell(row.lastSeen, UiTheme::tokens().Subtext, pretendardFont(FontRole::Regular), 10));
     }
 
     if (usbSelectedRow_ >= usbRows_.size()) usbSelectedRow_ = 0;
@@ -3161,9 +3231,8 @@ void MainWindow::applyUsbDetailPanel(int row)
     }
 
     // Row highlight
-    const QColor hi(255, 247, 237);
     for (int rr = 0; rr < usbRows_.size(); ++rr) {
-        const QColor bg = (rr == row) ? hi : Qt::white;
+        const QColor bg = (rr == row) ? selectedCellBackground() : cellBackground();
         for (int c = 0; c < usbTable_->columnCount(); ++c) {
             if (auto* w = usbTable_->cellWidget(rr, c))
                 setCellWidgetBackground(w, bg);
@@ -3372,24 +3441,21 @@ QWidget* MainWindow::createLogPage()
         table->setSelectionMode(QAbstractItemView::NoSelection);
         table->setFocusPolicy(Qt::NoFocus);
         table->horizontalHeader()->setStyleSheet(
-            "QHeaderView::section {"
-            "  background: #F8FAFC;"
-            "  border: none;"
-            "  border-bottom: 1px solid #1D293D;"
-            "  padding-left: 20px;"
-            "  font-size: 14px;"
-            "  color: #45556C;"
-            "}"
+            QString("QHeaderView::section { background: %1; border: none;"
+                    " border-bottom: 1px solid %2; padding-left: 20px;"
+                    " font-size: 14px; color: %3; }")
+                .arg(UiTheme::tokens().Surface, UiTheme::tokens().Border, UiTheme::tokens().Subtext)
         );
         table->setStyleSheet(
-            "QTableWidget { background: white; border: none; }"
-            "QTableWidget::item { border: none; color: #45556C; padding-left: 20px; }"
+            QString("QTableWidget { background: %1; border: none; }"
+                    "QTableWidget::item { border: none; color: %2; padding-left: 20px; }")
+                .arg(UiTheme::tokens().White, UiTheme::tokens().SubtextMid)
         );
 
         auto mkTextCell = [&](const QString& text, const QString& color, bool hi) -> QWidget* {
             auto* w = new QWidget;
             w->setAttribute(Qt::WA_TransparentForMouseEvents);
-            setCellWidgetBackground(w, hi ? QColor(255, 247, 237) : Qt::white);
+            setCellWidgetBackground(w, hi ? selectedCellBackground() : cellBackground());
             auto* l = new QHBoxLayout(w);
             l->setContentsMargins(20, 0, 8, 0);
             l->setSpacing(0);
@@ -3406,7 +3472,7 @@ QWidget* MainWindow::createLogPage()
         auto mkEventCell = [&](const QString& iconSvg, const QString& text, bool hi) -> QWidget* {
             auto* w = new QWidget;
             w->setAttribute(Qt::WA_TransparentForMouseEvents);
-            setCellWidgetBackground(w, hi ? QColor(255, 247, 237) : Qt::white);
+            setCellWidgetBackground(w, hi ? selectedCellBackground() : cellBackground());
             auto* l = new QHBoxLayout(w);
             l->setContentsMargins(20, 0, 8, 0);
             l->setSpacing(8);
@@ -3677,9 +3743,8 @@ QWidget* MainWindow::createLogPage()
                 actionCard->setVisible(badge == "blockBadge");
 
                 // Re-apply row highlight tint across ALL rows
-                const QColor hiColor(255, 247, 237);
                 for (int rr = 0; rr < logTable->rowCount(); ++rr) {
-                    const QColor bg = (rr == row) ? hiColor : Qt::white;
+                    const QColor bg = (rr == row) ? selectedCellBackground() : cellBackground();
                     setCellWidgetBackground(logTable->cellWidget(rr, 0), bg);
                     setCellWidgetBackground(logTable->cellWidget(rr, 1), bg);
                     setCellWidgetBackground(logTable->cellWidget(rr, 2), bg);
@@ -4032,6 +4097,7 @@ QWidget* MainWindow::createSettingsPage()
 
     // Hoist settable widget pointers
     QComboBox*        comboDev    = nullptr;
+    QComboBox*        comboTheme  = nullptr;
     QCheckBox*        cbAutostart = nullptr;
     QCheckBox*        cbMinimize  = nullptr;
     QCheckBox*        cbNotif     = nullptr;
@@ -4130,6 +4196,28 @@ QWidget* MainWindow::createSettingsPage()
             cbMinimize->setObjectName("settingsCheck");
             cbMinimize->setFont(pretendardFont(FontRole::Medium));
             wl->addWidget(cbMinimize);
+            wl->addSpacing(16);
+
+            auto* themeRow = new QWidget;
+            themeRow->setStyleSheet("QWidget { background: transparent; border: none; }");
+            auto* themeRowL = new QHBoxLayout(themeRow);
+            themeRowL->setContentsMargins(0, 0, 0, 0);
+            themeRowL->setSpacing(14);
+            auto* themeLabel = label(QStringLiteral("화면 테마"));
+            themeLabel->setObjectName("sectionHeading");
+            themeLabel->setFont(pretendardFont(FontRole::Medium));
+            themeLabel->setFixedWidth(120);
+            comboTheme = new QComboBox;
+            comboTheme->addItem(QStringLiteral("시스템 설정"), QStringLiteral("system"));
+            comboTheme->addItem(QStringLiteral("라이트"), QStringLiteral("light"));
+            comboTheme->addItem(QStringLiteral("다크"), QStringLiteral("dark"));
+            comboTheme->setFixedWidth(220);
+            comboTheme->setFixedHeight(36);
+            comboTheme->setFont(pretendardFont(FontRole::Regular));
+            themeRowL->addWidget(themeLabel);
+            themeRowL->addWidget(comboTheme);
+            themeRowL->addStretch();
+            wl->addWidget(themeRow);
             wl->addSpacing(16);
             wl->addStretch();
             tabStack->addWidget(w);
@@ -4266,12 +4354,18 @@ QWidget* MainWindow::createSettingsPage()
         if (cbMinimize)   cbMinimize->setChecked(settings.minimizeToTray);
         if (comboDev)     comboDev->setCurrentIndex(actionIndexFromSetting(settings.unknownDeviceAction));
         if (cbNotif)      cbNotif->setChecked(settings.notifyOnRisk);
+        if (comboTheme) {
+            QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+            const QString key = uiSettings.value(QStringLiteral("ui/themeMode"), QStringLiteral("system")).toString();
+            const int idx = comboTheme->findData(key);
+            comboTheme->setCurrentIndex(idx >= 0 ? idx : 0);
+        }
     }
 
     // Wire Save button
     if (saveBtn) {
         connect(saveBtn, &QPushButton::clicked, this,
-            [this, cbAutostart, cbMinimize, comboDev, cbNotif] {
+            [this, cbAutostart, cbMinimize, comboDev, comboTheme, cbNotif] {
                 Policy::LoadSettings();
                 Policy::Settings settings = Policy::GetSettings();
                 if (cbAutostart)  settings.autoStart = cbAutostart->isChecked();
@@ -4283,6 +4377,12 @@ QWidget* MainWindow::createSettingsPage()
                 }
                 if (cbNotif) settings.notifyOnRisk = cbNotif->isChecked();
                 Policy::SetSettings(settings);
+                if (comboTheme) {
+                    const QString key = comboTheme->currentData().toString();
+                    QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+                    uiSettings.setValue(QStringLiteral("ui/themeMode"), key.isEmpty() ? QStringLiteral("system") : key);
+                    applyTheme(UiTheme::themeModeFromKey(key));
+                }
             });
     }
 
@@ -4858,7 +4958,7 @@ void MainWindow::appendNewLogRows()
         auto mkText = [&](const QString& text, const QString& color) -> QWidget* {
             auto* w = new QWidget;
             w->setAttribute(Qt::WA_TransparentForMouseEvents);
-            setCellWidgetBackground(w, Qt::white);
+            setCellWidgetBackground(w, cellBackground());
             auto* l = new QHBoxLayout(w);
             l->setContentsMargins(20, 0, 8, 0);
             auto* lbl = new QLabel(text);
@@ -4872,7 +4972,7 @@ void MainWindow::appendNewLogRows()
         auto mkEvent = [&](const QString& iconRes, const QString& text) -> QWidget* {
             auto* w = new QWidget;
             w->setAttribute(Qt::WA_TransparentForMouseEvents);
-            setCellWidgetBackground(w, Qt::white);
+            setCellWidgetBackground(w, cellBackground());
             auto* l = new QHBoxLayout(w);
             l->setContentsMargins(20, 0, 8, 0);
             l->setSpacing(8);

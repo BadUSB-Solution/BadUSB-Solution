@@ -34,12 +34,14 @@ namespace
 
     QFrame* makeCard(int radius = 12)
     {
+        const auto& t = UiTheme::tokens();
         auto* card = new QFrame;
         card->setObjectName("trayCard");
         card->setStyleSheet(QString(
-            "QFrame#trayCard { background: #FFFFFF; border: 1px solid %1;"
-            " border-radius: %2px; }")
-            .arg(UiTheme::PrimarySoftBorder)
+            "QFrame#trayCard { background: %1; border: 1px solid %2;"
+            " border-radius: %3px; }")
+            .arg(t.White)
+            .arg(t.Border)
             .arg(radius));
         return card;
     }
@@ -67,6 +69,7 @@ namespace
 
     QPushButton* makeHeaderButton(const QString& text)
     {
+        const auto& t = UiTheme::tokens();
         auto* button = new QPushButton(text);
         button->setFixedSize(34, 34);
         button->setCursor(Qt::PointingHandCursor);
@@ -74,7 +77,7 @@ namespace
             "QPushButton { background: transparent; border: none; border-radius: 17px;"
             " color: %1; font-size: 24px; font-weight: 300; }"
             "QPushButton:hover { background: %2; color: %3; }")
-            .arg(UiTheme::SubtextMid, UiTheme::PrimarySoft, UiTheme::PrimaryText));
+            .arg(t.SubtextMid, t.PrimarySoft, t.PrimaryText));
         return button;
     }
 }
@@ -83,13 +86,14 @@ TrayWidget::TrayWidget(QWidget* parent)
     : QWidget(parent,
               Qt::FramelessWindowHint | Qt::Tool | Qt::WindowStaysOnTopHint)
 {
+    const auto& t = UiTheme::tokens();
     setFixedSize(560, 258);
 
     auto* container = new QFrame(this);
     container->setGeometry(0, 0, width(), height());
     container->setStyleSheet(QString(
-        "QFrame { background: #F8FBFF; border: 1px solid %1; border-radius: 14px; }")
-        .arg(UiTheme::PrimarySoftBorder));
+        "QFrame { background: %1; border: 1px solid %2; border-radius: 14px; }")
+        .arg(t.Surface, t.Border));
 
     auto* root = new QVBoxLayout(container);
     root->setContentsMargins(0, 0, 0, 0);
@@ -113,7 +117,7 @@ TrayWidget::TrayWidget(QWidget* parent)
     auto* titleBox = new QVBoxLayout;
     titleBox->setSpacing(2);
     titleBox->setContentsMargins(0, 0, 0, 0);
-    auto* titleLabel = makeLabel("Abang-All", labelStyle(20, UiTheme::TextDark, 800));
+    auto* titleLabel = makeLabel("Abang-All", labelStyle(20, t.TextDark, 800));
     auto* subtitleLabel = makeLabel("보안 위젯", labelStyle(12, UiTheme::SubtextMid, 600));
     titleLabel->setAlignment(Qt::AlignLeft);
     subtitleLabel->setAlignment(Qt::AlignLeft);
@@ -151,7 +155,7 @@ TrayWidget::TrayWidget(QWidget* parent)
     usbL->setSpacing(14);
     usbL->addWidget(makeIconCircle(":/icons/status-shield-blue.svg",
                                    UiTheme::PrimarySoftBorder,
-                                   UiTheme::PrimarySoft,
+                                   t.PrimarySoft,
                                    34, 21));
 
     auto* usbText = new QVBoxLayout;
@@ -226,9 +230,9 @@ TrayWidget::TrayWidget(QWidget* parent)
     auto* footer = new QWidget;
     footer->setFixedHeight(38);
     footer->setStyleSheet(QString(
-        "QWidget { background: #F8FBFF; border-top: 1px solid %1;"
+        "QWidget { background: %1; border-top: 1px solid %2;"
         " border-bottom-left-radius: 14px; border-bottom-right-radius: 14px; }")
-        .arg(UiTheme::PrimarySoftBorder));
+        .arg(t.Surface, t.Border));
 
     auto* footerL = new QHBoxLayout(footer);
     footerL->setContentsMargins(14, 0, 14, 0);
@@ -237,14 +241,14 @@ TrayWidget::TrayWidget(QWidget* parent)
 
     auto* divider = new QFrame;
     divider->setFixedSize(1, 18);
-    divider->setStyleSheet(QString("QFrame { background: %1; border: none; }").arg(UiTheme::Border));
+    divider->setStyleSheet(QString("QFrame { background: %1; border: none; }").arg(t.Border));
     footerL->addWidget(divider);
 
-    eventText_ = makeLabel("-", labelStyle(13, UiTheme::TextDark, 700));
+    eventText_ = makeLabel("-", labelStyle(13, t.TextDark, 700));
     eventText_->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     footerL->addWidget(eventText_, 1);
 
-    eventTime_ = makeLabel("--:--:--", labelStyle(12, UiTheme::SubtextMid, 700));
+    eventTime_ = makeLabel("--:--:--", labelStyle(12, t.SubtextMid, 700));
     footerL->addWidget(eventTime_);
     root->addWidget(footer);
 

@@ -8,9 +8,9 @@
         <file alias="action-search.svg">icons/action-search.svg</file>
         <file alias="brand-mark.png">icons/brand-mark.png</file>
         <file alias="brand-shield.svg">icons/brand-shield.svg</file>
-        <file alias="detecting.png">../../../docs/detecting.png</file>
-        <file alias="detect_good.png">../../../docs/detect_good.png</file>
-        <file alias="detect_bad.png">../../../docs/detect_bad.png</file>
+        <file alias="detecting.png">icons/mascot_ver3.png</file>
+        <file alias="detect_good.png">icons/mascot_ver3.png</file>
+        <file alias="detect_bad.png">icons/mascot_ver3.png</file>
         <file alias="mascot_ver3.png">icons/mascot_ver3.png</file>
         <file alias="device-keyboard.svg">icons/device-keyboard.svg</file>
         <file alias="device-network.svg">icons/device-network.svg</file>

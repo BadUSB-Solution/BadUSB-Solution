@@ -8,6 +8,8 @@
 #include <QMainWindow>
 #include <QVector>
 
+#include "Theme.h"
+
 class QFrame;
 class QLabel;
 class QPushButton;
@@ -58,6 +60,8 @@ private:
     void refreshUsbTable();
     void applyUsbDetailPanel(int row);
     void showUsbActionFeedback(const QString& message, const QString& color = "#62748E");
+    void applyTheme(UiTheme::ThemeMode mode);
+    void applyThemeFromSettings();
     void switchPage(int pageIndex);
     void refreshNavState();
 
@@ -76,6 +80,7 @@ private:
     int lastLogLineCount_ = 0;
     bool dashboardStale_ = false;
     bool usbListStale_ = false;
+    UiTheme::ThemeMode themeMode_ = UiTheme::ThemeMode::Light;
 
     // System tray
     QSystemTrayIcon* trayIcon_   = nullptr;
