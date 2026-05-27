@@ -10,6 +10,7 @@
 
 #include "Theme.h"
 
+class QButtonGroup;
 class QFrame;
 class QLabel;
 class QPushButton;
@@ -104,4 +105,7 @@ private:
     QPushButton* usbAllowBtn_ = nullptr;
     QPushButton* usbBlockBtn_ = nullptr;
     QPushButton* usbRemoveRuleBtn_ = nullptr;
+
+    // Settings page — language segment group (ko / en)
+    QButtonGroup* langGroup = nullptr;
 };
