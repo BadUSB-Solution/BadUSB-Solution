@@ -6,6 +6,7 @@
 #include <QIcon>
 #include <QSettings>
 #include <QStringList>
+#include <QTranslator>
 
 #include "MainWindow.h"
 #include "Theme.h"
@@ -70,6 +71,25 @@ int main(int argc, char* argv[])
 
     // Keep the app alive when the main window is closed/hidden to tray
     app.setQuitOnLastWindowClosed(false);
+
+    // ── 언어 설정 로드 ──────────────────────────────────────────────
+    QTranslator translator;
+    {
+        QSettings langSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+        // 하위 호환: 기존 ui/languageToggleKorean 키도 읽는다
+        QString lang = langSettings.value(QStringLiteral("ui/language"), QString()).toString();
+        if (lang.isEmpty()) {
+            // 이전 버전 설정 마이그레이션
+            const bool wasKorean = langSettings.value(QStringLiteral("ui/languageToggleKorean"), true).toBool();
+            lang = wasKorean ? QStringLiteral("ko") : QStringLiteral("en");
+            langSettings.setValue(QStringLiteral("ui/language"), lang);
+        }
+        if (lang == QStringLiteral("en")) {
+            if (translator.load(QStringLiteral(":/i18n/en.qm")))
+                app.installTranslator(&translator);
+        }
+    }
+    // ────────────────────────────────────────────────────────────────
 
     MainWindow window;
     QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
