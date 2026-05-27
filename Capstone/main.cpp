@@ -49,16 +49,16 @@ int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int)
 
     // 사용자 환경설정 로드 (없으면 기본값으로 첫 생성)
     if (Policy::LoadSettings()) {
-        Logger::Add(L"[A] Settings loaded.");
+        Logger::Msg::AppSettingsLoaded();
     }
 
     // DB 먼저 로드 시도 (InitInstance 내부에서 참조)
     if (Policy::Load()) {
-        Logger::Add(L"[A] Policy DB loaded from file.");
+        Logger::Msg::AppPolicyDbLoaded();
     }
 
     InitInstance(hInstance, 0);
-    Logger::Add(L"[A] Start (Tray resident)");
+    Logger::Msg::AppStart();
 
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0)) {
@@ -103,7 +103,7 @@ BOOL InitInstance(HINSTANCE hInstance, int)
         DeviceApprovalFlow::ApproveDevicesFromPaths(nullptr, paths);
     }
     else {
-        Logger::Add(L"[A] Skipped initial scan (policy DB exists).");
+        Logger::Msg::AppSkippedInitialScan();
     }
 
     ShowWindow(hWnd, SW_HIDE);

@@ -1,4 +1,5 @@
 #include "app_paths.h"
+#include "obfuscate.h"
 
 #include <windows.h>
 #include <shlobj.h>
@@ -14,13 +15,13 @@ namespace Storage
             wchar_t appData[MAX_PATH]{};
             if (SHGetFolderPathW(nullptr, CSIDL_APPDATA, nullptr, 0, appData) != S_OK)
             {
-                DWORD len = GetEnvironmentVariableW(L"APPDATA", appData, MAX_PATH);
+                DWORD len = GetEnvironmentVariableW(AY_OBFUSCATE(L"APPDATA"), appData, MAX_PATH);
                 if (len == 0 || len >= MAX_PATH)
-                    wcscpy_s(appData, L"C:\\Temp");
+                    wcscpy_s(appData, AY_OBFUSCATE(L"C:\\Temp"));
             }
 
             std::wstring dir(appData);
-            dir += L"\\AbangAll";
+            dir += static_cast<const wchar_t*>(AY_OBFUSCATE(L"\\AbangAll"));
             CreateDirectoryW(dir.c_str(), nullptr);
             return dir;
         }
@@ -35,12 +36,12 @@ namespace Storage
 
     std::wstring GetAllowListPath()
     {
-        return GetAbangAllDir() + L"\\allow_list.json";
+        return GetAbangAllDir() + static_cast<const wchar_t*>(AY_OBFUSCATE(L"\\allow_list.json"));
     }
 
     std::wstring GetSettingsPath()
     {
-        return GetAbangAllDir() + L"\\settings.json";
+        return GetAbangAllDir() + static_cast<const wchar_t*>(AY_OBFUSCATE(L"\\settings.json"));
     }
 
     void UnhideForWrite(const std::wstring& path)

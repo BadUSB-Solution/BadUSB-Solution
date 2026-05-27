@@ -5,6 +5,7 @@
 #include "logger.h"
 #include "ui_policy_tab.h"
 #include "ui_settings_tab.h"
+#include "obfuscate.h"
 
 #pragma comment(lib, "Comctl32.lib")
 
@@ -68,12 +69,7 @@ namespace UiTabs
 
         g_tabStatus = CreateWindowW(
             L"STATIC",
-            L"BadUSB Guard Demo\n\n"
-            L"- Tray resident like antivirus\n"
-            L"- HID insert -> approval popup\n"
-            L"- One USB -> one approval (VID/PID)\n"
-            L"- Policy tab can re-allow disabled blacklist devices\n"
-            L"- Logs in Logs tab\n",
+            AY_OBFUSCATE(L"BadUSB Guard Demo\n\n- Tray resident like antivirus\n- HID insert -> approval popup\n- One USB -> one approval (VID/PID)\n- Policy tab can re-allow disabled blacklist devices\n- Logs in Logs tab\n"),
             WS_CHILD | WS_VISIBLE,
             trc.left + 10, trc.top + 10,
             trc.right - trc.left - 20,

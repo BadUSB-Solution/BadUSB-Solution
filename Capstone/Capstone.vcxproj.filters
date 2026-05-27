@@ -195,6 +195,9 @@
     <ClInclude Include="Algorithm\Analysis\CompoundScorer\hotkey_scorer.h">
       <Filter>Algorithm\Analysis\CompoundScorer</Filter>
     </ClInclude>
+    <ClInclude Include="ThirdParty\obfuscate.h">
+      <Filter>ThirdParty</Filter>
+    </ClInclude>
     <ClInclude Include="ThirdParty\sqlite3.h">
       <Filter>ThirdParty</Filter>
     </ClInclude>

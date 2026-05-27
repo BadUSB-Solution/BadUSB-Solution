@@ -125,11 +125,20 @@
       <AdditionalIncludeDirectories>ThirdParty;Core;Logger;Detect;Hook;UI;Policy;Storage;Algorithm\PreAnalysis\KeyDecoder;Algorithm\PreAnalysis\KeyNormalizer;Algorithm\PreAnalysis\UrlExtractor;Algorithm\PreAnalysis\ShellDetector;Algorithm\Analysis\TypingAnalyzer;Algorithm\Analysis\ThreatMatcher;Algorithm\Analysis\UrlClassifier;Algorithm\Analysis\CompoundScorer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <Optimization>MaxSpeed</Optimization>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <StringPooling>true</StringPooling>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <FixedBaseAddress>false</FixedBaseAddress>
+      <CETCompat>true</CETCompat>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y /D /Q "$(ProjectDir)Core\matchingDB.db" "$(OutDir)" &gt; nul</Command>
@@ -150,11 +159,18 @@
       <AdditionalIncludeDirectories>ThirdParty;Core;Logger;Detect;Hook;UI;Policy;Storage;Algorithm\PreAnalysis\KeyDecoder;Algorithm\PreAnalysis\KeyNormalizer;Algorithm\PreAnalysis\UrlExtractor;Algorithm\PreAnalysis\ShellDetector;Algorithm\Analysis\TypingAnalyzer;Algorithm\Analysis\ThreatMatcher;Algorithm\Analysis\UrlClassifier;Algorithm\Analysis\CompoundScorer;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <StringPooling>true</StringPooling>
+      <ControlFlowGuard>Guard</ControlFlowGuard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <FixedBaseAddress>false</FixedBaseAddress>
+      <CETCompat>true</CETCompat>
+      <AdditionalOptions>/PDBALTPATH:%_PDB% %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y /D /Q "$(ProjectDir)Core\matchingDB.db" "$(OutDir)" &gt; nul</Command>
@@ -184,6 +200,7 @@
     <ClInclude Include="Detect\hid_scan.h" />
     <ClInclude Include="Hook\badusb.h" />
     <ClInclude Include="Hook\keyboard_hook.h" />
+    <ClInclude Include="ThirdParty\obfuscate.h" />
     <ClInclude Include="ThirdParty\sqlite3.h" />
     <ClInclude Include="UI\ui_tray.h" />
     <ClInclude Include="UI\ui_tabs.h" />

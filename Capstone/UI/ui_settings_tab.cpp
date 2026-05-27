@@ -192,18 +192,14 @@ namespace UiSettingsTab
         case IDC_SETTINGS_SAVE: {
             const Policy::Settings s = ReadFromUi();
             const bool ok = Policy::SetSettings(s);
-            Logger::Add(ok
-                ? L"[SettingsUI] Saved settings to disk."
-                : L"[SettingsUI] Save failed.");
+            Logger::Msg::SettingsSaveResult(ok);
             return true;
         }
 
         case IDC_SETTINGS_RELOAD: {
             const bool ok = Policy::LoadSettings();
             Refresh();
-            Logger::Add(ok
-                ? L"[SettingsUI] Reloaded settings from disk."
-                : L"[SettingsUI] Reload failed.");
+            Logger::Msg::SettingsReloadResult(ok);
             return true;
         }
 

@@ -8,7 +8,7 @@
 #include "compound_scorer.h"
 #include "hotkey_scorer.h"
 #include "logger.h"
-#include "json_log.h"
+#include "obfuscate.h"
 #include <string>
 
 // ──────────────────────────────────────────────────────────────────────
@@ -54,27 +54,7 @@ namespace {
         );
 
         // Emit risk score line (logs always English)
-        {
-            const wchar_t* lvName =
-                verdict.level == CompoundScorer::SAFE   ? L"SAFE"   :
-                verdict.level == CompoundScorer::NORMAL ? L"NORMAL" :
-                verdict.level == CompoundScorer::WARN   ? L"WARN"   :
-                verdict.level == CompoundScorer::DANGER ? L"DANGER" :
-                                                          L"UNKNOWN";
-            wchar_t buf[128];
-            _snwprintf_s(buf, _TRUNCATE, L"[Score] final=%.2f, %ls",
-                verdict.final_score, lvName);
-            Logger::Add(buf);
-
-            wchar_t jdetail[160];
-            _snwprintf_s(jdetail, _TRUNCATE,
-                L"final=%.2f level=%ls", verdict.final_score, lvName);
-            JsonLog::Add(L"Keyboard (HID)",
-                         L"RISK_SCORE_COMPUTED",
-                         jdetail,
-                         verdict.final_score,
-                         lvName);
-        }
+        Logger::Msg::ScoreFinal(verdict.final_score, static_cast<int>(verdict.level));
 
         SetWindowTextW(g_hVerdict, CompoundScorer::FormatVerdict(verdict).c_str());
 
@@ -191,7 +171,7 @@ namespace CompoundScorerUI
 
         g_hWnd = CreateWindowExW(
             WS_EX_TOPMOST,
-            CLS_NAME, L"BadUSB Guard - Compound Score",
+            CLS_NAME, AY_OBFUSCATE(L"BadUSB Guard - Compound Score"),
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
             (sx - W) / 2, (sy - H) / 2, W, H,
             hParent, nullptr, hInst, nullptr

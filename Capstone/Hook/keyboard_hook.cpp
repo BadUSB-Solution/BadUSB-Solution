@@ -45,11 +45,11 @@ namespace KeyboardHook
         );
 
         if (g_hook) {
-            Logger::Add(L"[Hook] Keyboard hook installed. All keyboard input blocked.");
+            Logger::Msg::HookInstalled();
             return true;
         }
 
-        Logger::Add(L"[Hook] Keyboard hook install FAILED.");
+        Logger::Msg::HookInstallFailed();
         return false;
     }
 
@@ -77,7 +77,7 @@ namespace KeyboardHook
 
         ResetKeyboardState();
 
-        Logger::Add(L"[Hook] Keyboard hook removed. Keyboard restored.");
+        Logger::Msg::HookRemoved();
     }
 
     bool IsActive()

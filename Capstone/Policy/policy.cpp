@@ -4,6 +4,7 @@
 
 #include "policy.h"
 #include "app_paths.h"
+#include "obfuscate.h"
 
 #include <windows.h>  // WideCharToMultiByte / MultiByteToWideChar
 
@@ -125,10 +126,10 @@ namespace
         std::string pad2(indent + 4, ' ');
         std::ostringstream ss;
         ss << pad << "{\n";
-        ss << pad2 << "\"vid\": \""         << HexU16(item.vid)                     << "\",\n";
-        ss << pad2 << "\"pid\": \""         << HexU16(item.pid)                     << "\",\n";
-        ss << pad2 << "\"name\": \""        << JsonEscape(WtoU8(item.name))         << "\",\n";
-        ss << pad2 << "\"fingerprint\": \"" << HexU64(item.fingerprint)             << "\"\n";
+        ss << pad2 << AY_OBFUSCATE("\"vid\": \"")         << HexU16(item.vid)                     << "\",\n";
+        ss << pad2 << AY_OBFUSCATE("\"pid\": \"")         << HexU16(item.pid)                     << "\",\n";
+        ss << pad2 << AY_OBFUSCATE("\"name\": \"")        << JsonEscape(WtoU8(item.name))         << "\",\n";
+        ss << pad2 << AY_OBFUSCATE("\"fingerprint\": \"") << HexU64(item.fingerprint)             << "\"\n";
         ss << pad << "}";
         return ss.str();
     }
@@ -204,10 +205,10 @@ namespace
 
             if (!ReadJsonString(s, pos, value)) return false;
 
-            if (key == "vid")              item.vid = ParseHexU16(value);
-            else if (key == "pid")         item.pid = ParseHexU16(value);
-            else if (key == "name")        item.name = U8toW(value);
-            else if (key == "fingerprint") item.fingerprint = ParseHexU64(value);
+            if (key == static_cast<const char*>(AY_OBFUSCATE("vid")))              item.vid = ParseHexU16(value);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("pid")))         item.pid = ParseHexU16(value);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("name")))        item.name = U8toW(value);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("fingerprint"))) item.fingerprint = ParseHexU64(value);
 
             SkipWhitespace(s, pos);
             if (pos < s.size() && s[pos] == ',') pos++;
@@ -255,10 +256,10 @@ namespace
             if (pos >= s.size() || s[pos] != ':') return false;
             pos++;
 
-            if (key == "whitelist") {
+            if (key == static_cast<const char*>(AY_OBFUSCATE("whitelist"))) {
                 if (!ParseArray(s, pos, wl)) return false;
             }
-            else if (key == "blacklist") {
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("blacklist"))) {
                 if (!ParseArray(s, pos, bl)) return false;
             }
             else {
@@ -381,8 +382,8 @@ namespace Policy
             std::lock_guard<std::mutex> lk(g_mu);
             std::ostringstream ss;
             ss << "{\n";
-            ss << "    \"whitelist\": " << ListToJsonArray(g_whitelist, 4) << ",\n";
-            ss << "    \"blacklist\": " << ListToJsonArray(g_blacklist, 4) << "\n";
+            ss << "    " << AY_OBFUSCATE("\"whitelist\": ") << ListToJsonArray(g_whitelist, 4) << ",\n";
+            ss << "    " << AY_OBFUSCATE("\"blacklist\": ") << ListToJsonArray(g_blacklist, 4) << "\n";
             ss << "}\n";
             json = ss.str();
         }

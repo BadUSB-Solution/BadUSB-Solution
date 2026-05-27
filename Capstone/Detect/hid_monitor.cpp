@@ -31,9 +31,7 @@ namespace HidMonitor
 
         g_hDevNotify = RegisterDeviceNotificationW(hWnd, &filter, DEVICE_NOTIFY_WINDOW_HANDLE);
 
-        Logger::Add(g_hDevNotify
-            ? L"[Init] HID notifications registered."
-            : L"[Init] HID notification registration failed.");
+        Logger::Msg::InitHidRegistered(g_hDevNotify != nullptr);
     }
 
     LRESULT OnDeviceChange(HWND hWnd, WPARAM wParam, LPARAM lParam)
@@ -52,12 +50,11 @@ namespace HidMonitor
             g_lastArrivalTick = now;
 
             if (!path.empty() && !g_seenDevicePaths.insert(path).second) {
-                Logger::Add(L"[Auto] Duplicate arrival ignored (same DevicePath).");
+                Logger::Msg::AutoArrivalDuplicate();
                 return 0;
             }
 
-            Logger::Add(L"[Auto] HID arrival detected.");
-            JsonLog::Add(path, L"DEVICE_CONNECTED", L"");
+            Logger::Msg::AutoArrival();
             DeviceApprovalFlow::ApproveDeviceFromPath(hWnd, path);
             return 0;
         }
@@ -73,9 +70,7 @@ namespace HidMonitor
                 g_seenDevicePaths.erase(path);
             }
 
-            Logger::Add(L"[Auto] HID removed.");
-            JsonLog::Add(path.empty() ? L"(unknown)" : path,
-                         L"DEVICE_DISCONNECTED", L"");
+            Logger::Msg::AutoRemoved();
             return 0;
         }
 

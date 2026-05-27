@@ -317,7 +317,7 @@ namespace DeviceBlocker
             if (DisableByInstanceId(candidate.instanceId, &candidateDetail)) {
                 DeviceFinder::DestroyResolvedDevice(resolved);
                 SetDetail(detail, L"disabled " + candidate.instanceId);
-                Logger::Add(L"[Block] Blacklisted HID disabled: " + candidate.instanceId);
+                Logger::Msg::BlockDisabledWithId(candidate.instanceId);
                 return BlockResult::Disabled;
             }
 
@@ -331,7 +331,7 @@ namespace DeviceBlocker
         if (disableDetail.empty() && DisableDeviceNode(resolved.deviceInfoSet, resolved.devInfo, &disableDetail)) {
             DeviceFinder::DestroyResolvedDevice(resolved);
             SetDetail(detail, disableDetail);
-            Logger::Add(L"[Block] Blacklisted HID disabled.");
+            Logger::Msg::BlockDisabled();
             return BlockResult::Disabled;
         }
 
@@ -346,7 +346,7 @@ namespace DeviceBlocker
             if (EjectDeviceNode(candidate.devInst, &candidateDetail)) {
                 DeviceFinder::DestroyResolvedDevice(resolved);
                 SetDetail(detail, L"disable failed (" + disableDetail + L"), ejected " + candidate.instanceId);
-                Logger::Add(L"[Block] Blacklisted HID ejected: " + candidate.instanceId);
+                Logger::Msg::BlockEjectedWithId(candidate.instanceId);
                 return BlockResult::Ejected;
             }
 
@@ -358,7 +358,7 @@ namespace DeviceBlocker
 
         DeviceFinder::DestroyResolvedDevice(resolved);
         SetDetail(detail, L"disable failed (" + disableDetail + L"), eject failed (" + ejectDetail + L")");
-        Logger::Add(L"[Block] Failed to disable/eject blacklisted HID.");
+        Logger::Msg::BlockFailed();
         return BlockResult::Failed;
     }
 
@@ -377,13 +377,13 @@ namespace DeviceBlocker
             std::wstring itemDetail;
             if (EnableByInstanceId(instanceId, &itemDetail)) {
                 anyEnabled = true;
-                Logger::Add(L"[Block] Re-enabled device: " + instanceId);
+                Logger::Msg::BlockReEnabled(instanceId);
             }
             else {
                 std::wstring removeDetail;
                 if (RemoveByInstanceId(instanceId, &removeDetail)) {
                     anyRemoved = true;
-                    Logger::Add(L"[Block] Removed disabled device for rescan: " + instanceId);
+                    Logger::Msg::BlockRemovedForRescan(instanceId);
                     itemDetail += L", fallback remove: " + removeDetail;
                 }
             }
