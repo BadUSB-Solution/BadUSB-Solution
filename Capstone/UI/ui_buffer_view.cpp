@@ -5,6 +5,7 @@
 #include "shell_detector.h"
 #include "url_classifier.h"
 #include "typing_analyzer.h"
+#include "obfuscate.h"
 #include <string>
 
 // >>> CompoundScorer UI 통합 시작 (이 줄 + 아래 마커 사이 블록 모두 제거 가능)
@@ -319,7 +320,7 @@ namespace BufferViewUI
 
         HWND hWnd = CreateWindowExW(
             WS_EX_TOPMOST,
-            VIEWER_CLASS, L"BadUSB Guard - Buffer Viewer",
+            VIEWER_CLASS, AY_OBFUSCATE(L"BadUSB Guard - Buffer Viewer"),
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
             x, y, W, H,
             hParent, nullptr, hInst, nullptr
@@ -414,7 +415,7 @@ namespace BufferViewUI
 
         HWND hWnd = CreateWindowExW(
             WS_EX_TOPMOST,
-            VIEWER_CLASS, L"BadUSB Guard - Keystroke Monitor",
+            VIEWER_CLASS, AY_OBFUSCATE(L"BadUSB Guard - Keystroke Monitor"),
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
             x, y, W, H,
             nullptr, nullptr, hInst, nullptr  // 부모 없음 → 독립 창
@@ -499,7 +500,7 @@ namespace BufferViewUI
 
         HWND hWnd = CreateWindowExW(
             WS_EX_TOPMOST,
-            NORMDEBUG_CLASS, L"BadUSB Guard - Normalize Debug",
+            NORMDEBUG_CLASS, AY_OBFUSCATE(L"BadUSB Guard - Normalize Debug"),
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
             (sx - W) / 2, (sy - H) / 2, W, H,
             nullptr, nullptr, hInst, nullptr

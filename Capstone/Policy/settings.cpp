@@ -10,6 +10,7 @@
 
 #include "settings.h"
 #include "app_paths.h"
+#include "obfuscate.h"
 
 #include <fstream>
 #include <sstream>
@@ -32,17 +33,17 @@ namespace
     const char* ActionToString(Policy::UnknownDeviceAction a)
     {
         switch (a) {
-        case Policy::UnknownDeviceAction::AutoBlock: return "autoBlock";
-        case Policy::UnknownDeviceAction::AutoAllow: return "autoAllow";
+        case Policy::UnknownDeviceAction::AutoBlock: return AY_OBFUSCATE("autoBlock");
+        case Policy::UnknownDeviceAction::AutoAllow: return AY_OBFUSCATE("autoAllow");
         case Policy::UnknownDeviceAction::Approval:
-        default:                                     return "approval";
+        default:                                     return AY_OBFUSCATE("approval");
         }
     }
 
     Policy::UnknownDeviceAction ActionFromString(const std::string& s)
     {
-        if (s == "autoBlock") return Policy::UnknownDeviceAction::AutoBlock;
-        if (s == "autoAllow") return Policy::UnknownDeviceAction::AutoAllow;
+        if (s == static_cast<const char*>(AY_OBFUSCATE("autoBlock"))) return Policy::UnknownDeviceAction::AutoBlock;
+        if (s == static_cast<const char*>(AY_OBFUSCATE("autoAllow"))) return Policy::UnknownDeviceAction::AutoAllow;
         return Policy::UnknownDeviceAction::Approval;
     }
 
@@ -119,11 +120,11 @@ namespace
             if (p >= s.size() || s[p] != ':') return false;
             p++;
 
-            if      (key == "autoStart")           ReadBool(s, p, out.autoStart);
-            else if (key == "minimizeToTray")      ReadBool(s, p, out.minimizeToTray);
-            else if (key == "behaviorMonitoring")  ReadBool(s, p, out.behaviorMonitoring);
-            else if (key == "notifyOnRisk")        ReadBool(s, p, out.notifyOnRisk);
-            else if (key == "unknownDeviceAction") {
+            if      (key == static_cast<const char*>(AY_OBFUSCATE("autoStart")))           ReadBool(s, p, out.autoStart);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("minimizeToTray")))      ReadBool(s, p, out.minimizeToTray);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("behaviorMonitoring")))  ReadBool(s, p, out.behaviorMonitoring);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("notifyOnRisk")))        ReadBool(s, p, out.notifyOnRisk);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("unknownDeviceAction"))) {
                 std::string v;
                 if (ReadString(s, p, v)) out.unknownDeviceAction = ActionFromString(v);
             }
@@ -144,11 +145,11 @@ namespace
 
         std::ostringstream ss;
         ss << "{\n";
-        ss << "    \"autoStart\": "           << B(s.autoStart)                      << ",\n";
-        ss << "    \"minimizeToTray\": "      << B(s.minimizeToTray)                 << ",\n";
-        ss << "    \"unknownDeviceAction\": \"" << ActionToString(s.unknownDeviceAction) << "\",\n";
-        ss << "    \"behaviorMonitoring\": "  << B(s.behaviorMonitoring)             << ",\n";
-        ss << "    \"notifyOnRisk\": "        << B(s.notifyOnRisk)                   << "\n";
+        ss << "    " << AY_OBFUSCATE("\"autoStart\": ")           << B(s.autoStart)                      << ",\n";
+        ss << "    " << AY_OBFUSCATE("\"minimizeToTray\": ")      << B(s.minimizeToTray)                 << ",\n";
+        ss << "    " << AY_OBFUSCATE("\"unknownDeviceAction\": \"") << ActionToString(s.unknownDeviceAction) << "\",\n";
+        ss << "    " << AY_OBFUSCATE("\"behaviorMonitoring\": ")  << B(s.behaviorMonitoring)             << ",\n";
+        ss << "    " << AY_OBFUSCATE("\"notifyOnRisk\": ")        << B(s.notifyOnRisk)                   << "\n";
         ss << "}\n";
         return ss.str();
     }

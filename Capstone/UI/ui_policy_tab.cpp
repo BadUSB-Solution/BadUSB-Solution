@@ -182,7 +182,7 @@ namespace UiPolicyTab
         case IDC_ALLOW_SELECTED: {
             const int index = SelectedIndex();
             if (index < 0 || index >= static_cast<int>(g_items.size())) {
-                Logger::Add(L"[PolicyUI] No policy item selected.");
+                Logger::Msg::PolicyNoSelection();
                 return true;
             }
 
@@ -193,9 +193,8 @@ namespace UiPolicyTab
             const DeviceBlocker::EnableResult enableResult =
                 DeviceBlocker::EnableByVidPid(item.vid, item.pid, &enableDetail);
 
-            Logger::Add(L"[PolicyUI] Allowed selected item: " + item.name);
-            Logger::Add(L"[PolicyUI] Enable result=" +
-                std::to_wstring(static_cast<int>(enableResult)) + L", " + enableDetail);
+            Logger::Msg::PolicyAllowedSelected(item.name);
+            Logger::Msg::PolicyEnableResult(static_cast<int>(enableResult), enableDetail);
 
             Refresh();
             return true;
