@@ -2381,23 +2381,23 @@ void MainWindow::setupTray()
 
     // Tray icon
     trayIcon_ = new QSystemTrayIcon(QIcon(":/icons/brand-mark.png"), this);
-    trayIcon_->setToolTip("Abang-All 보안 위젯");
+    trayIcon_->setToolTip(tr("Abang-All 보안 위젯"));
 
     // Context menu
     auto* menu = new QMenu(this);
-    menu->addAction("대시보드 열기", this, [this] {
+    menu->addAction(tr("대시보드 열기"), this, [this] {
         trayWidget_->hide();
         showNormal();
         raise();
         activateWindow();
     });
-    menu->addAction("위젯 보기", this, [this] {
+    menu->addAction(tr("위젯 보기"), this, [this] {
         trayWidget_->positionNearTray();
         trayWidget_->show();
         trayWidget_->raise();
     });
     menu->addSeparator();
-    menu->addAction("종료", qApp, &QApplication::quit);
+    menu->addAction(tr("종료"), qApp, &QApplication::quit);
     trayIcon_->setContextMenu(menu);
 
     // Left-click: toggle mini widget
@@ -2488,7 +2488,7 @@ void MainWindow::refreshTrayWidget()
         if (msg.startsWith("[Qt]")) msg = msg.mid(4).trimmed();
         trayWidget_->setRecentEvent(timeStr, msg);
     } else {
-        trayWidget_->setRecentEvent(nowTime(), "이벤트 없음");
+        trayWidget_->setRecentEvent(nowTime(), tr("이벤트 없음"));
     }
 }
 
@@ -4588,9 +4588,9 @@ QWidget* MainWindow::createHelpPage()
 
     {
         auto* headerRow = new QHBoxLayout;
-        headerRow->addWidget(label("도움말", "pageTitle"));
+        headerRow->addWidget(label(tr("도움말"), "pageTitle"));
         headerRow->addStretch();
-        headerRow->addWidget(makeSearchBox("도움말 검색...", 288));
+        headerRow->addWidget(makeSearchBox(tr("도움말 검색..."), 288));
         layout->addLayout(headerRow);
     }
 
@@ -4644,23 +4644,23 @@ QWidget* MainWindow::createHelpPage()
         auto* cl = new QVBoxLayout(card);
         cl->setContentsMargins(32, 32, 80, 32);
         cl->setSpacing(0);
-        cl->addWidget(makeH2("Abang-All 에이전트 설치 및 초기 설정"));
+        cl->addWidget(makeH2(tr("Abang-All 에이전트 설치 및 초기 설정")));
         cl->addSpacing(16);
-        cl->addWidget(makePara("Abang-All 에이전트는 기업의 엔드포인트 보안을 위해 USB 장치 연결을 제어하고 위험한 행위를 차단합니다."));
+        cl->addWidget(makePara(tr("Abang-All 에이전트는 기업의 엔드포인트 보안을 위해 USB 장치 연결을 제어하고 위험한 행위를 차단합니다.")));
         cl->addSpacing(28);
-        cl->addWidget(makeH3("1. 설치 과정"));
+        cl->addWidget(makeH3(tr("1. 설치 과정")));
         cl->addSpacing(16);
         for (const auto& b : {
-            "제공된 설치 파일(AbangAll_Setup.exe)을 실행합니다.",
-            "관리자 권한을 승인합니다.",
-            "화면의 지시에 따라 설치를 완료하고 시스템을 재부팅합니다.",
+            tr("제공된 설치 파일(AbangAll_Setup.exe)을 실행합니다."),
+            tr("관리자 권한을 승인합니다."),
+            tr("화면의 지시에 따라 설치를 완료하고 시스템을 재부팅합니다."),
         }) makeBullet(b, cl);
         cl->addSpacing(8);
         auto* note = new QFrame;
         note->setObjectName("helpNote");
         auto* nl = new QHBoxLayout(note);
         nl->setContentsMargins(17, 14, 17, 14);
-        auto* noteLbl = new QLabel("참고: 설치 후 트레이 아이콘이 나타나면 정상적으로 보호가 시작된 것입니다.");
+        auto* noteLbl = new QLabel(tr("참고: 설치 후 트레이 아이콘이 나타나면 정상적으로 보호가 시작된 것입니다."));
         noteLbl->setObjectName("helpNoteText");
         noteLbl->setFont(pretendardFont(FontRole::Medium));
         noteLbl->setWordWrap(true);
@@ -4676,15 +4676,15 @@ QWidget* MainWindow::createHelpPage()
         auto* cl = new QVBoxLayout(card);
         cl->setContentsMargins(32, 32, 80, 32);
         cl->setSpacing(0);
-        cl->addWidget(makeH2("승인 대기 장치 허용 방법"));
+        cl->addWidget(makeH2(tr("승인 대기 장치 허용 방법")));
         cl->addSpacing(16);
-        cl->addWidget(makePara("새로운 USB 장치가 연결되면 기본적으로 차단 및 \"승인 대기\" 상태가 됩니다."));
+        cl->addWidget(makePara(tr("새로운 USB 장치가 연결되면 기본적으로 차단 및 \"승인 대기\" 상태가 됩니다.")));
         cl->addSpacing(20);
         for (const auto& b : {
-            "좌측 메뉴에서 USB 목록으로 이동합니다.",
-            "상태가 [승인 대기]인 장치를 찾아 클릭합니다.",
-            "우측 장치 상세 정보 패널에서 하단의 [이 장치 허용] 버튼을 클릭합니다.",
-            "확인 후 해당 장치(VID/PID 기준)가 영구 허용 목록에 추가됩니다.",
+            tr("좌측 메뉴에서 USB 목록으로 이동합니다."),
+            tr("상태가 [승인 대기]인 장치를 찾아 클릭합니다."),
+            tr("우측 장치 상세 정보 패널에서 하단의 [이 장치 허용] 버튼을 클릭합니다."),
+            tr("확인 후 해당 장치(VID/PID 기준)가 영구 허용 목록에 추가됩니다."),
         }) makeBullet(b, cl);
         cl->addStretch();
         contentStack->addWidget(card);
@@ -4696,16 +4696,16 @@ QWidget* MainWindow::createHelpPage()
         auto* cl = new QVBoxLayout(card);
         cl->setContentsMargins(32, 32, 80, 32);
         cl->setSpacing(0);
-        cl->addWidget(makeH2("행위 분석(BadUSB 차단) 원리"));
+        cl->addWidget(makeH2(tr("행위 분석(BadUSB 차단) 원리")));
         cl->addSpacing(16);
-        cl->addWidget(makePara("BadUSB는 일반 USB 저장 장치로 위장하여 시스템에 연결된 후, 키보드처럼 동작하여 악성 스크립트를 초고속으로 자동 입력하는 해킹 기법입니다."));
+        cl->addWidget(makePara(tr("BadUSB는 일반 USB 저장 장치로 위장하여 시스템에 연결된 후, 키보드처럼 동작하여 악성 스크립트를 초고속으로 자동 입력하는 해킹 기법입니다.")));
         cl->addSpacing(28);
-        cl->addWidget(makeH3("탐지 및 차단 방식"));
+        cl->addWidget(makeH3(tr("탐지 및 차단 방식")));
         cl->addSpacing(16);
         for (const auto& b : {
-            "명령어, URL, 입력 속도, 핫키 패턴을 함께 분석해 종합 위험 점수를 계산합니다.",
-            "위험 점수가 설정된 임계치(기본 8.0 / 10.0)에 도달하면 BadUSB 또는 자동화 공격으로 간주합니다.",
-            "정책에 따라 해당 장치를 차단하고 입력을 무효화합니다.",
+            tr("명령어, URL, 입력 속도, 핫키 패턴을 함께 분석해 종합 위험 점수를 계산합니다."),
+            tr("위험 점수가 설정된 임계치(기본 8.0 / 10.0)에 도달하면 BadUSB 또는 자동화 공격으로 간주합니다."),
+            tr("정책에 따라 해당 장치를 차단하고 입력을 무효화합니다."),
         }) makeBullet(b, cl);
         cl->addStretch();
         contentStack->addWidget(card);
@@ -4728,7 +4728,7 @@ QWidget* MainWindow::createHelpPage()
         nhL->setContentsMargins(16, 0, 16, 0);
         nhL->setSpacing(8);
         nhL->addWidget(iconLabel(":/icons/nav-help.svg", 16));
-        nhL->addWidget(label("도움말 항목", "cardTitle"));
+        nhL->addWidget(label(tr("도움말 항목"), "cardTitle"));
         nhL->addStretch();
         ncL->addWidget(navHeader);
 
@@ -4739,9 +4739,9 @@ QWidget* MainWindow::createHelpPage()
 
         struct HelpItem { QString category, title; int index; };
         const QList<HelpItem> items = {
-            {"시작하기",   "Abang-All 에이전트 설치 및 초기 설정", 0},
-            {"정책 관리",  "승인 대기 장치 허용 방법",             1},
-            {"기능 가이드","행위 분석(BadUSB 차단) 원리",          2},
+            {tr("시작하기"),   tr("Abang-All 에이전트 설치 및 초기 설정"), 0},
+            {tr("정책 관리"),  tr("승인 대기 장치 허용 방법"),             1},
+            {tr("기능 가이드"),tr("행위 분석(BadUSB 차단) 원리"),          2},
         };
 
         auto navItems = std::make_shared<QVector<QWidget*>>();
@@ -4828,7 +4828,7 @@ QWidget* MainWindow::createHelpPage()
         navFooter->setObjectName("helpNavFooter");
         auto* nfL = new QVBoxLayout(navFooter);
         nfL->setContentsMargins(16, 14, 16, 14);
-        auto* supportBtn = new QPushButton("고객 지원 문의하기");
+        auto* supportBtn = new QPushButton(tr("고객 지원 문의하기"));
         supportBtn->setObjectName("secondaryButton");
         supportBtn->setFont(pretendardFont(FontRole::Medium));
         nfL->addWidget(supportBtn);
@@ -4860,7 +4860,7 @@ QWidget* MainWindow::createPolicySummaryPage()
     const QList<QStringList> rows = {
         {tr("미등록 장치 동작"), tr("차단 및 알림"),   "policyDangerText"},
         {tr("행위 분석 임계값"), "8.0 / 10",           "policyValueText"},
-        {tr("로그 보관 기간"),   "30일",               "policyValueText"},
+        {tr("로그 보관 기간"),   tr("30일"),               "policyValueText"},
         {tr("실시간 모니터링"),  tr("사용 중"),         "policySuccessText"},
     };
     for (int i = 0; i < rows.size(); ++i) {
