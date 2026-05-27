@@ -69,7 +69,7 @@ namespace UiTabs
 
         g_tabStatus = CreateWindowW(
             L"STATIC",
-            AY_OBFUSCATE(L"BadUSB Guard Demo\n\n- Tray resident like antivirus\n- HID insert -> approval popup\n- One USB -> one approval (VID/PID)\n- Policy tab can re-allow disabled blacklist devices\n- Logs in Logs tab\n"),
+            AY_OBFUSCATE(L"AbangAll\n\n- Tray resident like antivirus\n- HID insert -> approval popup\n- One USB -> one approval (VID/PID)\n- Policy tab can re-allow disabled blacklist devices\n- Logs in Logs tab\n"),
             WS_CHILD | WS_VISIBLE,
             trc.left + 10, trc.top + 10,
             trc.right - trc.left - 20,

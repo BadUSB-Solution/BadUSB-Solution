@@ -312,6 +312,30 @@ namespace Logger
         }
 
         // Block
+        // ─── [Block] prefix 의미 분류 ────────────────────────────────────────
+        // device_blocker 모듈에서 발생하는 모든 devnode 조작 로그를 [Block] prefix
+        // 로 통일해서 출력한다. 메시지 본문이 실제 동작을 구분:
+        //
+        //   🛑 진짜 차단:
+        //     "Blacklisted HID disabled[: <id>]"  — devnode disable 성공
+        //     "Blacklisted HID ejected: <id>"    — eject 성공 (disable 실패 fallback)
+        //     "Failed to disable/eject ..."      — 두 방식 모두 실패
+        //     "Result=<n>, ..."                  — auto-block 흐름의 결과 요약
+        //     "Saved blacklist item block result=..."  — blacklist 저장 직후 차단 결과
+        //
+        //   ✅ 활성화 (차단 아님):
+        //     "Re-enabled device: <id>"          — devnode enable 성공
+        //     "Saved whitelist item enable result=..."  — whitelist 저장 직후 활성화 결과
+        //
+        //   🔄 phantom devnode 정리 (차단 아님):
+        //     "Removed disabled device for rescan: <id>"
+        //       — 시스템에 남은 유령 devnode (이전 연결 흔적). 다음 PnP rescan 에서
+        //         자동 재인식되도록 정리. 같은 VID/PID 가 여러 포트에 꽂혔다 빠진
+        //         흔적이 쌓이면 다수 출력될 수 있음 (정상).
+        //
+        // 분석 시 메시지 본문 키워드("disabled" / "Re-enabled" / "Removed ...")
+        // 로 구분할 것. [Block] prefix 만 보고 차단 여부를 판단하지 말 것.
+        // ──────────────────────────────────────────────────────────────────
         __declspec(noinline) void BlockSavedWhitelistEnableResult(int result, const std::wstring& detail) {
             Add(std::wstring(AY_OBFUSCATE(L"[Block] Saved whitelist item enable result=")) + std::to_wstring(result) + std::wstring(AY_OBFUSCATE(L", ")) + detail);
         }
@@ -321,21 +345,26 @@ namespace Logger
         __declspec(noinline) void BlockResult(int result, const std::wstring& detail) {
             Add(std::wstring(AY_OBFUSCATE(L"[Block] Result=")) + std::to_wstring(result) + std::wstring(AY_OBFUSCATE(L", ")) + detail);
         }
+        // 🛑 진짜 차단 — devnode disable 성공
         __declspec(noinline) void BlockDisabledWithId(const std::wstring& instanceId) {
             Add(std::wstring(AY_OBFUSCATE(L"[Block] Blacklisted HID disabled: ")) + instanceId);
         }
         __declspec(noinline) void BlockDisabled() {
             Add(AY_OBFUSCATE(L"[Block] Blacklisted HID disabled."));
         }
+        // 🛑 진짜 차단 — eject 성공 (disable 실패 시 fallback)
         __declspec(noinline) void BlockEjectedWithId(const std::wstring& instanceId) {
             Add(std::wstring(AY_OBFUSCATE(L"[Block] Blacklisted HID ejected: ")) + instanceId);
         }
+        // ❌ 차단 실패 — disable + eject 모두 실패
         __declspec(noinline) void BlockFailed() {
             Add(AY_OBFUSCATE(L"[Block] Failed to disable/eject blacklisted HID."));
         }
+        // ✅ 활성화 — 화이트리스트 추가 후 devnode 재활성화 성공 (차단 아님)
         __declspec(noinline) void BlockReEnabled(const std::wstring& instanceId) {
             Add(std::wstring(AY_OBFUSCATE(L"[Block] Re-enabled device: ")) + instanceId);
         }
+        // 🔄 phantom devnode 정리 — 차단 아님. 다음 PnP rescan 에서 재인식됨.
         __declspec(noinline) void BlockRemovedForRescan(const std::wstring& instanceId) {
             Add(std::wstring(AY_OBFUSCATE(L"[Block] Removed disabled device for rescan: ")) + instanceId);
         }

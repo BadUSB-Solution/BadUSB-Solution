@@ -20,7 +20,7 @@ namespace UiTray
         nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         nid.uCallbackMessage = WM_TRAYICON;
         nid.hIcon = LoadIconW(hInst, MAKEINTRESOURCE(iconResId));
-        (void)lstrcpynW(nid.szTip, AY_OBFUSCATE(L"BadUSB Guard (Demo)"), ARRAYSIZE(nid.szTip));
+        (void)lstrcpynW(nid.szTip, AY_OBFUSCATE(L"AbangAll"), ARRAYSIZE(nid.szTip));
         Shell_NotifyIconW(NIM_ADD, &nid);
     }
 
