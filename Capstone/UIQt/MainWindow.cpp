@@ -2221,14 +2221,14 @@ MainWindow::MainWindow(QWidget* parent)
     sidebarLayout->addWidget(brand);
     sidebarLayout->addSpacing(28);
 
-    sidebarLayout->addWidget(addNavButton("대시보드", 0, ":/icons/nav-dashboard.svg"));
-    sidebarLayout->addWidget(addNavButton("USB 목록", 1, ":/icons/nav-usb.svg"));
-    sidebarLayout->addWidget(addNavButton("로그", 2, ":/icons/nav-log.svg"));
-    sidebarLayout->addWidget(addNavButton("행위 분석", 3, ":/icons/nav-analytics.svg"));
-    sidebarLayout->addWidget(addNavButton("설정", 4, ":/icons/nav-settings.svg"));
+    sidebarLayout->addWidget(addNavButton(tr("대시보드"), 0, ":/icons/nav-dashboard.svg"));
+    sidebarLayout->addWidget(addNavButton(tr("USB 목록"), 1, ":/icons/nav-usb.svg"));
+    sidebarLayout->addWidget(addNavButton(tr("로그"), 2, ":/icons/nav-log.svg"));
+    sidebarLayout->addWidget(addNavButton(tr("행위 분석"), 3, ":/icons/nav-analytics.svg"));
+    sidebarLayout->addWidget(addNavButton(tr("설정"), 4, ":/icons/nav-settings.svg"));
     sidebarLayout->addStretch();
-    sidebarLayout->addWidget(addNavButton("도움말", 5, ":/icons/nav-help.svg"));
-    auto* collapseButton = new QPushButton("접기");
+    sidebarLayout->addWidget(addNavButton(tr("도움말"), 5, ":/icons/nav-help.svg"));
+    auto* collapseButton = new QPushButton(tr("접기"));
     collapseButton->setObjectName("navButton");
     collapseButton->setFont(pretendardFont(FontRole::SemiBold));
     collapseButton->setCursor(Qt::PointingHandCursor);
@@ -2259,11 +2259,11 @@ MainWindow::MainWindow(QWidget* parent)
     auto* topbarLayout = new QHBoxLayout(topbar);
     topbarLayout->setContentsMargins(24, 0, 24, 0);
     topbarLayout->setSpacing(28);
-    topbarLayout->addWidget(addTopNavButton("대시보드", 0));
-    topbarLayout->addWidget(addTopNavButton("USB 목록", 1));
-    topbarLayout->addWidget(addTopNavButton("로그", 2));
-    topbarLayout->addWidget(addTopNavButton("행위 분석", 3));
-    topbarLayout->addWidget(addTopNavButton("설정", 4));
+    topbarLayout->addWidget(addTopNavButton(tr("대시보드"), 0));
+    topbarLayout->addWidget(addTopNavButton(tr("USB 목록"), 1));
+    topbarLayout->addWidget(addTopNavButton(tr("로그"), 2));
+    topbarLayout->addWidget(addTopNavButton(tr("행위 분석"), 3));
+    topbarLayout->addWidget(addTopNavButton(tr("설정"), 4));
     topbarLayout->addStretch();
 
     // Bell notification icon
@@ -2282,7 +2282,7 @@ MainWindow::MainWindow(QWidget* parent)
     userLayout->setContentsMargins(10, 0, 14, 0);
     userLayout->setSpacing(8);
     userLayout->addWidget(iconLabel(":/icons/ui-user.svg", 16));
-    userLayout->addWidget(label("관리자"));
+    userLayout->addWidget(label(tr("관리자")));
     topbarLayout->addLayout(userLayout);
 
     pages_ = new QStackedWidget;
