@@ -1,18 +1,185 @@
-// 앱 상에 로그 띄우는 부분
+// 앱 상에 로그 띄우는 부분 + 영속 저장
+//   - 메모리에 500개 ring buffer 유지 (UI Logs 탭에서 GetAll() 로 표시).
+//   - %APPDATA%\AbangAll\log.json 에도 동일 내용을 JSON 으로 저장.
+//   - 시작 시 기존 log.json 있으면 LoadExisting 으로 메모리에 적재.
 
 #include "logger.h"
 #include "obfuscate.h"
-#include <vector>
+#include "app_paths.h"
+
+#include <windows.h>
+#include <cstdio>
+#include <fstream>
+#include <iterator>
 #include <mutex>
+#include <sstream>
+#include <vector>
 
 namespace Logger
 {
-    static std::mutex g_mu;
-    static std::vector<std::wstring> g_logs;
+    // ─── 내부 상태 + 헬퍼 (anonymous namespace) ───────────────────────
+    namespace {
 
-    static HWND g_notifyWnd = nullptr;
-    static UINT g_notifyMsg = 0;
+        struct Entry {
+            std::string time;  // "2026-05-27 21:21:07"
+            std::string msg;   // UTF-8 메시지 본문
+        };
 
+        std::mutex          g_mu;
+        std::vector<Entry>  g_entries;
+        bool                g_loaded = false;
+
+        HWND g_notifyWnd = nullptr;
+        UINT g_notifyMsg = 0;
+
+        // ─── UTF-16 ↔ UTF-8 ────────────────────────────────────────
+        std::string Utf8(const std::wstring& s) {
+            if (s.empty()) return {};
+            int n = WideCharToMultiByte(CP_UTF8, 0, s.data(), (int)s.size(),
+                                         nullptr, 0, nullptr, nullptr);
+            if (n <= 0) return {};
+            std::string out((size_t)n, '\0');
+            WideCharToMultiByte(CP_UTF8, 0, s.data(), (int)s.size(),
+                                 out.data(), n, nullptr, nullptr);
+            return out;
+        }
+
+        std::wstring Wide(const std::string& s) {
+            if (s.empty()) return {};
+            int n = MultiByteToWideChar(CP_UTF8, 0, s.data(), (int)s.size(),
+                                         nullptr, 0);
+            if (n <= 0) return {};
+            std::wstring out((size_t)n, L'\0');
+            MultiByteToWideChar(CP_UTF8, 0, s.data(), (int)s.size(),
+                                 out.data(), n);
+            return out;
+        }
+
+        // log.json 절대 경로. AbangAll 폴더 보장 후 파일명만 붙임.
+        std::wstring LogPath() {
+            return Storage::GetAbangAllDir()
+                 + static_cast<const wchar_t*>(AY_OBFUSCATE(L"\\log.json"));
+        }
+
+        std::string NowText() {
+            SYSTEMTIME t;
+            GetLocalTime(&t);
+            char buf[32];
+            std::snprintf(buf, sizeof(buf),
+                AY_OBFUSCATE("%04u-%02u-%02u %02u:%02u:%02u"),
+                t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond);
+            return buf;
+        }
+
+        // ─── 미니 JSON 직렬화/파싱 ─────────────────────────────────
+        void Esc(std::string& out, const std::string& s) {
+            out.push_back('"');
+            for (char c : s) {
+                switch (c) {
+                case '"':  out += "\\\""; break;
+                case '\\': out += "\\\\"; break;
+                case '\n': out += "\\n";  break;
+                case '\r': out += "\\r";  break;
+                case '\t': out += "\\t";  break;
+                default:
+                    if ((unsigned char)c < 0x20) {
+                        char b[8]; std::snprintf(b, 8, "\\u%04x", (unsigned char)c);
+                        out += b;
+                    } else out.push_back(c);
+                }
+            }
+            out.push_back('"');
+        }
+
+        bool ExtractStr(const std::string& s, const char* key, std::string& out) {
+            std::string pat = static_cast<const char*>(AY_OBFUSCATE("\""));
+            pat += key;
+            pat += static_cast<const char*>(AY_OBFUSCATE("\":"));
+            size_t p = s.find(pat);
+            if (p == std::string::npos) return false;
+            p += pat.size();
+            while (p < s.size() && (s[p] == ' ' || s[p] == '\t')) ++p;
+            if (p >= s.size() || s[p] != '"') return false;
+            ++p;
+            out.clear();
+            while (p < s.size()) {
+                char c = s[p];
+                if (c == '"') return true;
+                if (c == '\\' && p + 1 < s.size()) {
+                    char n = s[p + 1];
+                    switch (n) {
+                    case '"':  out.push_back('"');  break;
+                    case '\\': out.push_back('\\'); break;
+                    case '/':  out.push_back('/');  break;
+                    case 'b':  out.push_back('\b'); break;
+                    case 'f':  out.push_back('\f'); break;
+                    case 'n':  out.push_back('\n'); break;
+                    case 'r':  out.push_back('\r'); break;
+                    case 't':  out.push_back('\t'); break;
+                    case 'u':
+                        if (p + 5 < s.size()) { p += 4; }
+                        break;
+                    default: out.push_back(n); break;
+                    }
+                    p += 2;
+                } else {
+                    out.push_back(c);
+                    ++p;
+                }
+            }
+            return false;
+        }
+
+        // 첫 Add() 호출 시 기존 파일이 있으면 메모리에 적재.
+        void LoadExisting() {
+            std::ifstream f(LogPath().c_str(), std::ios::binary);
+            if (!f.is_open()) return;
+            std::string s((std::istreambuf_iterator<char>(f)),
+                           std::istreambuf_iterator<char>());
+
+            size_t p = 0;
+            while ((p = s.find(static_cast<const char*>(AY_OBFUSCATE("\"time\":")), p)) != std::string::npos) {
+                size_t blockEnd = s.find('}', p);
+                if (blockEnd == std::string::npos) break;
+                std::string block = s.substr(p, blockEnd - p);
+
+                Entry e;
+                ExtractStr(block, AY_OBFUSCATE("time"), e.time);
+                ExtractStr(block, AY_OBFUSCATE("msg"),  e.msg);
+
+                if (!e.time.empty()) g_entries.push_back(std::move(e));
+                p = blockEnd + 1;
+            }
+        }
+
+        // 메모리 → log.json (tmp 파일에 쓰고 atomic move).
+        void WriteFile() {
+            std::string j = static_cast<const char*>(AY_OBFUSCATE("{\n  \"logs\": ["));
+            for (size_t i = 0; i < g_entries.size(); ++i) {
+                const Entry& e = g_entries[i];
+                if (i) j += ',';
+                j += static_cast<const char*>(AY_OBFUSCATE("\n    { \"time\": "));
+                Esc(j, e.time);
+                j += static_cast<const char*>(AY_OBFUSCATE(", \"msg\": "));
+                Esc(j, e.msg);
+                j += static_cast<const char*>(AY_OBFUSCATE(" }"));
+            }
+            j += static_cast<const char*>(AY_OBFUSCATE("\n  ]\n}\n"));
+
+            std::wstring path = LogPath();
+            std::wstring tmp  = path
+                + static_cast<const wchar_t*>(AY_OBFUSCATE(L".tmp"));
+            {
+                std::ofstream f(tmp.c_str(), std::ios::binary | std::ios::trunc);
+                if (!f.is_open()) return;
+                f.write(j.data(), (std::streamsize)j.size());
+            }
+            MoveFileExW(tmp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING);
+        }
+
+    } // anonymous namespace
+
+    // ─── 공개 API ─────────────────────────────────────────────────
     void SetNotifyWindow(HWND hWnd, UINT msgId)
     {
         g_notifyWnd = hWnd;
@@ -21,10 +188,19 @@ namespace Logger
 
     void Add(const std::wstring& s)
     {
+        Entry e;
+        e.time = NowText();
+        e.msg  = Utf8(s);
+
         {
             std::lock_guard<std::mutex> lk(g_mu);
-            g_logs.push_back(s);
-            if (g_logs.size() > 500) g_logs.erase(g_logs.begin());
+            if (!g_loaded) {
+                g_loaded = true;
+                LoadExisting();
+            }
+            g_entries.push_back(std::move(e));
+            if (g_entries.size() > 500) g_entries.erase(g_entries.begin());
+            WriteFile();
         }
         if (g_notifyWnd && g_notifyMsg)
             PostMessage(g_notifyWnd, g_notifyMsg, 0, 0);
@@ -39,8 +215,12 @@ namespace Logger
     {
         std::wstring all;
         std::lock_guard<std::mutex> lk(g_mu);
-        for (auto& s : g_logs) {
-            all += s + L"\r\n";
+        for (auto& e : g_entries) {
+            all += L"[";
+            all += Wide(e.time);
+            all += L"] ";
+            all += Wide(e.msg);
+            all += L"\r\n";
         }
         return all;
     }
@@ -51,16 +231,16 @@ namespace Logger
     {
         // App lifecycle
         __declspec(noinline) void AppSettingsLoaded() {
-            Add(AY_OBFUSCATE(L"[A] Settings loaded."));
+            Add(AY_OBFUSCATE(L"[App] Settings loaded."));
         }
         __declspec(noinline) void AppPolicyDbLoaded() {
-            Add(AY_OBFUSCATE(L"[A] Policy DB loaded from file."));
+            Add(AY_OBFUSCATE(L"[App] Policy DB loaded from file."));
         }
         __declspec(noinline) void AppStart() {
-            Add(AY_OBFUSCATE(L"[A] Start (Tray resident)"));
+            Add(AY_OBFUSCATE(L"[App] Start (Tray resident)"));
         }
         __declspec(noinline) void AppSkippedInitialScan() {
-            Add(AY_OBFUSCATE(L"[A] Skipped initial scan (policy DB exists)."));
+            Add(AY_OBFUSCATE(L"[App] Skipped initial scan (policy DB exists)."));
         }
 
         // Init
