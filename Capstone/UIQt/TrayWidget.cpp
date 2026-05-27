@@ -118,7 +118,7 @@ TrayWidget::TrayWidget(QWidget* parent)
     titleBox->setSpacing(2);
     titleBox->setContentsMargins(0, 0, 0, 0);
     auto* titleLabel = makeLabel("Abang-All", labelStyle(20, t.TextDark, 800));
-    auto* subtitleLabel = makeLabel("보안 위젯", labelStyle(12, UiTheme::SubtextMid, 600));
+    auto* subtitleLabel = makeLabel(tr("보안 위젯"), labelStyle(12, UiTheme::SubtextMid, 600));
     titleLabel->setAlignment(Qt::AlignLeft);
     subtitleLabel->setAlignment(Qt::AlignLeft);
     titleBox->addWidget(titleLabel);
@@ -126,7 +126,7 @@ TrayWidget::TrayWidget(QWidget* parent)
     headerL->addLayout(titleBox);
     headerL->addStretch();
 
-    auto* monitoringBadge = makeLabel("●  모니터링 ON",
+    auto* monitoringBadge = makeLabel(tr("●  모니터링 ON"),
         "QLabel { background: #E8FFF3; color: #0B8F52; font-size: 12px;"
         " font-weight: 800; padding: 0; border-radius: 10px;"
         " border: 1px solid #A7E8C8; }");
@@ -161,14 +161,14 @@ TrayWidget::TrayWidget(QWidget* parent)
     auto* usbText = new QVBoxLayout;
     usbText->setSpacing(0);
     usbText->addStretch();
-    usbText->addWidget(makeLabel("연결된 USB", labelStyle(12, UiTheme::SubtextMid, 700)));
+    usbText->addWidget(makeLabel(tr("연결된 USB"), labelStyle(12, UiTheme::SubtextMid, 700)));
     usbCountLabel_ = makeLabel("0개 장치", labelStyle(17, UiTheme::TextDark, 900));
     usbText->addWidget(usbCountLabel_);
     usbText->addStretch();
     usbL->addLayout(usbText);
     usbL->addStretch();
 
-    auto* realtimeBtn = new QPushButton("실시간");
+    auto* realtimeBtn = new QPushButton(tr("실시간"));
     realtimeBtn->setFixedSize(68, 28);
     realtimeBtn->setCursor(Qt::PointingHandCursor);
     realtimeBtn->setStyleSheet(QString(
@@ -193,13 +193,13 @@ TrayWidget::TrayWidget(QWidget* parent)
     auto* threatText = new QVBoxLayout;
     threatText->setSpacing(0);
     threatText->addStretch();
-    threatText->addWidget(makeLabel("위험 탐지 상태", labelStyle(12, UiTheme::SubtextMid, 700)));
+    threatText->addWidget(makeLabel(tr("위험 탐지 상태"), labelStyle(12, UiTheme::SubtextMid, 700)));
 
     auto* statusRow = new QHBoxLayout;
     statusRow->setSpacing(6);
     statusDot_ = makeLabel("●",
         "QLabel { font-size: 14px; color: #F97316; background: transparent; border: none; }");
-    statusText_ = makeLabel("경고", labelStyle(17, UiTheme::TextDark, 900));
+    statusText_ = makeLabel(tr("경고"), labelStyle(17, UiTheme::TextDark, 900));
     statusRow->addWidget(statusDot_);
     statusRow->addWidget(statusText_);
     statusRow->addStretch();
@@ -218,7 +218,7 @@ TrayWidget::TrayWidget(QWidget* parent)
     opacity->setOpacity(0.32);
     mascot->setGraphicsEffect(opacity);
 
-    statusBadge_ = new QPushButton("주의");
+    statusBadge_ = new QPushButton(tr("주의"));
     statusBadge_->setFixedSize(68, 28);
     statusBadge_->setCursor(Qt::PointingHandCursor);
     threatL->addWidget(mascot, 0, Qt::AlignVCenter);
@@ -237,7 +237,7 @@ TrayWidget::TrayWidget(QWidget* parent)
     auto* footerL = new QHBoxLayout(footer);
     footerL->setContentsMargins(14, 0, 14, 0);
     footerL->setSpacing(8);
-    footerL->addWidget(makeLabel("최근 이벤트", labelStyle(13, UiTheme::PrimaryHover, 800)));
+    footerL->addWidget(makeLabel(tr("최근 이벤트"), labelStyle(13, UiTheme::PrimaryHover, 800)));
 
     auto* divider = new QFrame;
     divider->setFixedSize(1, 18);
@@ -257,7 +257,7 @@ TrayWidget::TrayWidget(QWidget* parent)
     connect(closeBtn, &QPushButton::clicked, this, &QWidget::hide);
 
     setUsbCount(0);
-    setRecentEvent("--:--:--", "이벤트 대기중");
+    setRecentEvent("--:--:--", tr("이벤트 대기중"));
     setThreatLevel(ThreatLevel::Normal);
 }
 
@@ -320,8 +320,8 @@ void TrayWidget::applyLevel()
     statusDot_->setStyleSheet(
         QString("QLabel { font-size: 14px; color: %1; background: transparent; border: none; }")
             .arg(cfg.dotColor));
-    statusText_->setText(cfg.statusStr);
-    statusBadge_->setText(cfg.badgeText);
+    statusText_->setText(tr(cfg.statusStr));
+    statusBadge_->setText(tr(cfg.badgeText));
     statusBadge_->setStyleSheet(cfg.badgeStyle);
 
     if (threatIconLabel_) {
