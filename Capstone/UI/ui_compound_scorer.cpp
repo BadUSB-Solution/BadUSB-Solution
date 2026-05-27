@@ -22,7 +22,7 @@
 
 namespace {
 
-    const wchar_t* CLS_NAME = L"BadUSB_CompoundScorer";
+    const wchar_t* CLS_NAME = L"AbangAll_CompoundScorer";
     HWND  g_hWnd     = nullptr;
     HWND  g_hVerdict = nullptr;
     HWND  g_hDetail  = nullptr;
@@ -171,7 +171,7 @@ namespace CompoundScorerUI
 
         g_hWnd = CreateWindowExW(
             WS_EX_TOPMOST,
-            CLS_NAME, AY_OBFUSCATE(L"BadUSB Guard - Compound Score"),
+            CLS_NAME, AY_OBFUSCATE(L"AbangAll - Compound Score"),
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
             (sx - W) / 2, (sy - H) / 2, W, H,
             hParent, nullptr, hInst, nullptr

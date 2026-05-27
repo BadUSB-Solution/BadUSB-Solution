@@ -1,4 +1,4 @@
-﻿// main.cpp : BadUSB Guard Demo (Tray + HID Auto Detect) 껍데기
+﻿// main.cpp : AbangAll (Tray + HID Auto Detect) 껍데기
 // 실제로 돌리다보면 로그에 A,B,C,D 이런거 달려있을텐데 해당 과정은 노션에 올려놓은 머메이드 차트 보면 될듯
 // 현재 헤더파일 보면 여기에 없는 badusb.h가 있음. 데모에서는 쓰이지 않았지만 기본 드라이버? 구성만 gpt가 잡아준 것.
 
@@ -17,11 +17,12 @@
 #include "ui_tabs.h"
 #include "hid_monitor.h"
 #include "hid_scan.h"
-#include "hid_approval_flow.h"   
+#include "hid_approval_flow.h"
 #include "keyboard_hook.h"
 #include "ui_buffer_view.h"
 #include "policy.h"
 #include "settings.h"
+#include "obfuscate.h"
 
 #pragma comment(lib, "Shell32.lib")
 
@@ -41,6 +42,21 @@ LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 int APIENTRY wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int)
 {
     hInst = hInstance;
+
+    // ── Single Instance 보장 ───────────────────────────────────────────
+    // 같은 사용자 세션에 이미 AbangAll 이 떠 있으면 새 인스턴스는 띄우지 않는다.
+    //   - 트레이 아이콘이 보이지 않아 두 번 실행하는 경우가 흔함.
+    //   - Local\ prefix 로 사용자별 세션 격리 (다른 사용자에는 영향 X).
+    //   - HANDLE 은 프로세스 종료 시 OS 가 자동 해제 → 별도 CloseHandle 불필요.
+    HANDLE hSingleton = CreateMutexW(NULL, FALSE,
+        AY_OBFUSCATE(L"Local\\AbangAll.Singleton.7B3F9A2C"));
+    if (hSingleton == NULL || GetLastError() == ERROR_ALREADY_EXISTS) {
+        MessageBoxW(NULL,
+            AY_OBFUSCATE(L"AbangAll이 이미 실행 중입니다.\n트레이 아이콘을 확인하세요."),
+            AY_OBFUSCATE(L"AbangAll"),
+            MB_OK | MB_ICONINFORMATION);
+        return 0;
+    }
 
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
     LoadStringW(hInstance, IDC_CAPSTONE, szWindowClass, MAX_LOADSTRING);
