@@ -11,6 +11,7 @@
 #include <QRegularExpression>
 #include <QDateTime>
 #include <QDialog>
+#include <QDir>
 #include <QFrame>
 #include <QFont>
 #include <QFontDatabase>
@@ -29,6 +30,7 @@
 #include <QPaintEvent>
 #include <QPixmap>
 #include <QPushButton>
+#include <QRadioButton>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QShortcut>
@@ -43,6 +45,8 @@
 #include <QTextEdit>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QDesktopServices>
+#include <QUrl>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -51,6 +55,7 @@
 #endif
 
 #include "TrayWidget.h"
+#include "app_paths.h"
 #include "hid_fingerprint.h"
 #include "hid_scan.h"
 #include "compound_scorer.h"
@@ -319,7 +324,7 @@ namespace
             };
         case 1:
             return {
-                QStringLiteral("USB 제어 도움말"),
+                QStringLiteral("USB 목록 도움말"),
                 QStringLiteral("탐지된 HID 장치를 확인하고 허용 또는 차단 정책을 적용합니다."),
                 {
                     QStringLiteral("장치를 선택하면 오른쪽 상세 정보에서 VID/PID와 정책 상태를 확인합니다."),
@@ -460,6 +465,44 @@ namespace
         Policy::LoadSettings();
         return Policy::GetSettings().notifyOnRisk;
     }
+
+    bool notificationSoundEnabled()
+    {
+        QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+        return uiSettings.value(QStringLiteral("ui/notificationSound"), true).toBool();
+    }
+
+    int notificationDurationMs()
+    {
+        QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+        return std::clamp(uiSettings.value(QStringLiteral("ui/notificationDurationSec"), 5).toInt(), 1, 60) * 1000;
+    }
+
+    void showRiskTrayMessage(QSystemTrayIcon* trayIcon, const QString& title,
+                             const QString& message, QSystemTrayIcon::MessageIcon icon)
+    {
+        if (!trayIcon)
+            return;
+        if (notificationSoundEnabled())
+            QApplication::beep();
+        trayIcon->showMessage(title, message, icon, notificationDurationMs());
+    }
+
+#ifdef Q_OS_WIN
+    void setWindowsAutoStart(bool enabled)
+    {
+        QSettings runKey(
+            QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"),
+            QSettings::NativeFormat);
+        const QString appName = QStringLiteral("Abang-All");
+        if (enabled) {
+            const QString exe = QDir::toNativeSeparators(QApplication::applicationFilePath());
+            runKey.setValue(appName, QStringLiteral("\"%1\"").arg(exe));
+        } else {
+            runKey.remove(appName);
+        }
+    }
+#endif
 
     int actionIndexFromSetting(Policy::UnknownDeviceAction action)
     {
@@ -2179,7 +2222,7 @@ MainWindow::MainWindow(QWidget* parent)
     sidebarLayout->addSpacing(28);
 
     sidebarLayout->addWidget(addNavButton("대시보드", 0, ":/icons/nav-dashboard.svg"));
-    sidebarLayout->addWidget(addNavButton("USB 제어", 1, ":/icons/nav-usb.svg"));
+    sidebarLayout->addWidget(addNavButton("USB 목록", 1, ":/icons/nav-usb.svg"));
     sidebarLayout->addWidget(addNavButton("로그", 2, ":/icons/nav-log.svg"));
     sidebarLayout->addWidget(addNavButton("행위 분석", 3, ":/icons/nav-analytics.svg"));
     sidebarLayout->addWidget(addNavButton("설정", 4, ":/icons/nav-settings.svg"));
@@ -2456,7 +2499,7 @@ void MainWindow::closeEvent(QCloseEvent* event)
     hide();
     if (trayIcon_)
         trayIcon_->showMessage("Abang-All", "백그라운드에서 계속 모니터링 중입니다.",
-                               QSystemTrayIcon::Information, 2000);
+                               QSystemTrayIcon::Information, notificationDurationMs());
 }
 
 MainWindow::~MainWindow()
@@ -2667,6 +2710,7 @@ QWidget* MainWindow::createDashboardPage()
             auto* viewAllBtn = new QPushButton("전체 보기 >");
             viewAllBtn->setCursor(Qt::PointingHandCursor);
             viewAllBtn->setStyleSheet(QString("color: %1; background: transparent; border: none; font-size: 12px;").arg(UiTheme::tokens().TextMuted));
+            connect(viewAllBtn, &QPushButton::clicked, this, [this] { switchPage(2); });
 
             // Build recent events from real log (last 4 non-empty lines)
             struct EventEntry { QString time, title, detail, accent; };
@@ -2949,14 +2993,6 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         usbDetVidV_->setObjectName("usbDetailVidBadge");
         usbDetVidV_->setFont(QFont("Consolas", 12));
         addInfoRow("VID / PID", usbDetVidV_);
-    }
-
-    // Serial No.
-    {
-        auto* v = new QLabel("N/A");
-        v->setObjectName("usbDetailValue");
-        v->setFont(pretendardFont(FontRole::Regular));
-        addInfoRow("Serial No.", v);
     }
 
     // 마지막 연결
@@ -4104,16 +4140,21 @@ QWidget* MainWindow::createSettingsPage()
     layout->setContentsMargins(24, 24, 24, 24);
     layout->setSpacing(16);
 
-    // Hoist settable widget pointers
-    QComboBox*        comboDev    = nullptr;
-    QButtonGroup*     themeGroup  = nullptr;
-    QCheckBox*        cbAutostart = nullptr;
-    QCheckBox*        cbMinimize  = nullptr;
-    QCheckBox*        cbNotif     = nullptr;
-
     QPushButton* saveBtn = nullptr;
+    QPushButton* resetBtn = nullptr;
+    QCheckBox* cbAutostart = nullptr;
+    QCheckBox* cbShowMain = nullptr;
+    QButtonGroup* themeGroup = nullptr;
+    QRadioButton* rbApproval = nullptr;
+    QRadioButton* rbAutoBlock = nullptr;
+    QRadioButton* rbAutoAllow = nullptr;
+    QCheckBox* cbNotif = nullptr;
+    QCheckBox* cbSound = nullptr;
+    QCheckBox* cbHangulKey = nullptr;
+    QComboBox* comboNotifPos = nullptr;
+    QComboBox* comboNotifDuration = nullptr;
+    QComboBox* comboLogRetention = nullptr;
 
-    // Header
     {
         auto* headerRow = new QHBoxLayout;
         headerRow->addWidget(label("설정", "pageTitle"));
@@ -4123,201 +4164,212 @@ QWidget* MainWindow::createSettingsPage()
         saveBtn->setFont(pretendardFont(FontRole::Medium));
         saveBtn->setIcon(QIcon(":/icons/ui-save.svg"));
         saveBtn->setIconSize(QSize(16, 16));
+        resetBtn = new QPushButton("되돌리기");
+        resetBtn->setObjectName("secondaryButton");
+        resetBtn->setFont(pretendardFont(FontRole::SemiBold));
         headerRow->addWidget(saveBtn);
+        headerRow->addWidget(resetBtn);
         layout->addLayout(headerRow);
     }
 
     auto* contentRow = new QHBoxLayout;
     contentRow->setSpacing(16);
 
-    // Left: settings card with tab bar
-    {
-        auto* settingsCard = cardFrame();
-        auto* scL = new QVBoxLayout(settingsCard);
-        scL->setContentsMargins(0, 0, 0, 0);
-        scL->setSpacing(0);
+    auto addSection = [](QVBoxLayout* parent, const QString& title) {
+        auto* row = new QWidget;
+        row->setObjectName("settingsSectionDivider");
+        auto* rowLayout = new QHBoxLayout(row);
+        rowLayout->setContentsMargins(0, 0, 0, 0);
+        rowLayout->setSpacing(12);
+        rowLayout->addWidget(label(title, "sectionHeading"));
+        rowLayout->addWidget(makeDivider(), 1);
+        parent->addWidget(row);
+        parent->addSpacing(12);
+    };
 
-        // Tab bar
-        auto* tabBar = new QWidget;
-        tabBar->setObjectName("settingsTabBar");
-        tabBar->setFixedHeight(51);
-        auto* tabBarL = new QHBoxLayout(tabBar);
-        tabBarL->setContentsMargins(32, 16, 16, 0);
-        tabBarL->setSpacing(24);
+    auto addControlRow = [](QVBoxLayout* parent, const QString& title, QWidget* control) {
+        auto* row = new QWidget;
+        row->setObjectName("settingsFormRow");
+        auto* rowLayout = new QHBoxLayout(row);
+        rowLayout->setContentsMargins(0, 0, 0, 0);
+        rowLayout->setSpacing(12);
+        auto* rowLabel = label(title);
+        rowLabel->setObjectName("settingsFormLabel");
+        rowLabel->setFixedWidth(160);
+        rowLayout->addWidget(rowLabel);
+        rowLayout->addWidget(control);
+        rowLayout->addStretch();
+        parent->addWidget(row);
+    };
 
-        auto* tabStack = new QStackedWidget;
-        QVector<QPushButton*> tabBtns;
+    auto* settingsCard = cardFrame();
+    auto* scL = new QVBoxLayout(settingsCard);
+    scL->setContentsMargins(0, 0, 0, 0);
+    scL->setSpacing(0);
 
-        struct TabInfo { QString name; QString icon; };
-        const QList<TabInfo> tabInfos = {
-            {"일반 환경 설정", ":/icons/action-filter.svg"},
-            {"위험 탐지 정책", ":/icons/ui-lock.svg"},
-            {"알림 및 리포트", ":/icons/ui-bell.svg"},
-        };
+    auto* tabBar = new QWidget;
+    tabBar->setObjectName("settingsTabBar");
+    tabBar->setFixedHeight(51);
+    auto* tabBarL = new QHBoxLayout(tabBar);
+    tabBarL->setContentsMargins(32, 16, 16, 0);
+    tabBarL->setSpacing(24);
 
-        for (int i = 0; i < tabInfos.size(); ++i) {
-            auto* btn = new QPushButton(" " + tabInfos[i].name);
-            btn->setObjectName("settingsTab");
-            btn->setFont(pretendardFont(FontRole::Medium));
-            btn->setCursor(Qt::PointingHandCursor);
-            btn->setIcon(QIcon(tabInfos[i].icon));
-            btn->setIconSize(QSize(16, 16));
-            btn->setProperty("active", i == 0);
-            tabBtns.push_back(btn);
-            tabBarL->addWidget(btn);
-        }
-        tabBarL->addStretch();
+    auto* tabStack = new QStackedWidget;
+    QVector<QPushButton*> tabBtns;
+    struct TabInfo { QString name; QString icon; };
+    const QList<TabInfo> tabInfos = {
+        {"일반", ":/icons/action-filter.svg"},
+        {"장치 정책", ":/icons/ui-lock.svg"},
+        {"알림 및 로그", ":/icons/ui-bell.svg"},
+    };
 
-        // Connect tab buttons
-        for (int i = 0; i < tabBtns.size(); ++i) {
-            QPushButton* btn = tabBtns[i];
-            connect(btn, &QPushButton::clicked, this, [tabBtns, tabStack, btn, i]() {
-                tabStack->setCurrentIndex(i);
-                for (QPushButton* b : tabBtns) {
-                    b->setProperty("active", b == btn);
-                    b->style()->unpolish(b);
-                    b->style()->polish(b);
-                }
-            });
-        }
+    for (int i = 0; i < tabInfos.size(); ++i) {
+        auto* btn = new QPushButton(" " + tabInfos[i].name);
+        btn->setObjectName("settingsTab");
+        btn->setFont(pretendardFont(FontRole::Medium));
+        btn->setCursor(Qt::PointingHandCursor);
+        btn->setIcon(QIcon(tabInfos[i].icon));
+        btn->setIconSize(QSize(16, 16));
+        btn->setProperty("active", i == 0);
+        tabBtns.push_back(btn);
+        tabBarL->addWidget(btn);
+    }
+    tabBarL->addStretch();
 
-        // Tab 0: General settings
-        {
-            auto* w = new QWidget;
-            auto* wl = new QVBoxLayout(w);
-            wl->setContentsMargins(24, 24, 24, 24);
-            wl->setSpacing(0);
-
-            auto addSection = [&](const QString& heading) {
-                auto* lbl = label(heading, "sectionHeading");
-                lbl->setFont(pretendardFont(FontRole::Regular));
-                wl->addWidget(lbl);
-                wl->addSpacing(16);
-            };
-
-            addSection("시작 및 트레이 동작");
-            cbAutostart = new QCheckBox("Windows 시작 시 자동으로 실행");
-            cbAutostart->setObjectName("settingsCheck");
-            cbAutostart->setFont(pretendardFont(FontRole::Medium));
-            wl->addWidget(cbAutostart);
-            wl->addSpacing(16);
-            cbMinimize = new QCheckBox("창을 닫을 때 시스템 트레이로 최소화");
-            cbMinimize->setObjectName("settingsCheck");
-            cbMinimize->setFont(pretendardFont(FontRole::Medium));
-            wl->addWidget(cbMinimize);
-            wl->addSpacing(16);
-
-            auto* themeRow = new QWidget;
-            themeRow->setObjectName("themeModeRow");
-            themeRow->setStyleSheet("QWidget#themeModeRow { background: transparent; border: none; }");
-            auto* themeRowL = new QHBoxLayout(themeRow);
-            themeRowL->setContentsMargins(0, 0, 0, 0);
-            themeRowL->setSpacing(14);
-            auto* themeLabel = label(QStringLiteral("화면 테마"));
-            themeLabel->setObjectName("sectionHeading");
-            themeLabel->setFont(pretendardFont(FontRole::Medium));
-            themeLabel->setFixedWidth(120);
-            auto* themeToggle = new QFrame;
-            themeToggle->setObjectName("themeSegmentGroup");
-            themeToggle->setFixedSize(300, 46);
-            auto* themeToggleL = new QHBoxLayout(themeToggle);
-            themeToggleL->setContentsMargins(4, 4, 4, 4);
-            themeToggleL->setSpacing(4);
-            themeGroup = new QButtonGroup(themeToggle);
-            themeGroup->setExclusive(true);
-
-            const QList<QPair<QString, QString>> themeOptions = {
-                { QStringLiteral("light"), QStringLiteral("라이트") },
-                { QStringLiteral("dark"), QStringLiteral("다크") },
-                { QStringLiteral("system"), QStringLiteral("시스템") },
-            };
-            for (const auto& option : themeOptions) {
-                auto* button = new QPushButton(option.second);
-                button->setObjectName("themeSegment");
-                button->setCheckable(true);
-                button->setCursor(Qt::PointingHandCursor);
-                button->setFont(pretendardFont(FontRole::Medium));
-                button->setProperty("themeKey", option.first);
-                themeGroup->addButton(button);
-                themeToggleL->addWidget(button, 1);
+    for (int i = 0; i < tabBtns.size(); ++i) {
+        QPushButton* btn = tabBtns[i];
+        connect(btn, &QPushButton::clicked, this, [tabBtns, tabStack, btn, i]() {
+            tabStack->setCurrentIndex(i);
+            for (QPushButton* b : tabBtns) {
+                b->setProperty("active", b == btn);
+                b->style()->unpolish(b);
+                b->style()->polish(b);
             }
-            connect(themeGroup, &QButtonGroup::buttonClicked, this, [this](QAbstractButton* button) {
-                if (!button)
-                    return;
-
-                const QString key = button->property("themeKey").toString();
-                QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
-                uiSettings.setValue(QStringLiteral("ui/themeMode"), key.isEmpty() ? QStringLiteral("system") : key);
-                applyTheme(UiTheme::themeModeFromKey(key));
-            });
-            themeRowL->addWidget(themeLabel);
-            themeRowL->addWidget(themeToggle);
-            themeRowL->addStretch();
-            wl->addWidget(themeRow);
-            wl->addSpacing(16);
-            wl->addStretch();
-            tabStack->addWidget(w);
-        }
-
-        // Tab 1: Threat detection policy
-        {
-            auto* w = new QWidget;
-            auto* wl = new QVBoxLayout(w);
-            wl->setContentsMargins(24, 24, 24, 24);
-            wl->setSpacing(0);
-
-            // Section: 기본 제어 정책
-            auto* secLabel1 = label("기본 제어 정책", "sectionHeading");
-            secLabel1->setFont(pretendardFont(FontRole::Regular));
-            wl->addWidget(secLabel1);
-            wl->addSpacing(16);
-
-            auto* dropDesc = new QLabel("새로운 미등록 장치 연결 시 처리 방법");
-            dropDesc->setFont(pretendardFont(FontRole::Medium));
-            dropDesc->setStyleSheet(QString("color: %1; font-size: 14px;").arg(t.TextMid));
-            wl->addWidget(dropDesc);
-            wl->addSpacing(8);
-
-            comboDev = new QComboBox;
-            comboDev->addItem("승인 대기");
-            comboDev->addItem("자동 차단");
-            comboDev->addItem("자동 허용");
-            comboDev->setFixedWidth(320);
-            comboDev->setFixedHeight(36);
-            comboDev->setFont(pretendardFont(FontRole::Regular));
-            wl->addWidget(comboDev);
-            wl->addStretch();
-            tabStack->addWidget(w);
-        }
-
-        // Tab 2: Alerts & reports
-        {
-            auto* w = new QWidget;
-            auto* wl = new QVBoxLayout(w);
-            wl->setContentsMargins(24, 24, 24, 24);
-            wl->setSpacing(0);
-
-            auto* sectionLabel = label("데스크톱 알림", "sectionHeading");
-            sectionLabel->setFont(pretendardFont(FontRole::Regular));
-            wl->addWidget(sectionLabel);
-            wl->addSpacing(16);
-
-            cbNotif = new QCheckBox("위험 장치 연결 시 우측 하단 팝업 알림 표시");
-            cbNotif->setObjectName("settingsCheck");
-            cbNotif->setFont(pretendardFont(FontRole::Medium));
-            cbNotif->setChecked(true);
-            wl->addWidget(cbNotif);
-            wl->addSpacing(16);
-            wl->addStretch();
-            tabStack->addWidget(w);
-        }
-
-        scL->addWidget(tabBar);
-        scL->addWidget(tabStack, 1);
-        contentRow->addWidget(settingsCard, 1);
+        });
     }
 
-    // Right: Sidebar (340px)
+    {
+        auto* w = new QWidget;
+        auto* wl = new QVBoxLayout(w);
+        wl->setContentsMargins(24, 24, 24, 24);
+        wl->setSpacing(12);
+        addSection(wl, "일반");
+
+        cbAutostart = new QCheckBox("Windows 시작 시 자동 실행");
+        cbAutostart->setObjectName("settingsCheck");
+        cbAutostart->setFont(pretendardFont(FontRole::Medium));
+        wl->addWidget(cbAutostart);
+
+        cbShowMain = new QCheckBox("시작 시 메인 창 표시");
+        cbShowMain->setObjectName("settingsCheck");
+        cbShowMain->setFont(pretendardFont(FontRole::Medium));
+        wl->addWidget(cbShowMain);
+
+        auto* themeToggle = new QFrame;
+        themeToggle->setObjectName("themeSegmentGroup");
+        themeToggle->setFixedSize(300, 46);
+        auto* themeToggleL = new QHBoxLayout(themeToggle);
+        themeToggleL->setContentsMargins(4, 4, 4, 4);
+        themeToggleL->setSpacing(4);
+        themeGroup = new QButtonGroup(themeToggle);
+        themeGroup->setExclusive(true);
+        const QList<QPair<QString, QString>> themeOptions = {
+            { QStringLiteral("system"), QStringLiteral("시스템") },
+            { QStringLiteral("light"), QStringLiteral("라이트") },
+            { QStringLiteral("dark"), QStringLiteral("다크") },
+        };
+        for (const auto& option : themeOptions) {
+            auto* button = new QPushButton(option.second);
+            button->setObjectName("themeSegment");
+            button->setCheckable(true);
+            button->setCursor(Qt::PointingHandCursor);
+            button->setFont(pretendardFont(FontRole::Medium));
+            button->setProperty("themeKey", option.first);
+            themeGroup->addButton(button);
+            themeToggleL->addWidget(button, 1);
+        }
+        addControlRow(wl, "테마", themeToggle);
+        cbHangulKey = new QCheckBox("프로그램 한글/영어 전환");
+        cbHangulKey->setObjectName("settingsCheck");
+        cbHangulKey->setFont(pretendardFont(FontRole::Medium));
+        wl->addWidget(cbHangulKey);
+        wl->addStretch();
+        tabStack->addWidget(w);
+    }
+
+    {
+        auto* w = new QWidget;
+        auto* wl = new QVBoxLayout(w);
+        wl->setContentsMargins(24, 24, 24, 24);
+        wl->setSpacing(12);
+        addSection(wl, "장치 정책");
+        wl->addWidget(label("새 미등록 장치 연결 시:", "settingsFormLabel"));
+
+        auto* policyGroup = new QButtonGroup(w);
+        policyGroup->setExclusive(true);
+        rbApproval = new QRadioButton("승인 대기");
+        rbAutoBlock = new QRadioButton("자동 차단");
+        rbAutoAllow = new QRadioButton("자동 허용");
+        for (auto* radio : { rbApproval, rbAutoBlock, rbAutoAllow }) {
+            radio->setObjectName("settingsRadio");
+            radio->setFont(pretendardFont(FontRole::Medium));
+            policyGroup->addButton(radio);
+            wl->addWidget(radio);
+        }
+
+        wl->addStretch();
+        tabStack->addWidget(w);
+    }
+
+    {
+        auto* w = new QWidget;
+        auto* wl = new QVBoxLayout(w);
+        wl->setContentsMargins(24, 24, 24, 24);
+        wl->setSpacing(12);
+        addSection(wl, "알림");
+
+        cbNotif = new QCheckBox("위험 감지 시 알림 표시");
+        cbNotif->setObjectName("settingsCheck");
+        cbNotif->setFont(pretendardFont(FontRole::Medium));
+        wl->addWidget(cbNotif);
+
+        cbSound = new QCheckBox("알림 소리");
+        cbSound->setObjectName("settingsCheck");
+        cbSound->setFont(pretendardFont(FontRole::Medium));
+        wl->addWidget(cbSound);
+
+        comboNotifPos = new QComboBox;
+        comboNotifPos->addItems({ "우측 하단", "우측 상단" });
+        comboNotifPos->setFixedWidth(180);
+        addControlRow(wl, "알림 위치", comboNotifPos);
+
+        comboNotifDuration = new QComboBox;
+        comboNotifDuration->addItems({ "3초", "5초", "10초" });
+        comboNotifDuration->setFixedWidth(180);
+        addControlRow(wl, "알림 표시 시간", comboNotifDuration);
+
+        addSection(wl, "로그");
+        comboLogRetention = new QComboBox;
+        comboLogRetention->addItems({ "7일", "30일", "90일", "영구 보관" });
+        comboLogRetention->setFixedWidth(180);
+        addControlRow(wl, "로그 보관 기간", comboLogRetention);
+
+        auto* openLogDirBtn = new QPushButton("로그 폴더 열기");
+        openLogDirBtn->setObjectName("secondaryButton");
+        openLogDirBtn->setFont(pretendardFont(FontRole::SemiBold));
+        openLogDirBtn->setFixedWidth(160);
+        connect(openLogDirBtn, &QPushButton::clicked, this, [] {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(fromWString(Storage::GetAbangAllDir())));
+        });
+        wl->addWidget(openLogDirBtn);
+        wl->addStretch();
+        tabStack->addWidget(w);
+    }
+
+    scL->addWidget(tabBar);
+    scL->addWidget(tabStack, 1);
+    contentRow->addWidget(settingsCard, 1);
+
     {
         auto* sidebar = new QWidget;
         sidebar->setFixedWidth(340);
@@ -4325,104 +4377,128 @@ QWidget* MainWindow::createSettingsPage()
         sidebarL->setContentsMargins(0, 0, 0, 0);
         sidebarL->setSpacing(16);
 
-        // Policy summary card
-        {
-            auto* body = new QWidget;
-            auto* bl = new QVBoxLayout(body);
-            bl->setContentsMargins(16, 8, 16, 16);
-            bl->setSpacing(0);
-
-            struct PolicyRow { QString lbl, val, badge; };
-            const QList<PolicyRow> rows = {
-                {"활성 정책",   "기본 보안 프리셋", ""},
-                {"미등록 장치", "승인 대기",        "warningBadge"},
-                {"행위 분석",   "가동 중",          "successBadge"},
-            };
-            for (int i = 0; i < rows.size(); ++i) {
-                const auto& r = rows[i];
-                auto* rowWidget = new QWidget;
-                rowWidget->setObjectName("policySummaryRow");
-                rowWidget->setFixedHeight(42);
-                rowWidget->setStyleSheet("QWidget#policySummaryRow { background: transparent; border: none; }");
-                auto* line = new QHBoxLayout(rowWidget);
-                line->setContentsMargins(0, 0, 0, 0);
-                auto* lbl = label(r.lbl);
-                lbl->setObjectName("policySummaryLabel");
-                lbl->setFont(pretendardFont(FontRole::Regular));
-                line->addWidget(lbl);
-                line->addStretch();
-                if (!r.badge.isEmpty()) {
-                    auto* badge = new QLabel(r.val);
-                    badge->setObjectName(r.badge == "warningBadge" ? "settingsWarningBadge" : "settingsSuccessBadge");
-                    badge->setAlignment(Qt::AlignCenter);
-                    badge->setFont(pretendardFont(FontRole::SemiBold));
-                    badge->setFixedSize(64, 26);
-                    line->addWidget(badge);
-                } else {
-                    auto* valLbl = label(r.val);
-                    valLbl->setObjectName("policySummaryValue");
-                    valLbl->setFont(pretendardFont(FontRole::Regular));
-                    line->addWidget(valLbl);
-                }
-                bl->addWidget(rowWidget);
-                if (i < rows.size() - 1) bl->addWidget(makeDivider());
+        auto* body = new QWidget;
+        auto* bl = new QVBoxLayout(body);
+        bl->setContentsMargins(16, 8, 16, 16);
+        bl->setSpacing(0);
+        struct PolicyRow { QString lbl, val, badge; };
+        const QList<PolicyRow> rows = {
+            {"활성 정책", "기본 보안 프리셋", ""},
+            {"미등록 장치", "승인 대기", "warningBadge"},
+            {"행위 분석", "가동 중", "successBadge"},
+        };
+        for (int i = 0; i < rows.size(); ++i) {
+            const auto& r = rows[i];
+            auto* rowWidget = new QWidget;
+            rowWidget->setObjectName("policySummaryRow");
+            rowWidget->setFixedHeight(42);
+            auto* line = new QHBoxLayout(rowWidget);
+            line->setContentsMargins(0, 0, 0, 0);
+            auto* lbl = label(r.lbl);
+            lbl->setObjectName("policySummaryLabel");
+            lbl->setFont(pretendardFont(FontRole::Regular));
+            line->addWidget(lbl);
+            line->addStretch();
+            if (!r.badge.isEmpty()) {
+                auto* badge = new QLabel(r.val);
+                badge->setObjectName(r.badge == "warningBadge" ? "settingsWarningBadge" : "settingsSuccessBadge");
+                badge->setAlignment(Qt::AlignCenter);
+                badge->setFont(pretendardFont(FontRole::SemiBold));
+                badge->setFixedSize(64, 26);
+                line->addWidget(badge);
+            } else {
+                auto* valLbl = label(r.val);
+                valLbl->setObjectName("policySummaryValue");
+                valLbl->setFont(pretendardFont(FontRole::Regular));
+                line->addWidget(valLbl);
             }
-
-            sidebarL->addWidget(createCard("적용된 정책 요약", body));
+            bl->addWidget(rowWidget);
+            if (i < rows.size() - 1) bl->addWidget(makeDivider());
         }
-
+        sidebarL->addWidget(createCard("적용된 정책 요약", body));
         sidebarL->addStretch();
         contentRow->addWidget(sidebar);
     }
 
     layout->addLayout(contentRow, 1);
 
-    // Load persisted settings into widgets
-    {
+    auto loadSettingsToUi = [=] {
         Policy::LoadSettings();
         const Policy::Settings settings = Policy::GetSettings();
-        if (cbAutostart)  cbAutostart->setChecked(settings.autoStart);
-        if (cbMinimize)   cbMinimize->setChecked(settings.minimizeToTray);
-        if (comboDev)     comboDev->setCurrentIndex(actionIndexFromSetting(settings.unknownDeviceAction));
-        if (cbNotif)      cbNotif->setChecked(settings.notifyOnRisk);
-        if (themeGroup) {
-            QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
-            const QString key = uiSettings.value(QStringLiteral("ui/themeMode"), QStringLiteral("system")).toString();
-            for (QAbstractButton* button : themeGroup->buttons()) {
-                if (button->property("themeKey").toString() == key) {
-                    button->setChecked(true);
-                    break;
-                }
-            }
-            if (!themeGroup->checkedButton() && !themeGroup->buttons().isEmpty()) {
-                themeGroup->buttons().front()->setChecked(true);
-            }
-        }
-    }
+        QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+        cbAutostart->setChecked(settings.autoStart);
+        cbShowMain->setChecked(uiSettings.value(QStringLiteral("ui/showMainOnStartup"), true).toBool());
+        cbNotif->setChecked(settings.notifyOnRisk);
+        cbSound->setChecked(uiSettings.value(QStringLiteral("ui/notificationSound"), true).toBool());
+        cbHangulKey->setChecked(uiSettings.value(QStringLiteral("ui/languageToggleKorean"), true).toBool());
 
-    // Wire Save button
-    if (saveBtn) {
-        connect(saveBtn, &QPushButton::clicked, this,
-            [this, cbAutostart, cbMinimize, comboDev, themeGroup, cbNotif] {
-                Policy::LoadSettings();
-                Policy::Settings settings = Policy::GetSettings();
-                if (cbAutostart)  settings.autoStart = cbAutostart->isChecked();
-                if (cbMinimize)   settings.minimizeToTray = cbMinimize->isChecked();
-                if (comboDev) {
-                    const int idx = comboDev->currentIndex();
-                    settings.unknownDeviceAction = actionSettingFromIndex(idx);
-                    unknownDeviceAction_ = idx;
-                }
-                if (cbNotif) settings.notifyOnRisk = cbNotif->isChecked();
-                Policy::SetSettings(settings);
-                if (themeGroup && themeGroup->checkedButton()) {
-                    const QString key = themeGroup->checkedButton()->property("themeKey").toString();
-                    QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
-                    uiSettings.setValue(QStringLiteral("ui/themeMode"), key.isEmpty() ? QStringLiteral("system") : key);
-                    applyTheme(UiTheme::themeModeFromKey(key));
-                }
-            });
-    }
+        if (settings.unknownDeviceAction == Policy::UnknownDeviceAction::AutoBlock)
+            rbAutoBlock->setChecked(true);
+        else if (settings.unknownDeviceAction == Policy::UnknownDeviceAction::AutoAllow)
+            rbAutoAllow->setChecked(true);
+        else
+            rbApproval->setChecked(true);
+
+        const QString themeKey = uiSettings.value(QStringLiteral("ui/themeMode"), QStringLiteral("system")).toString();
+        for (QAbstractButton* button : themeGroup->buttons()) {
+            button->setChecked(button->property("themeKey").toString() == themeKey);
+        }
+        if (!themeGroup->checkedButton() && !themeGroup->buttons().isEmpty())
+            themeGroup->buttons().front()->setChecked(true);
+
+        comboNotifPos->setCurrentText(uiSettings.value(QStringLiteral("ui/notificationPosition"), QStringLiteral("우측 하단")).toString());
+        comboNotifDuration->setCurrentText(QStringLiteral("%1초").arg(uiSettings.value(QStringLiteral("ui/notificationDurationSec"), 5).toInt()));
+        const int retentionDays = uiSettings.value(QStringLiteral("ui/logRetentionDays"), 30).toInt();
+        comboLogRetention->setCurrentText(retentionDays <= 0 ? QStringLiteral("영구 보관") : QStringLiteral("%1일").arg(retentionDays));
+    };
+
+    connect(themeGroup, &QButtonGroup::buttonClicked, this, [this](QAbstractButton* button) {
+        if (!button)
+            return;
+        const QString key = button->property("themeKey").toString();
+        QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+        uiSettings.setValue(QStringLiteral("ui/themeMode"), key.isEmpty() ? QStringLiteral("system") : key);
+        applyTheme(UiTheme::themeModeFromKey(key));
+    });
+
+    connect(saveBtn, &QPushButton::clicked, this, [=] {
+        Policy::LoadSettings();
+        Policy::Settings settings = Policy::GetSettings();
+        settings.autoStart = cbAutostart->isChecked();
+        settings.notifyOnRisk = cbNotif->isChecked();
+        if (rbAutoBlock->isChecked()) {
+            settings.unknownDeviceAction = Policy::UnknownDeviceAction::AutoBlock;
+            unknownDeviceAction_ = 1;
+        } else if (rbAutoAllow->isChecked()) {
+            settings.unknownDeviceAction = Policy::UnknownDeviceAction::AutoAllow;
+            unknownDeviceAction_ = 2;
+        } else {
+            settings.unknownDeviceAction = Policy::UnknownDeviceAction::Approval;
+            unknownDeviceAction_ = 0;
+        }
+        Policy::SetSettings(settings);
+#ifdef Q_OS_WIN
+        setWindowsAutoStart(settings.autoStart);
+#endif
+
+        QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+        uiSettings.setValue(QStringLiteral("ui/showMainOnStartup"), cbShowMain->isChecked());
+        uiSettings.setValue(QStringLiteral("ui/notificationSound"), cbSound->isChecked());
+        uiSettings.setValue(QStringLiteral("ui/languageToggleKorean"), cbHangulKey->isChecked());
+        uiSettings.setValue(QStringLiteral("ui/notificationPosition"), comboNotifPos->currentText());
+        uiSettings.setValue(QStringLiteral("ui/notificationDurationSec"), comboNotifDuration->currentText().remove(QStringLiteral("초")).toInt());
+        const QString retentionText = comboLogRetention->currentText();
+        uiSettings.setValue(QStringLiteral("ui/logRetentionDays"),
+            retentionText == QStringLiteral("영구 보관") ? 0 : retentionText.left(retentionText.size() - 1).toInt());
+        if (themeGroup->checkedButton()) {
+            const QString key = themeGroup->checkedButton()->property("themeKey").toString();
+            uiSettings.setValue(QStringLiteral("ui/themeMode"), key.isEmpty() ? QStringLiteral("system") : key);
+            applyTheme(UiTheme::themeModeFromKey(key));
+        }
+    });
+
+    connect(resetBtn, &QPushButton::clicked, this, loadSettingsToUi);
+    loadSettingsToUi();
 
     return page;
 }
@@ -5120,12 +5196,11 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                         updateDlgInfo();
                                         blockCurrentDevice(item, L"Reconnect blacklist");
                                         if (notifyOnRiskEnabled() && trayIcon_) {
-                                            trayIcon_->showMessage(
+                                            showRiskTrayMessage(
+                                                trayIcon_,
                                                 "Abang-All",
                                                 QString("차단된 장치가 연결되었습니다.\n%1").arg(fromWString(item.name)),
-                                                QSystemTrayIcon::Warning,
-                                                4000
-                                            );
+                                                QSystemTrayIcon::Warning);
                                         }
                                         if (!KeyboardHook::IsActive()) KeyboardHook::Install();
                                         blockedDeviceHookActive_ = true;
@@ -5138,12 +5213,11 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                             blockCurrentDevice(item, L"Auto-block setting");
                                             Logger::Add(L"[Qt] Auto-blocked (설정): " + item.name);
                                             if (notifyOnRiskEnabled() && trayIcon_) {
-                                                trayIcon_->showMessage(
+                                                showRiskTrayMessage(
+                                                    trayIcon_,
                                                     "Abang-All",
                                                     QString("위험 장치가 자동 차단되었습니다.\n%1").arg(fromWString(item.name)),
-                                                    QSystemTrayIcon::Critical,
-                                                    4000
-                                                );
+                                                    QSystemTrayIcon::Critical);
                                             }
                                             if (g_activeBufferDlg) g_activeBufferDlg->close();
                                             if (!KeyboardHook::IsActive()) KeyboardHook::Install();
@@ -5157,12 +5231,11 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                         } else {
                                             updateDlgInfo();
                                             if (notifyOnRiskEnabled() && trayIcon_) {
-                                                trayIcon_->showMessage(
+                                                showRiskTrayMessage(
+                                                    trayIcon_,
                                                     "Abang-All",
                                                     QString("승인 대기 장치가 연결되었습니다.\n%1").arg(fromWString(item.name)),
-                                                    QSystemTrayIcon::Warning,
-                                                    4000
-                                                );
+                                                    QSystemTrayIcon::Warning);
                                             }
                                             lastPromptFingerprint_ = item.fingerprint;
                                         }

@@ -799,6 +799,46 @@ namespace UiTheme
             QCheckBox#settingsCheck::indicator:checked {
                 background: %Primary%; border-color: %Primary%; image: url(:/icons/check-white.svg);
             }
+            QRadioButton#settingsRadio {
+                min-height: 38px;
+                padding: 0 14px;
+                border-radius: 8px;
+                border: 1px solid %BorderInput%;
+                background: %InputBg%;
+                color: %TextMid%;
+                font-size: 14px;
+                font-weight: 600;
+                spacing: 0;
+            }
+            QRadioButton#settingsRadio::indicator {
+                width: 0;
+                height: 0;
+                border: none;
+                background: transparent;
+            }
+            QRadioButton#settingsRadio:hover {
+                background: %HoverSurface%;
+                color: %Text%;
+            }
+            QRadioButton#settingsRadio:checked {
+                background: %PrimarySoft%;
+                color: %PrimaryText%;
+                border: 1px solid %PrimarySoftBorder%;
+            }
+            QWidget#settingsSectionDivider {
+                background: transparent;
+                border: none;
+            }
+            QWidget#settingsFormRow {
+                background: transparent;
+                border: none;
+            }
+            QLabel#settingsFormLabel {
+                color: %TextMid%;
+                font-size: 14px;
+                background: transparent;
+                border: none;
+            }
 
             QLineEdit#searchInput, QLineEdit {
                 height: 36px; padding-left: 8px; border: 1px solid %BorderInput%;

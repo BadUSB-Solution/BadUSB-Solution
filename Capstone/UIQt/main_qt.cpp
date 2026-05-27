@@ -4,6 +4,7 @@
 #include <QFont>
 #include <QFontDatabase>
 #include <QIcon>
+#include <QSettings>
 #include <QStringList>
 
 #include "MainWindow.h"
@@ -71,7 +72,9 @@ int main(int argc, char* argv[])
     app.setQuitOnLastWindowClosed(false);
 
     MainWindow window;
-    window.show();
+    QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+    if (uiSettings.value(QStringLiteral("ui/showMainOnStartup"), true).toBool())
+        window.show();
 
     return app.exec();
 }
