@@ -4857,10 +4857,15 @@ QWidget* MainWindow::createPolicySummaryPage()
     contentLayout->setContentsMargins(4, 0, 4, 0);
     contentLayout->setSpacing(0);
 
+    // QSettings에서 로그 보관 기간 읽기
+    QSettings _policyUiS(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+    const int _retDays = _policyUiS.value(QStringLiteral("ui/logRetentionDays"), 30).toInt();
+    const QString _retLabel = _retDays <= 0 ? tr("영구 보관") : tr("%1일").arg(_retDays);
+
     const QList<QStringList> rows = {
         {tr("미등록 장치 동작"), tr("차단 및 알림"),   "policyDangerText"},
         {tr("행위 분석 임계값"), "8.0 / 10",           "policyValueText"},
-        {tr("로그 보관 기간"),   tr("30일"),               "policyValueText"},
+        {tr("로그 보관 기간"),   _retLabel,               "policyValueText"},
         {tr("실시간 모니터링"),  tr("사용 중"),         "policySuccessText"},
     };
     for (int i = 0; i < rows.size(); ++i) {
