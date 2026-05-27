@@ -2844,15 +2844,15 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
     // Header row
     {
         auto* headerRow = new QHBoxLayout;
-        auto* titleLbl = new QLabel("USB 목록");
+        auto* titleLbl = new QLabel(tr("USB 목록"));
         titleLbl->setFont(pretendardFont(FontRole::Bold));
         titleLbl->setObjectName("pageTitle");
         headerRow->addWidget(titleLbl);
         headerRow->addStretch();
-        headerRow->addWidget(makeSearchBox("장치명 또는 VID/PID 검색", 256));
+        headerRow->addWidget(makeSearchBox(tr("장치명 또는 VID/PID 검색"), 256));
         headerRow->addSpacing(8);
 
-        auto* filterBtn = new QPushButton("  필터");
+        auto* filterBtn = new QPushButton("  " + tr("필터"));
         filterBtn->setObjectName("secondaryButton");
         filterBtn->setFont(pretendardFont(FontRole::Medium));
         filterBtn->setIcon(QIcon(":/icons/action-filter.svg"));
@@ -2872,7 +2872,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
 
     // Table — rows are filled by refreshUsbTable(), not here
     usbTable_ = new QTableWidget(0, 6);
-    usbTable_->setHorizontalHeaderLabels({"장치명", "유형", "VID/PID", "상태", "정책", "마지막 확인"});
+    usbTable_->setHorizontalHeaderLabels({tr("장치명"), tr("유형"), tr("VID/PID"), tr("상태"), tr("정책"), tr("마지막 확인")});
     configureTable(usbTable_);
     usbTable_->setSelectionMode(QAbstractItemView::NoSelection);
     usbTable_->setFocusPolicy(Qt::NoFocus);
@@ -2895,7 +2895,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
     dcHeader->setFixedHeight(45);
     auto* dcHL = new QHBoxLayout(dcHeader);
     dcHL->setContentsMargins(16, 0, 16, 0);
-    dcHL->addWidget(label("장치 상세 정보", "cardTitle"));
+    dcHL->addWidget(label(tr("장치 상세 정보"), "cardTitle"));
     dcL->addWidget(dcHeader);
 
     auto* dcBody = new QWidget;
@@ -2968,7 +2968,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         usbDetStatusLbl_->setFont(pretendardFont(FontRole::Regular));
         sl->addWidget(usbDetStatusDot_);
         sl->addWidget(usbDetStatusLbl_);
-        addInfoRow("상태", sw);
+        addInfoRow(tr("상태"), sw);
     }
 
     // 적용 정책
@@ -2976,7 +2976,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         usbDetPolicyLbl_ = new QLabel("승인 대기");
         usbDetPolicyLbl_->setFont(pretendardFont(FontRole::SemiBold));
         applyCompactPolicyBadge(usbDetPolicyLbl_, "승인 대기");
-        addInfoRow("적용 정책", usbDetPolicyLbl_);
+        addInfoRow(tr("적용 정책"), usbDetPolicyLbl_);
     }
 
     // 유형
@@ -2984,7 +2984,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         usbDetTypeV_ = new QLabel("—");
         usbDetTypeV_->setObjectName("usbDetailValue");
         usbDetTypeV_->setFont(pretendardFont(FontRole::Regular));
-        addInfoRow("유형", usbDetTypeV_);
+        addInfoRow(tr("유형"), usbDetTypeV_);
     }
 
     // VID / PID
@@ -2992,7 +2992,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         usbDetVidV_ = new QLabel("—");
         usbDetVidV_->setObjectName("usbDetailVidBadge");
         usbDetVidV_->setFont(QFont("Consolas", 12));
-        addInfoRow("VID / PID", usbDetVidV_);
+        addInfoRow(tr("VID / PID"), usbDetVidV_);
     }
 
     // 마지막 연결
@@ -3000,7 +3000,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         usbDetLastV_ = new QLabel("—");
         usbDetLastV_->setObjectName("usbDetailValue");
         usbDetLastV_->setFont(pretendardFont(FontRole::Regular));
-        addInfoRow("마지막 연결", usbDetLastV_);
+        addInfoRow(tr("마지막 연결"), usbDetLastV_);
     }
 
     dcBL->addStretch();
@@ -3014,9 +3014,9 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         btn->setFixedHeight(36);
         return btn;
     };
-    usbAllowBtn_      = makeActionBtn("이 장치 허용", "usbAllowButton");
-    usbBlockBtn_      = makeActionBtn("이 장치 차단", "usbBlockButton");
-    usbRemoveRuleBtn_ = makeActionBtn("승인 대기로", "usbPendingButton");
+    usbAllowBtn_      = makeActionBtn(tr("이 장치 허용"), "usbAllowButton");
+    usbBlockBtn_      = makeActionBtn(tr("이 장치 차단"), "usbBlockButton");
+    usbRemoveRuleBtn_ = makeActionBtn(tr("승인 대기로"), "usbPendingButton");
     dcBL->addWidget(usbAllowBtn_);
     dcBL->addSpacing(8);
     dcBL->addWidget(usbBlockBtn_);
@@ -3070,7 +3070,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         enforceBlockedDeviceHook();
         Logger::Add(L"[Qt] Policy allow: " + toWString(r.name));
         r.policy = "허용";
-        usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("허용", "successBadge"));
+        usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell(tr("허용"), "successBadge"));
         applyUsbDetailPanel(usbSelectedRow_);
         showUsbActionFeedback(feedback, UiTheme::tokens().PrimaryText);
     });
@@ -3093,7 +3093,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         enforceBlockedDeviceHook();
         Logger::Add(L"[Qt] Policy block: " + toWString(r.name));
         r.policy = "차단";
-        usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("차단", "dangerBadge"));
+        usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell(tr("차단"), "dangerBadge"));
         applyUsbDetailPanel(usbSelectedRow_);
         showUsbActionFeedback(feedback, UiTheme::tokens().DangerAction);
     });
@@ -3140,9 +3140,9 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         }
 
         r.policy = "승인 대기";
-        usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell("승인 대기", "warningBadge"));
+        usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell(tr("승인 대기"), "warningBadge"));
         applyUsbDetailPanel(usbSelectedRow_);
-        showUsbActionFeedback("승인 대기 상태로 변경했습니다. 연결 중인 장치는 다시 검토합니다.", UiTheme::tokens().PrimaryText);
+        showUsbActionFeedback(tr("승인 대기 상태로 변경했습니다. 연결 중인 장치는 다시 검토합니다."), UiTheme::tokens().PrimaryText);
     });
 
     // Initial data fill
@@ -3238,10 +3238,29 @@ void MainWindow::refreshUsbTable()
         nl->addStretch();
         usbTable_->setCellWidget(r, 0, nameW);
 
-        usbTable_->setCellWidget(r, 1, makeUsbTextCell(row.type,    UiTheme::tokens().SubtextMid, pretendardFont(FontRole::Regular), 10));
+        auto translateType = [this](const QString& t) -> QString {
+            if (t == "입력 장치") return tr("입력 장치");
+            if (t == "키보드")   return tr("키보드");
+            if (t == "저장 장치") return tr("저장 장치");
+            if (t == "네트워크") return tr("네트워크");
+            if (t == "기타")     return tr("기타");
+            return tr("알 수 없음");
+        };
+        auto translateStatus = [this](const QString& s) -> QString {
+            if (s == "연결됨")   return tr("연결됨");
+            if (s == "해제됨")   return tr("연결 안됨");
+            return s;
+        };
+        auto translatePolicy = [this](const QString& p) -> QString {
+            if (p == "허용")     return tr("허용");
+            if (p == "차단")     return tr("차단");
+            if (p == "승인 대기") return tr("승인 대기");
+            return p;
+        };
+        usbTable_->setCellWidget(r, 1, makeUsbTextCell(translateType(row.type),    UiTheme::tokens().SubtextMid, pretendardFont(FontRole::Regular), 10));
         usbTable_->setCellWidget(r, 2, makeUsbTextCell(row.vidpid,  UiTheme::tokens().Subtext, QFont("Consolas", 12), 10));
-        usbTable_->setCellWidget(r, 3, makeUsbStatusCell(row.status));
-        usbTable_->setCellWidget(r, 4, makeBadgeCell(row.policy, policyBadge(row.policy)));
+        usbTable_->setCellWidget(r, 3, makeUsbStatusCell(translateStatus(row.status)));
+        usbTable_->setCellWidget(r, 4, makeBadgeCell(translatePolicy(row.policy), policyBadge(row.policy)));
         usbTable_->setCellWidget(r, 5, makeUsbTextCell(row.lastSeen, UiTheme::tokens().Subtext, pretendardFont(FontRole::Regular), 10));
     }
 
@@ -3277,15 +3296,15 @@ void MainWindow::applyUsbDetailPanel(int row)
     const bool hasDevice = r.fingerprint != 0;
     if (usbAllowBtn_) {
         usbAllowBtn_->setEnabled(hasDevice && r.policy != "허용");
-        usbAllowBtn_->setToolTip(r.policy == "허용" ? "이미 허용된 장치입니다." : "이 장치를 허용 목록에 등록합니다.");
+        usbAllowBtn_->setToolTip(r.policy == "허용" ? tr("이미 허용된 장치입니다.") : tr("이 장치를 허용 목록에 등록합니다."));
     }
     if (usbBlockBtn_) {
         usbBlockBtn_->setEnabled(hasDevice && r.policy != "차단");
-        usbBlockBtn_->setToolTip(r.policy == "차단" ? "이미 차단된 장치입니다." : "이 장치를 차단 목록에 등록합니다.");
+        usbBlockBtn_->setToolTip(r.policy == "차단" ? tr("이미 차단된 장치입니다.") : tr("이 장치를 차단 목록에 등록합니다."));
     }
     if (usbRemoveRuleBtn_) {
         usbRemoveRuleBtn_->setEnabled(hasDevice && r.policy != "승인 대기");
-        usbRemoveRuleBtn_->setToolTip(r.policy == "승인 대기" ? "이미 승인 대기 상태입니다." : "이 장치를 승인 대기 상태로 되돌립니다.");
+        usbRemoveRuleBtn_->setToolTip(r.policy == "승인 대기" ? tr("이미 승인 대기 상태입니다.") : tr("이 장치를 승인 대기 상태로 되돌립니다."));
     }
 
     // Row highlight
@@ -3350,7 +3369,7 @@ QWidget* MainWindow::createDashboardUsbListPage()
 
     const int displayCount = qMin(rows.size(), 4);
     auto* table = new QTableWidget(displayCount == 0 ? 1 : displayCount, 5);
-    table->setHorizontalHeaderLabels({"시간", "유형", "제조사", "장치 이름", "상태"});
+    table->setHorizontalHeaderLabels({tr("시간"), tr("유형"), tr("제조사"), tr("장치 이름"), tr("상태")});
     configureTable(table);
     table->verticalHeader()->setDefaultSectionSize(40);
     table->setSelectionMode(QAbstractItemView::NoSelection);
@@ -3360,19 +3379,22 @@ QWidget* MainWindow::createDashboardUsbListPage()
         table->setItem(0, 0, new QTableWidgetItem(""));
         table->setItem(0, 1, new QTableWidgetItem(""));
         table->setItem(0, 2, new QTableWidgetItem(""));
-        table->setItem(0, 3, new QTableWidgetItem("연결된 HID 장치 없음"));
+        table->setItem(0, 3, new QTableWidgetItem(tr("연결된 HID 장치 없음")));
         table->setItem(0, 4, new QTableWidgetItem(""));
     } else {
         for (int r = 0; r < displayCount; ++r) {
             const auto& row = rows[r];
             table->setItem(r, 0, new QTableWidgetItem(row.time));
-            table->setItem(r, 1, new QTableWidgetItem(row.type));
+            table->setItem(r, 1, new QTableWidgetItem(tr(row.type.toUtf8().constData())));
             table->setItem(r, 2, new QTableWidgetItem(row.mfr));
             table->setItem(r, 3, new QTableWidgetItem(row.name));
             const char* badge = row.policy == "허용" ? "successBadge"
                               : row.policy == "차단" ? "dangerBadge"
                               : "warningBadge";
-            table->setCellWidget(r, 4, makeBadgeCell(row.policy, badge));
+            const QString displayPolicy = row.policy == "허용" ? tr("허용")
+                                        : row.policy == "차단" ? tr("차단")
+                                        : tr("승인 대기");
+            table->setCellWidget(r, 4, makeBadgeCell(displayPolicy, badge));
         }
     }
     table->setMinimumHeight(170);
@@ -3382,8 +3404,8 @@ QWidget* MainWindow::createDashboardUsbListPage()
     auto* fl = new QHBoxLayout;
     fl->addWidget(label(
         rows.isEmpty()
-            ? "연결된 장치 없음"
-            : QString("총 %1개 중 %2개 표시").arg(rows.size()).arg(displayCount),
+            ? tr("연결된 장치 없음")
+            : tr("총 %1개 중 %2개 표시").arg(rows.size()).arg(displayCount),
         "mutedText"));
     fl->addStretch();
     layout->addLayout(fl);
