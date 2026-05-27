@@ -230,6 +230,7 @@ namespace UiTheme
             .replace(QStringLiteral("%Danger%"), QLatin1String(t.Danger))
             .replace(QStringLiteral("%DangerAction%"), QLatin1String(t.DangerAction))
             .replace(QStringLiteral("%DangerHover%"), QLatin1String(t.DangerHover))
+            .replace(QStringLiteral("%DangerText%"), QLatin1String(t.DangerText))
             .replace(QStringLiteral("%DangerSoft%"), QLatin1String(t.DangerSoft))
             .replace(QStringLiteral("%DangerBorder%"), QLatin1String(t.DangerBorder))
             .replace(QStringLiteral("%DangerBadgeText%"), QLatin1String(t.DangerBadgeText))
@@ -261,7 +262,8 @@ namespace UiTheme
     inline QString appStyle(ThemeMode mode)
     {
         const auto& t = tokens(mode);
-        return replaceTokens(QStringLiteral(R"(
+        QString qss;
+        qss += QStringLiteral(R"(
             * {
                 color: %Text%;
                 selection-background-color: %Primary%;
@@ -337,10 +339,61 @@ namespace UiTheme
             QLabel#policyDangerText { font-size: 13px; color: %Primary%; }
             QLabel#policyValueText { font-size: 14px; color: %TextDark%; }
             QLabel#policySuccessText { font-size: 14px; color: %Primary%; }
+            QLabel#protectionStatusTitle { font-size: 16px; color: %Text%; }
+            QWidget#protectionList { background: %White%; border: none; }
+            QWidget#protectionRow {
+                background: %White%;
+                border-bottom: 1px solid %Border%;
+            }
+            QWidget#protectionRow[last="true"] { border: none; }
+            QScrollArea#protectionScrollArea {
+                background: %White%;
+                border: none;
+            }
+            QScrollArea#protectionScrollArea > QWidget > QWidget {
+                background: %White%;
+            }
+            QScrollArea#protectionScrollArea QScrollBar:vertical {
+                background: %White%; width: 6px; margin: 0;
+            }
+            QScrollArea#protectionScrollArea QScrollBar::handle:vertical {
+                background: %PrimarySoftBorder%; border-radius: 3px; min-height: 24px;
+            }
+            QScrollArea#protectionScrollArea QScrollBar::add-line:vertical,
+            QScrollArea#protectionScrollArea QScrollBar::sub-line:vertical {
+                height: 0;
+            }
+            QScrollArea#protectionScrollArea QScrollBar::add-page:vertical,
+            QScrollArea#protectionScrollArea QScrollBar::sub-page:vertical {
+                background: %White%;
+            }
+            QWidget#policySummaryLine { background: transparent; border: none; }
+            QScrollArea#policySummaryScrollArea {
+                background: %White%;
+                border: none;
+            }
+            QScrollArea#policySummaryScrollArea > QWidget > QWidget {
+                background: %White%;
+            }
+            QScrollArea#policySummaryScrollArea QScrollBar:vertical {
+                background: %White%; width: 6px; margin: 0;
+            }
+            QScrollArea#policySummaryScrollArea QScrollBar::handle:vertical {
+                background: %PrimarySoftBorder%; border-radius: 3px; min-height: 24px;
+            }
+            QScrollArea#policySummaryScrollArea QScrollBar::add-line:vertical,
+            QScrollArea#policySummaryScrollArea QScrollBar::sub-line:vertical {
+                height: 0;
+            }
+            QScrollArea#policySummaryScrollArea QScrollBar::add-page:vertical,
+            QScrollArea#policySummaryScrollArea QScrollBar::sub-page:vertical {
+                background: %White%;
+            }
 
             QLabel#successBadge {
-                padding: 3px 8px; border-radius: 6px; background: %PrimarySoft%;
-                color: %PrimaryText%; border: 1px solid %PrimarySoftBorder%; font-size: 11px;
+                padding: 0; border-radius: 6px; background: %PrimarySoft%;
+                color: %PrimaryText%; border: 1px solid %PrimarySoftBorder%;
+                font-size: 11px; font-weight: 700;
             }
             QLabel#protectionOnBadge {
                 min-width: 48px; max-width: 48px; min-height: 28px; max-height: 28px;
@@ -348,27 +401,35 @@ namespace UiTheme
                 color: %PrimaryText%; border: 1px solid %PrimarySoftBorder%; font-size: 11px;
             }
             QLabel#dangerBadge, QLabel#blockBadge {
-                padding: 3px 8px; border-radius: 6px; background: %DangerSoft%;
-                color: %DangerBadgeText%; border: 1px solid %DangerBorder%; font-size: 11px;
+                padding: 0; border-radius: 6px; background: %DangerSoft%;
+                color: %DangerBadgeText%; border: 1px solid %DangerBorder%;
+                font-size: 11px; font-weight: 700;
             }
             QLabel#warningBadge {
-                padding: 3px 8px; border-radius: 6px; background: %WarningSoft%;
-                color: %WarningText%; border: 1px solid %WarningBorder%; font-size: 11px;
+                padding: 0; border-radius: 6px; background: %WarningSoft%;
+                color: %WarningText%; border: 1px solid %WarningBorder%;
+                font-size: 11px; font-weight: 700;
             }
             QLabel#neutralBadge {
                 padding: 3px 8px; border-radius: 6px; background: %NeutralSoft%;
                 color: %TextMid%; border: 1px solid %BorderInput%; font-size: 11px;
             }
+        )");
+        qss += QStringLiteral(R"(
 
             QTableWidget {
                 background: %White%; border: none; gridline-color: %Border%;
                 selection-background-color: %PrimarySoft%; selection-color: %Text%;
                 font-size: 13px; alternate-background-color: %Surface%;
             }
-            QTableWidget::item { border: none; padding: 0 8px; }
+            QTableWidget::viewport { background: %White%; }
+            QTableWidget::item { border: none; padding: 0 8px; background: %White%; }
+            QWidget#tableCell { background: %White%; border: none; }
+            QWidget#tableCell[selected="true"] { background: %White%; border: none; }
             QHeaderView::section {
                 background: %Surface%; color: %Subtext%; border: none;
-                border-bottom: 1px solid %Border%; padding: 10px 12px; font-size: 12px;
+                border-bottom: 1px solid %Border%; padding: 10px 12px;
+                font-family: "Pretendard"; font-size: 13px; font-weight: 600;
             }
             QScrollBar:vertical {
                 background: transparent; width: 10px; margin: 2px;
@@ -384,22 +445,71 @@ namespace UiTheme
             QPushButton#primaryButton {
                 min-height: 36px; padding: 0 16px; border-radius: 8px;
                 background: %Primary%; color: #FFFFFF; border: none;
+                font-size: 14px; font-weight: 600;
             }
             QPushButton#primaryButton:hover { background: %PrimaryHover%; }
             QPushButton#secondaryButton {
                 min-height: 38px; padding: 0 18px; border-radius: 8px;
-                background: %White%; color: %TextMid%; border: 1px solid %Border%;
+                background: %InputBg%; color: %TextMid%; border: 1px solid %BorderInput%;
+                font-size: 14px; font-weight: 600;
             }
-            QPushButton#secondaryButton:hover { background: %HoverSurface%; }
+            QPushButton#secondaryButton:hover { background: %HoverSurface%; color: %Text%; }
+            QPushButton#usbAllowButton {
+                min-height: 36px; padding: 0 16px; border-radius: 8px;
+                background: %Primary%; color: #FFFFFF; border: none;
+                font-size: 14px; font-weight: 600;
+            }
+            QPushButton#usbAllowButton:hover { background: %PrimaryHover%; }
+            QPushButton#usbBlockButton {
+                min-height: 36px; padding: 0 16px; border-radius: 8px;
+                background: %DangerAction%; color: #FFFFFF; border: none;
+                font-size: 14px; font-weight: 600;
+            }
+            QPushButton#usbBlockButton:hover { background: %DangerHover%; }
+            QPushButton#usbPendingButton {
+                min-height: 36px; padding: 0 16px; border-radius: 8px;
+                background: %InputBg%; color: %TextMid%; border: 1px solid %BorderInput%;
+                font-size: 14px; font-weight: 600;
+            }
+            QPushButton#usbPendingButton:hover { background: %HoverSurface%; color: %Text%; }
+            QPushButton#usbAllowButton:disabled,
+            QPushButton#usbBlockButton:disabled,
+            QPushButton#usbPendingButton:disabled {
+                background: %SurfaceAlt%; color: %TextMuted%; border: 1px solid %Border%;
+            }
             QPushButton#bufferButton {
                 min-height: 40px; padding: 0 18px; border-radius: 8px;
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                                            stop:0 %PrimaryHover%, stop:1 %Primary%);
-                color: #FFFFFF; border: none; font-size: 14px;
+                background: %Primary%;
+                color: #FFFFFF; border: none; font-size: 14px; font-weight: 600;
             }
             QPushButton#bufferButton:hover { background: %PrimaryHover%; }
 
             QFrame#themeToggle { background: %Surface%; border: 1px solid %Border%; border-radius: 17px; }
+            QFrame#themeSegmentGroup {
+                background: %SurfaceAlt%;
+                border: 1px solid %BorderInput%;
+                border-radius: 12px;
+            }
+            QPushButton#themeSegment {
+                min-height: 36px;
+                max-height: 36px;
+                padding: 0 14px;
+                border: none;
+                border-radius: 9px;
+                background: transparent;
+                color: %SubtextMid%;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            QPushButton#themeSegment:hover {
+                color: %Text%;
+                background: %HoverSurface%;
+            }
+            QPushButton#themeSegment:checked {
+                background: %White%;
+                color: %TextDark%;
+                border: 1px solid %Border%;
+            }
             QLabel#notificationBadge {
                 background: %Primary%; color: #FFFFFF; border-radius: 7px; font-size: 10px; padding: 0 4px;
             }
@@ -408,9 +518,269 @@ namespace UiTheme
                 padding: 6px 12px; color: %SubtextMid%; font-size: 13px;
             }
 
-            QLabel#sectionHeading { font-size: 14px; color: %Text%; }
+            QLabel#sectionHeading { font-size: 15px; color: %TextDark%; }
+            QFrame#usbDetailIconBox { border: none; background: transparent; }
+            QLabel#usbDetailName { font-size: 16px; color: %Text%; }
+            QLabel#usbDetailMfr { font-size: 12px; color: %Subtext%; }
+            QWidget#usbDetailInfoRow {
+                background: transparent;
+                border-bottom: 1px solid %Border%;
+            }
+            QLabel#usbDetailInfoLabel {
+                color: %Subtext%;
+                font-size: 13px;
+                border: none;
+                background: transparent;
+            }
+            QWidget#usbDetailStatusWrap { background: transparent; border: none; }
+            QFrame#usbDetailStatusDot {
+                background: %BorderInput%;
+                border-radius: 4px;
+                border: none;
+            }
+            QFrame#usbDetailStatusDot[connected="true"] {
+                background: %Success%;
+            }
+            QLabel#usbDetailStatusText {
+                color: %SubtextMid%;
+                font-size: 14px;
+                border: none;
+                background: transparent;
+            }
+            QLabel#usbDetailValue {
+                color: %Text%;
+                font-size: 13px;
+                border: none;
+                background: transparent;
+            }
+            QLabel#usbDetailVidBadge {
+                background: %InputBg%;
+                border: 1px solid %BorderInput%;
+                border-radius: 6px;
+                color: %TextMid%;
+                padding: 2px 6px;
+            }
+            QLabel#usbActionFeedback {
+                color: %Subtext%;
+                font-size: 12px;
+                background: transparent;
+                border: none;
+            }
+            QLabel#usbActionFeedback[tone="primary"] { color: %PrimaryText%; }
+            QLabel#usbActionFeedback[tone="danger"] { color: %DangerAction%; }
+            QWidget#detailPanelHeader {
+                background: %Surface%;
+                border-bottom: 1px solid %Border%;
+            }
+            QLabel#detailEventTitle { font-size: 18px; color: %Text%; }
+            QLabel#detailEventTime { font-size: 12px; color: %Subtext%; }
+            QLabel#detailSectionLabel { font-size: 12px; color: %Subtext%; }
+            QLabel#detailDeviceBadge {
+                background: %InputBg%; border: 1px solid %BorderInput%;
+                border-radius: 6px; padding: 5px 8px; font-size: 13px; color: %TextMid%;
+            }
+            QLabel#detailDescription { font-size: 14px; color: %Text%; }
+            QLabel#detailUserValue { font-size: 14px; color: %Text%; }
+            QFrame#detailActionCard { background: transparent; border: none; }
+            QLabel#detailActionTitle {
+                font-size: 13px; color: %Danger%; background: transparent; border: none;
+            }
+            QLabel#detailActionDesc {
+                font-size: 13px; color: %TextMid%; background: transparent; border: none;
+            }
+            QFrame#detailButtonArea { border-top: 1px solid %Border%; }
+            QLabel#policySummaryLabel { font-size: 14px; color: %SubtextMid%; }
+            QLabel#policySummaryValue { font-size: 14px; color: %Text%; }
+            QLabel#settingsWarningBadge {
+                background: %WarningSoft%; color: %WarningText%; border: 1px solid %WarningBorder%;
+                border-radius: 7px; font-size: 11px; padding: 0; font-weight: 700;
+            }
+            QLabel#settingsSuccessBadge {
+                background: %PrimarySoft%; color: %PrimaryText%; border: 1px solid %PrimarySoftBorder%;
+                border-radius: 7px; font-size: 11px; padding: 0; font-weight: 700;
+            }
+        )");
+        qss += QStringLiteral(R"(
             QLabel#systemInfoLabel { font-size: 12px; color: %Subtext%; }
             QLabel#systemInfoValue { font-size: 14px; color: %Text%; }
+            QFrame#usbStatusDot {
+                background: %BorderInput%;
+                border-radius: 4px;
+                border: none;
+            }
+            QFrame#usbStatusDot[connected="true"] {
+                background: %Success%;
+            }
+            QLabel#usbStatusText {
+                color: %SubtextMid%;
+                font-size: 14px;
+                border: none;
+                background: transparent;
+            }
+            QLabel#usbCellText {
+                color: %TextDark%;
+                font-size: 14px;
+                font-weight: 600;
+                border: none;
+                background: transparent;
+            }
+            QLabel#usbCellMutedText {
+                color: %TextMid%;
+                font-size: 14px;
+                border: none;
+                background: transparent;
+            }
+            QLabel#usbDeviceName {
+                color: %TextDark%;
+                font-size: 14px;
+                font-weight: 700;
+                border: none;
+                background: transparent;
+            }
+            QLabel#sessionSectionLabel {
+                color: %TextDark%;
+                font-size: 13px;
+                font-weight: 700;
+                background: transparent;
+                border: none;
+            }
+            QLabel#sessionKeyLabel {
+                color: %SubtextMid%;
+                font-size: 13px;
+                background: transparent;
+                border: none;
+            }
+            QLabel#sessionValueLabel {
+                color: %TextMid%;
+                font-size: 13px;
+                font-weight: 600;
+                background: transparent;
+                border: none;
+            }
+            QLabel#sessionDangerValue {
+                color: %DangerText%;
+                font-size: 13px;
+                font-weight: 700;
+                background: transparent;
+                border: none;
+            }
+            QFrame#sessionWarningBanner {
+                background: transparent;
+                border: none;
+            }
+            QLabel#sessionWarningIcon {
+                color: %Warning%;
+                font-size: 14px;
+                background: transparent;
+                border: none;
+            }
+            QLabel#sessionWarningTitle {
+                color: %WarningText%;
+                font-size: 13px;
+                background: transparent;
+                border: none;
+            }
+            QLabel#sessionWarningDesc {
+                color: %WarningText%;
+                font-size: 12px;
+                background: transparent;
+                border: none;
+            }
+            QLabel#logTextMuted {
+                color: %Subtext%;
+                font-size: 14px;
+                border: none;
+                background: transparent;
+            }
+            QLabel#logTextMid {
+                color: %SubtextMid%;
+                font-size: 14px;
+                border: none;
+                background: transparent;
+            }
+            QLabel#logEventText {
+                color: %Text%;
+                font-size: 14px;
+                border: none;
+                background: transparent;
+            }
+            QLabel#logCellIcon { background: transparent; border: none; }
+            QLabel#helpH2 {
+                color: %TextDark%;
+                font-size: 20px;
+                font-weight: 700;
+                background: transparent;
+                border: none;
+            }
+            QLabel#helpH3 {
+                color: %TextDark%;
+                font-size: 18px;
+                font-weight: 700;
+                background: transparent;
+                border: none;
+            }
+            QLabel#helpPara, QLabel#helpBulletText {
+                color: %TextMid%;
+                font-size: 14px;
+                background: transparent;
+                border: none;
+            }
+            QLabel#helpBulletDot {
+                color: %SubtextMid%;
+                font-size: 16px;
+                background: transparent;
+                border: none;
+            }
+            QFrame#helpNote {
+                background: %PrimarySoft%;
+                border: 1px solid %PrimarySoftBorder%;
+                border-radius: 8px;
+            }
+            QLabel#helpNoteText {
+                color: %PrimaryText%;
+                font-size: 14px;
+                background: transparent;
+                border: none;
+            }
+            QWidget#helpNavItem {
+                background: transparent;
+                border-radius: 8px;
+            }
+            QWidget#helpNavItem[active="true"] {
+                background: %PrimarySoft%;
+            }
+            QLabel#helpNavCategory {
+                color: %TextMuted%;
+                font-size: 10px;
+                background: transparent;
+                border: none;
+            }
+            QLabel#helpNavCategory[active="true"] {
+                color: %PrimaryText%;
+            }
+            QLabel#helpNavTitle {
+                color: %TextMid%;
+                font-size: 14px;
+                background: transparent;
+                border: none;
+            }
+            QLabel#helpNavTitle[active="true"] {
+                color: %PrimaryText%;
+                font-weight: 700;
+            }
+            QLabel#helpNavChevron {
+                color: transparent;
+                font-size: 16px;
+                background: transparent;
+                border: none;
+            }
+            QLabel#helpNavChevron[active="true"] {
+                color: %PrimaryText%;
+            }
+            QWidget#helpNavFooter {
+                background: %Surface%;
+                border-top: 1px solid %Border%;
+            }
 
             QPushButton#settingsTab {
                 min-height: 34px; padding: 2px 6px 0px 6px; border: none;
@@ -433,6 +803,20 @@ namespace UiTheme
             QLineEdit#searchInput, QLineEdit {
                 height: 36px; padding-left: 8px; border: 1px solid %BorderInput%;
                 border-radius: 8px; background: %InputBg%; font-size: 14px; color: %Text%;
+            }
+            QWidget#searchBox {
+                background: %InputBg%;
+                border: 1px solid %BorderInput%;
+                border-radius: 8px;
+            }
+            QWidget#searchBox QLineEdit#searchInput {
+                height: 34px;
+                padding-left: 0;
+                border: none;
+                border-radius: 0;
+                background: transparent;
+                font-size: 14px;
+                color: %Text%;
             }
             QLineEdit:focus { border-color: %Primary%; }
 
@@ -458,7 +842,8 @@ namespace UiTheme
             QSpinBox#numberInput::up-button, QSpinBox#numberInput::down-button {
                 width: 0px;
             }
-        )"), t).replace(QStringLiteral("%NeutralSoft%"), QLatin1String(t.NeutralSoft));
+        )");
+        return replaceTokens(qss, t).replace(QStringLiteral("%NeutralSoft%"), QLatin1String(t.NeutralSoft));
     }
 
     inline QString appStyle()

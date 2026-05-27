@@ -2,6 +2,7 @@
 #include "MainWindow.h"
 #include "Theme.h"
 
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
@@ -12,6 +13,7 @@
 #include <QDialog>
 #include <QFrame>
 #include <QFont>
+#include <QFontDatabase>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QIcon>
@@ -787,7 +789,9 @@ namespace
 
     QFont pretendardFont(FontRole role)
     {
-        QString family = QApplication::font().family();
+        QString family = QStringLiteral("Pretendard");
+        if (!QFontDatabase::families().contains(family))
+            family = QApplication::font().family();
         if (family.isEmpty())
             family = QStringLiteral("Pretendard");
         QFont f(family);
@@ -853,10 +857,11 @@ namespace
     void setCellWidgetBackground(QWidget* widget, const QColor& color)
     {
         if (!widget) return;
-        widget->setAutoFillBackground(true);
-        QPalette pal = widget->palette();
-        pal.setColor(QPalette::Window, color);
-        widget->setPalette(pal);
+        widget->setObjectName("tableCell");
+        widget->setProperty("selected", color != UiTheme::color(UiTheme::tokens().White));
+        widget->style()->unpolish(widget);
+        widget->style()->polish(widget);
+        widget->update();
     }
 
     QColor cellBackground()
@@ -866,7 +871,13 @@ namespace
 
     QColor selectedCellBackground()
     {
-        return UiTheme::isDark() ? QColor("#12294A") : QColor(255, 247, 237);
+        return cellBackground();
+    }
+
+    QSize policyBadgeSize(const QString& text)
+    {
+        const bool compact = text == QStringLiteral("허용") || text == QStringLiteral("차단");
+        return compact ? QSize(48, 26) : QSize(76, 26);
     }
 
     QString themedLabelStyle(const char* color, int size = 14)
@@ -898,13 +909,14 @@ namespace
         badge->setObjectName(badgeName);
         badge->setAlignment(Qt::AlignCenter);
         badge->setFont(pretendardFont(FontRole::SemiBold));
+        badge->setFixedSize(policyBadgeSize(text));
         badge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         badge->setAttribute(Qt::WA_TransparentForMouseEvents);
         auto* container = new QWidget;
         container->setAttribute(Qt::WA_TransparentForMouseEvents);
         setCellWidgetBackground(container, cellBackground());
         auto* l = new QHBoxLayout(container);
-        l->setContentsMargins(10, 0, 10, 0);
+        l->setContentsMargins(6, 0, 6, 0);
         l->addWidget(badge, 0, Qt::AlignLeft | Qt::AlignVCenter);
         l->addStretch();
         return container;
@@ -916,12 +928,11 @@ namespace
 
         const bool isAllow = text == QStringLiteral("허용");
         const bool isBlock = text == QStringLiteral("차단");
-        const int badgeWidth = (isAllow || isBlock) ? 42 : 64;
 
         badge->setText(text);
         badge->setObjectName(isAllow ? "successBadge" : (isBlock ? "dangerBadge" : "warningBadge"));
         badge->setAlignment(Qt::AlignCenter);
-        badge->setFixedSize(badgeWidth, 24);
+        badge->setFixedSize(policyBadgeSize(text));
         badge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         badge->style()->unpolish(badge);
         badge->style()->polish(badge);
@@ -943,13 +954,13 @@ namespace
         l->setContentsMargins(10, 0, 6, 0);
         l->setSpacing(6);
         auto* dot = new QFrame;
+        dot->setObjectName("usbStatusDot");
+        dot->setProperty("connected", status == "연결됨");
         dot->setFixedSize(8, 8);
-        dot->setStyleSheet(QString("QFrame { background: %1; border-radius: 4px; border: none; }")
-            .arg(status == "연결됨" ? QLatin1String(UiTheme::tokens().Success) : QLatin1String(UiTheme::tokens().BorderInput)));
         auto* txt = new QLabel(status);
+        txt->setObjectName("usbStatusText");
         txt->setAttribute(Qt::WA_TransparentForMouseEvents);
         txt->setFont(pretendardFont(FontRole::Regular));
-        txt->setStyleSheet(themedLabelStyle(UiTheme::tokens().SubtextMid));
         l->addWidget(dot);
         l->addWidget(txt);
         l->addStretch();
@@ -965,9 +976,10 @@ namespace
         l->setContentsMargins(leftPadding, 0, 8, 0);
         l->setSpacing(0);
         auto* txt = new QLabel(text);
+        const auto& t = UiTheme::tokens();
+        txt->setObjectName(color == QLatin1String(t.Text) ? "usbCellText" : "usbCellMutedText");
         txt->setAttribute(Qt::WA_TransparentForMouseEvents);
         txt->setFont(font);
-        txt->setStyleSheet(QString("QLabel { color: %1; font-size: 14px; border: none; background: transparent; }").arg(color));
         l->addWidget(txt);
         l->addStretch();
         return w;
@@ -977,10 +989,9 @@ namespace
     QWidget* makeSearchBox(const QString& placeholder, int w = 256)
     {
         auto* box = new QWidget;
+        box->setObjectName("searchBox");
         box->setFixedHeight(38);
         if (w > 0) box->setFixedWidth(w);
-        box->setStyleSheet(QString("QWidget { background: %1; border: 1px solid %2; border-radius: 8px; }")
-            .arg(UiTheme::tokens().InputBg, UiTheme::tokens().BorderInput));
         auto* bl = new QHBoxLayout(box);
         bl->setContentsMargins(10, 0, 10, 0);
         bl->setSpacing(6);
@@ -993,8 +1004,6 @@ namespace
         input->setPlaceholderText(placeholder);
         input->setFont(pretendardFont(FontRole::Regular));
         input->setFrame(false);
-        input->setStyleSheet(QString("QLineEdit { background: transparent; border: none; font-size: 14px; color: %1; }")
-            .arg(UiTheme::tokens().Text));
         bl->addWidget(input, 1);
         return box;
     }
@@ -2219,24 +2228,11 @@ MainWindow::MainWindow(QWidget* parent)
     bellContainer->setFixedSize(38, 38);
     bellContainer->setStyleSheet("background: transparent;");
     auto* bellBtn = new QPushButton(bellContainer);
+    bellBtn->setObjectName("iconButton");
     bellBtn->setFlat(true);
     bellBtn->setIcon(QIcon(":/icons/ui-alert.svg"));
     bellBtn->setIconSize(QSize(16, 16));
     bellBtn->setGeometry(2, 2, 34, 34);
-    bellBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "  border-radius: 17px;"
-        "  border: 1px solid %1;"
-        "  background: %2;"
-        "}"
-        "QPushButton:hover { background: %3; }"
-        "QPushButton:pressed { background: %1; }"
-    ).arg(UiTheme::tokens().Border, UiTheme::tokens().Surface, UiTheme::tokens().SurfaceAlt));
-    auto* bellBadge = new QLabel("2", bellContainer);
-    bellBadge->setObjectName("notificationBadge");
-    bellBadge->setFixedSize(16, 16);
-    bellBadge->setAlignment(Qt::AlignCenter);
-    bellBadge->move(22, 0);
     topbarLayout->addWidget(bellContainer);
 
     auto* userLayout = new QHBoxLayout;
@@ -2618,7 +2614,7 @@ QWidget* MainWindow::createDashboardPage()
             auto* spText = new QVBoxLayout;
             spText->setSpacing(2);
             auto* spTitle = label("시스템 보호 정상", "cardTitle");
-            spTitle->setStyleSheet(QString("font-size: 16px; color: %1;").arg(UiTheme::tokens().SubtextMid));
+            spTitle->setObjectName("protectionStatusTitle");
             spText->addWidget(spTitle);
             spText->addWidget(label("모든 보안 모듈이 정상적으로 동작 중입니다.", "pageSubtitle"));
             spL->addLayout(spText);
@@ -2630,19 +2626,14 @@ QWidget* MainWindow::createDashboardPage()
 
             auto* protList = new QWidget;
             protList->setObjectName("protectionList");
-            protList->setStyleSheet(QString("QWidget#protectionList { background: %1; }").arg(UiTheme::tokens().White));
             auto* protLayout = new QVBoxLayout(protList);
             protLayout->setContentsMargins(0, 0, 0, 0);
             protLayout->setSpacing(4);
             for (int ri = 0; ri < protRows.size(); ++ri) {
                 auto* lineW = new QWidget;
                 lineW->setObjectName("protectionRow");
+                lineW->setProperty("last", ri == protRows.size() - 1);
                 lineW->setFixedHeight(46);
-                lineW->setStyleSheet(ri < protRows.size() - 1
-                    ? QString("QWidget#protectionRow { background: %1; border-bottom: 1px solid %2; }")
-                      .arg(UiTheme::tokens().White, UiTheme::tokens().SurfaceAlt)
-                    : QString("QWidget#protectionRow { background: %1; border: none; }")
-                      .arg(UiTheme::tokens().White));
                 auto* lineL = new QHBoxLayout(lineW);
                 lineL->setContentsMargins(0, 3, 10, 3);
                 lineL->setSpacing(10);
@@ -2662,14 +2653,6 @@ QWidget* MainWindow::createDashboardPage()
             scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
             scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
             scrollArea->setFixedHeight(4 * 50);
-            scrollArea->setStyleSheet(QString(
-                "QScrollArea#protectionScrollArea { background: %1; border: none; }"
-                "QScrollArea#protectionScrollArea > QWidget > QWidget { background: %1; }"
-                "QScrollBar:vertical { background: %1; width: 6px; margin: 0; }"
-                "QScrollBar::handle:vertical { background: %2; border-radius: 3px; min-height: 24px; }"
-                "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
-                "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: %1; }"
-            ).arg(UiTheme::tokens().White, UiTheme::tokens().PrimarySoftBorder));
             bl->addWidget(scrollArea, 0);
             bodyRow->addWidget(createCard("보호 상태 개요", body), 1);
         }
@@ -2853,7 +2836,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
     usbTable_->setColumnWidth(1, 90);
     usbTable_->setColumnWidth(2, 110);
     usbTable_->setColumnWidth(3, 100);
-    usbTable_->setColumnWidth(4, 90);
+    usbTable_->setColumnWidth(4, 110);
     usbTable_->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
 
     // Right: detail card (340px) — widget pointers saved to members
@@ -2881,8 +2864,8 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         auto* devRow = new QHBoxLayout;
         devRow->setSpacing(12);
         auto* iconBox = new QFrame;
+        iconBox->setObjectName("usbDetailIconBox");
         iconBox->setFixedSize(42, 42);
-        iconBox->setStyleSheet("QFrame { border: none; background: transparent; }");
         auto* iconBoxL = new QHBoxLayout(iconBox);
         iconBoxL->setContentsMargins(0, 0, 0, 0);
         auto* devIconLbl = new QLabel;
@@ -2894,11 +2877,11 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         auto* nameBox = new QVBoxLayout;
         nameBox->setSpacing(2);
         usbDetName_ = new QLabel("—");
+        usbDetName_->setObjectName("usbDetailName");
         usbDetName_->setFont(pretendardFont(FontRole::Bold));
-        usbDetName_->setStyleSheet(QString("QLabel { font-size: 16px; color: %1; }").arg(UiTheme::tokens().Text));
         usbDetMfr_ = new QLabel("—");
+        usbDetMfr_->setObjectName("usbDetailMfr");
         usbDetMfr_->setFont(pretendardFont(FontRole::Regular));
-        usbDetMfr_->setStyleSheet(QString("QLabel { font-size: 12px; color: %1; }").arg(UiTheme::tokens().Subtext));
         nameBox->addWidget(usbDetName_);
         nameBox->addWidget(usbDetMfr_);
 
@@ -2911,13 +2894,13 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
 
     auto addInfoRow = [&](const QString& labelStr, QWidget* valueW) {
         auto* row = new QWidget;
-        row->setStyleSheet(QString("QWidget { border-bottom: 1px solid %1; background: transparent; }").arg(UiTheme::tokens().SurfaceAlt));
+        row->setObjectName("usbDetailInfoRow");
         auto* rl = new QHBoxLayout(row);
         rl->setContentsMargins(0, 10, 0, 10);
         rl->setSpacing(0);
         auto* lbl = new QLabel(labelStr);
+        lbl->setObjectName("usbDetailInfoLabel");
         lbl->setFont(pretendardFont(FontRole::Medium));
-        lbl->setStyleSheet(QString("QLabel { color: %1; font-size: 13px; border: none; }").arg(UiTheme::tokens().Subtext));
         lbl->setFixedWidth(100);
         rl->addWidget(lbl);
         rl->addWidget(valueW);
@@ -2928,16 +2911,17 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
     // 상태
     {
         auto* sw = new QWidget;
-        sw->setStyleSheet("QWidget { background: transparent; }");
+        sw->setObjectName("usbDetailStatusWrap");
         auto* sl = new QHBoxLayout(sw);
         sl->setContentsMargins(0, 0, 0, 0);
         sl->setSpacing(6);
         usbDetStatusDot_ = new QFrame;
+        usbDetStatusDot_->setObjectName("usbDetailStatusDot");
+        usbDetStatusDot_->setProperty("connected", false);
         usbDetStatusDot_->setFixedSize(8, 8);
-        usbDetStatusDot_->setStyleSheet(QString("QFrame { background: %1; border-radius: 4px; border: none; }").arg(UiTheme::tokens().BorderInput));
         usbDetStatusLbl_ = new QLabel("—");
+        usbDetStatusLbl_->setObjectName("usbDetailStatusText");
         usbDetStatusLbl_->setFont(pretendardFont(FontRole::Regular));
-        usbDetStatusLbl_->setStyleSheet(QString("QLabel { color: %1; font-size: 14px; border: none; background: transparent; }").arg(UiTheme::tokens().SubtextMid));
         sl->addWidget(usbDetStatusDot_);
         sl->addWidget(usbDetStatusLbl_);
         addInfoRow("상태", sw);
@@ -2954,33 +2938,32 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
     // 유형
     {
         usbDetTypeV_ = new QLabel("—");
+        usbDetTypeV_->setObjectName("usbDetailValue");
         usbDetTypeV_->setFont(pretendardFont(FontRole::Regular));
-        usbDetTypeV_->setStyleSheet(QString("QLabel { color: %1; font-size: 13px; border: none; background: transparent; }").arg(UiTheme::tokens().Text));
         addInfoRow("유형", usbDetTypeV_);
     }
 
     // VID / PID
     {
         usbDetVidV_ = new QLabel("—");
+        usbDetVidV_->setObjectName("usbDetailVidBadge");
         usbDetVidV_->setFont(QFont("Consolas", 12));
-        usbDetVidV_->setStyleSheet(QString("QLabel { background: %1; border: 1px solid %2; border-radius: 6px; color: %3; padding: 2px 6px; }")
-                                    .arg(UiTheme::tokens().Surface, UiTheme::tokens().Border, UiTheme::tokens().TextMid));
         addInfoRow("VID / PID", usbDetVidV_);
     }
 
     // Serial No.
     {
         auto* v = new QLabel("N/A");
+        v->setObjectName("usbDetailValue");
         v->setFont(pretendardFont(FontRole::Regular));
-        v->setStyleSheet(QString("QLabel { color: %1; font-size: 13px; border: none; background: transparent; }").arg(UiTheme::tokens().Text));
         addInfoRow("Serial No.", v);
     }
 
     // 마지막 연결
     {
         usbDetLastV_ = new QLabel("—");
+        usbDetLastV_->setObjectName("usbDetailValue");
         usbDetLastV_->setFont(pretendardFont(FontRole::Regular));
-        usbDetLastV_->setStyleSheet(QString("QLabel { color: %1; font-size: 13px; border: none; background: transparent; }").arg(UiTheme::tokens().Text));
         addInfoRow("마지막 연결", usbDetLastV_);
     }
 
@@ -2988,22 +2971,16 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
     dcBL->addWidget(makeDivider());
     dcBL->addSpacing(16);
 
-    auto makeActionBtn = [](const QString& text, const QString& bg, const QString& hoverBg,
-                            const QString& fg, const QString& border) {
+    auto makeActionBtn = [](const QString& text, const QString& objectName) {
         auto* btn = new QPushButton(text);
+        btn->setObjectName(objectName);
         btn->setFont(pretendardFont(FontRole::Medium));
         btn->setFixedHeight(36);
-        btn->setStyleSheet(QString(
-            "QPushButton { background: %1; color: %2; border-radius: 8px; border: %3; font-size: 14px; }"
-            "QPushButton:hover { background: %4; }"
-            "QPushButton:disabled { background: %5; color: %6; border: 1px solid %7; }"
-        ).arg(bg, fg, border, hoverBg,
-              UiTheme::tokens().SurfaceAlt, UiTheme::tokens().TextMuted, UiTheme::tokens().Border));
         return btn;
     };
-    usbAllowBtn_      = makeActionBtn("이 장치 허용",   UiTheme::tokens().Primary, UiTheme::tokens().PrimaryHover, "#FFFFFF", "none");
-    usbBlockBtn_      = makeActionBtn("이 장치 차단",   UiTheme::tokens().DangerAction, UiTheme::tokens().DangerHover, "#FFFFFF", "none");
-    usbRemoveRuleBtn_ = makeActionBtn("승인 대기로", UiTheme::tokens().White, UiTheme::tokens().Surface, UiTheme::tokens().Subtext, QString("1px solid %1").arg(UiTheme::tokens().Border).toUtf8().constData());
+    usbAllowBtn_      = makeActionBtn("이 장치 허용", "usbAllowButton");
+    usbBlockBtn_      = makeActionBtn("이 장치 차단", "usbBlockButton");
+    usbRemoveRuleBtn_ = makeActionBtn("승인 대기로", "usbPendingButton");
     dcBL->addWidget(usbAllowBtn_);
     dcBL->addSpacing(8);
     dcBL->addWidget(usbBlockBtn_);
@@ -3011,9 +2988,9 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
     dcBL->addWidget(usbRemoveRuleBtn_);
     dcBL->addSpacing(10);
     usbActionFeedback_ = new QLabel;
+    usbActionFeedback_->setObjectName("usbActionFeedback");
     usbActionFeedback_->setFont(pretendardFont(FontRole::Medium));
     usbActionFeedback_->setWordWrap(true);
-    usbActionFeedback_->setStyleSheet(QString("QLabel { color: %1; font-size: 12px; background: transparent; border: none; }").arg(UiTheme::tokens().Subtext));
     usbActionFeedback_->setMinimumHeight(18);
     dcBL->addWidget(usbActionFeedback_);
 
@@ -3218,9 +3195,9 @@ void MainWindow::refreshUsbTable()
         nl->setSpacing(8);
         nl->addWidget(iconLabel(row.iconRes, 16));
         auto* nameLbl = new QLabel(row.name);
+        nameLbl->setObjectName("usbDeviceName");
         nameLbl->setAttribute(Qt::WA_TransparentForMouseEvents);
         nameLbl->setFont(pretendardFont(FontRole::Medium));
-        nameLbl->setStyleSheet(themedLabelStyle(UiTheme::tokens().Text));
         nl->addWidget(nameLbl);
         nl->addStretch();
         usbTable_->setCellWidget(r, 0, nameW);
@@ -3249,9 +3226,10 @@ void MainWindow::applyUsbDetailPanel(int row)
     usbDetMfr_->setText(r.manufacturer);
 
     const bool connected = (r.status == "연결됨");
-    usbDetStatusDot_->setStyleSheet(QString(
-        "QFrame { background: %1; border-radius: 4px; border: none; }")
-        .arg(connected ? QLatin1String(UiTheme::tokens().Success) : QLatin1String(UiTheme::tokens().BorderInput)));
+    usbDetStatusDot_->setProperty("connected", connected);
+    usbDetStatusDot_->style()->unpolish(usbDetStatusDot_);
+    usbDetStatusDot_->style()->polish(usbDetStatusDot_);
+    usbDetStatusDot_->update();
     usbDetStatusLbl_->setText(r.status);
 
     applyCompactPolicyBadge(usbDetPolicyLbl_, r.policy);
@@ -3288,9 +3266,10 @@ void MainWindow::showUsbActionFeedback(const QString& message, const QString& co
 {
     if (!usbActionFeedback_) return;
     usbActionFeedback_->setText(message);
-    usbActionFeedback_->setStyleSheet(QString(
-        "QLabel { color: %1; font-size: 12px; background: transparent; border: none; }"
-    ).arg(color));
+    usbActionFeedback_->setProperty("tone", color == UiTheme::tokens().DangerAction ? "danger" : "primary");
+    usbActionFeedback_->style()->unpolish(usbActionFeedback_);
+    usbActionFeedback_->style()->polish(usbActionFeedback_);
+    usbActionFeedback_->update();
 
     QTimer::singleShot(3500, this, [this, message] {
         if (usbActionFeedback_ && usbActionFeedback_->text() == message)
@@ -3484,18 +3463,6 @@ QWidget* MainWindow::createLogPage()
         // cell widgets → clicks pass through to the viewport → cellClicked fires.
         table->setSelectionMode(QAbstractItemView::NoSelection);
         table->setFocusPolicy(Qt::NoFocus);
-        table->horizontalHeader()->setStyleSheet(
-            QString("QHeaderView::section { background: %1; border: none;"
-                    " border-bottom: 1px solid %2; padding-left: 20px;"
-                    " font-size: 14px; color: %3; }")
-                .arg(UiTheme::tokens().Surface, UiTheme::tokens().Border, UiTheme::tokens().Subtext)
-        );
-        table->setStyleSheet(
-            QString("QTableWidget { background: %1; border: none; }"
-                    "QTableWidget::item { border: none; color: %2; padding-left: 20px; }")
-                .arg(UiTheme::tokens().White, UiTheme::tokens().SubtextMid)
-        );
-
         auto mkTextCell = [&](const QString& text, const QString& color, bool hi) -> QWidget* {
             auto* w = new QWidget;
             w->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -3505,8 +3472,8 @@ QWidget* MainWindow::createLogPage()
             l->setSpacing(0);
             auto* txt = new QLabel(text);
             txt->setAttribute(Qt::WA_TransparentForMouseEvents);
+            txt->setObjectName(color == QLatin1String(UiTheme::tokens().Subtext) ? "logTextMuted" : "logTextMid");
             txt->setFont(pretendardFont(FontRole::Regular));
-            txt->setStyleSheet(QString("font-size: 14px; color: %1; background: transparent; border: none;").arg(color));
             l->addWidget(txt);
             l->addStretch();
             return w;
@@ -3522,14 +3489,14 @@ QWidget* MainWindow::createLogPage()
             l->setSpacing(8);
             auto* ico = new QLabel;
             ico->setAttribute(Qt::WA_TransparentForMouseEvents);
+            ico->setObjectName("logCellIcon");
             ico->setFixedSize(16, 16);
             ico->setPixmap(QIcon(iconSvg).pixmap(16, 16));
-            ico->setStyleSheet("background: transparent;");
             l->addWidget(ico);
             auto* txt = new QLabel(text);
             txt->setAttribute(Qt::WA_TransparentForMouseEvents);
+            txt->setObjectName("logEventText");
             txt->setFont(pretendardFont(FontRole::Medium));
-            txt->setStyleSheet(QString("font-size: 14px; color: %1; background: transparent;").arg(UiTheme::tokens().Text));
             l->addWidget(txt);
             l->addStretch();
             return w;
@@ -3553,14 +3520,14 @@ QWidget* MainWindow::createLogPage()
             table->setCellWidget(r, 1, mkEventCell(row.eventIcon, row.event, hi));
             table->setCellWidget(r, 2, mkTextCell(row.device, UiTheme::tokens().SubtextMid, hi));
             auto* badgeW = makeBadgeCell(row.result, row.badge.toUtf8().constData());
-            if (hi) setCellWidgetBackground(badgeW, QColor(255, 247, 237));
+            if (hi) setCellWidgetBackground(badgeW, selectedCellBackground());
             table->setCellWidget(r, 3, badgeW);
         }
 
         table->setColumnWidth(0, 190);
         table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
         table->setColumnWidth(2, 230);
-        table->setColumnWidth(3, 100);
+        table->setColumnWidth(3, 120);
         table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Fixed);
 
         tcl->addWidget(table, 1);
@@ -3576,11 +3543,8 @@ QWidget* MainWindow::createLogPage()
         dcl->setSpacing(0);
 
         auto* panelHdr = new QWidget;
+        panelHdr->setObjectName("detailPanelHeader");
         panelHdr->setFixedHeight(45);
-        panelHdr->setStyleSheet(QString(
-            "QWidget { background: rgba(248,250,252,128);"
-            "          border-bottom: 1px solid %1; }"
-        ).arg(UiTheme::tokens().SurfaceAlt));
         auto* phl = new QHBoxLayout(panelHdr);
         phl->setContentsMargins(16, 0, 16, 0);
         phl->addWidget(label("이벤트 상세 정보", "cardTitle"));
@@ -3610,13 +3574,13 @@ QWidget* MainWindow::createLogPage()
         const auto& t = UiTheme::tokens();
 
         auto* detEvTitle = new QLabel(logRows[0].event);
+        detEvTitle->setObjectName("detailEventTitle");
         detEvTitle->setFont(pretendardFont(FontRole::Bold));
-        detEvTitle->setStyleSheet(QString("font-size: 18px; color: %1;").arg(t.Text));
         detEvTitle->setWordWrap(true);
 
         auto* detEvTime = new QLabel(logRows[0].time);
+        detEvTime->setObjectName("detailEventTime");
         detEvTime->setFont(pretendardFont(FontRole::Regular));
-        detEvTime->setStyleSheet(QString("font-size: 12px; color: %1;").arg(t.Subtext));
 
         {
             auto* evRow = new QHBoxLayout;
@@ -3633,8 +3597,8 @@ QWidget* MainWindow::createLogPage()
 
         auto addDetailSection = [&](const QString& labelText, QWidget* valueW) {
             auto* lbl = new QLabel(labelText);
+            lbl->setObjectName("detailSectionLabel");
             lbl->setFont(pretendardFont(FontRole::Medium));
-            lbl->setStyleSheet(QString("font-size: 12px; color: %1;").arg(t.Subtext));
             bodyL->addWidget(lbl);
             bodyL->addSpacing(6);
             bodyL->addWidget(valueW);
@@ -3644,23 +3608,21 @@ QWidget* MainWindow::createLogPage()
         };
 
         auto* detDevBadge = new QLabel(logRows[0].device);
+        detDevBadge->setObjectName("detailDeviceBadge");
         detDevBadge->setFont(pretendardFont(FontRole::Medium));
-        detDevBadge->setStyleSheet(QString(
-            "background: %1; border: 1px solid %2;"
-            "border-radius: 6px; padding: 5px 8px; font-size: 13px; color: %3;"
-        ).arg(t.Surface, t.Border, t.TextMid));
         detDevBadge->setWordWrap(true);
         addDetailSection("장치 정보", detDevBadge);
 
         auto* detDesc = new QLabel("등록되지 않은 저장 장치가 연결되었습니다.");
+        detDesc->setObjectName("detailDescription");
         detDesc->setFont(pretendardFont(FontRole::Regular));
-        detDesc->setStyleSheet(QString("font-size: 14px; color: %1;").arg(t.Text));
         detDesc->setWordWrap(true);
         addDetailSection("상세 설명", detDesc);
 
         auto* detResultBadge = new QLabel(logRows[0].result);
         detResultBadge->setObjectName(logRows[0].badge.toUtf8().constData());
         detResultBadge->setFont(pretendardFont(FontRole::SemiBold));
+        detResultBadge->setFixedSize(policyBadgeSize(logRows[0].result));
         detResultBadge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
         {
@@ -3669,8 +3631,8 @@ QWidget* MainWindow::createLogPage()
             auto* resultCol = new QVBoxLayout;
             resultCol->setSpacing(6);
             auto* rLbl = new QLabel("처리 결과");
+            rLbl->setObjectName("detailSectionLabel");
             rLbl->setFont(pretendardFont(FontRole::Medium));
-            rLbl->setStyleSheet(QString("font-size: 12px; color: %1;").arg(t.Subtext));
             resultCol->addWidget(rLbl);
             auto* rBadgeRow = new QHBoxLayout;
             rBadgeRow->setContentsMargins(0, 0, 0, 0);
@@ -3682,12 +3644,12 @@ QWidget* MainWindow::createLogPage()
             auto* userCol = new QVBoxLayout;
             userCol->setSpacing(6);
             auto* uLbl = new QLabel("관련 사용자");
+            uLbl->setObjectName("detailSectionLabel");
             uLbl->setFont(pretendardFont(FontRole::Medium));
-            uLbl->setStyleSheet(QString("font-size: 12px; color: %1;").arg(t.Subtext));
             userCol->addWidget(uLbl);
             auto* uVal = new QLabel("SYSTEM");
+            uVal->setObjectName("detailUserValue");
             uVal->setFont(pretendardFont(FontRole::Medium));
-            uVal->setStyleSheet(QString("font-size: 14px; color: %1;").arg(t.Text));
             userCol->addWidget(uVal);
             row2->addLayout(userCol);
             bodyL->addLayout(row2);
@@ -3697,9 +3659,7 @@ QWidget* MainWindow::createLogPage()
         }
 
         auto* actionCard = new QFrame;
-        actionCard->setStyleSheet(
-            "QFrame { background: transparent; border: none; }"
-        );
+        actionCard->setObjectName("detailActionCard");
         {
             auto* al = new QVBoxLayout(actionCard);
             al->setContentsMargins(0, 0, 0, 0);
@@ -3708,16 +3668,16 @@ QWidget* MainWindow::createLogPage()
             aHdr->setSpacing(6);
             aHdr->addWidget(iconLabel(":/icons/ui-alert.svg", 14));
             auto* aTitle = new QLabel("ACTION REQUIRED");
+            aTitle->setObjectName("detailActionTitle");
             aTitle->setFont(pretendardFont(FontRole::Bold));
-            aTitle->setStyleSheet(QString("font-size: 13px; color: %1; letter-spacing: 0.3px; background: transparent; border: none;").arg(t.Danger));
             aHdr->addWidget(aTitle);
             aHdr->addStretch();
             al->addLayout(aHdr);
             auto* aDesc = new QLabel(
                 "이 장치가 인가된 장치인지 확인 후 예외 처리를 진행하거나 차단 정책을 유지하세요."
             );
+            aDesc->setObjectName("detailActionDesc");
             aDesc->setFont(pretendardFont(FontRole::Regular));
-            aDesc->setStyleSheet(QString("font-size: 13px; color: %1; background: transparent; border: none;").arg(t.TextMid));
             aDesc->setWordWrap(true);
             al->addWidget(aDesc);
         }
@@ -3728,7 +3688,7 @@ QWidget* MainWindow::createLogPage()
 
         {
             auto* btnArea = new QFrame;
-            btnArea->setStyleSheet(QString("QFrame { border-top: 1px solid %1; }").arg(t.Border));
+            btnArea->setObjectName("detailButtonArea");
             auto* bl = new QHBoxLayout(btnArea);
             bl->setContentsMargins(0, 16, 0, 16);
             bl->setSpacing(8);
@@ -3783,6 +3743,7 @@ QWidget* MainWindow::createLogPage()
 
                 detResultBadge->setText(result);
                 detResultBadge->setObjectName(badge.toUtf8().constData());
+                detResultBadge->setFixedSize(policyBadgeSize(result));
                 detResultBadge->style()->unpolish(detResultBadge);
                 detResultBadge->style()->polish(detResultBadge);
 
@@ -3965,22 +3926,22 @@ QWidget* MainWindow::createAnalyticsPage()
         {
             auto* warn = new QFrame;
             warningBanner = warn;
-            warn->setStyleSheet("QFrame { background: transparent; border: none; }");
+            warn->setObjectName("sessionWarningBanner");
             auto* wl = new QHBoxLayout(warn);
             wl->setContentsMargins(0, 0, 0, 0);
             wl->setSpacing(8);
             auto* wIcon = new QLabel("⚠");
-            wIcon->setStyleSheet(QString("color: %1; font-size: 14px; background: transparent; border: none;").arg(t.Warning));
+            wIcon->setObjectName("sessionWarningIcon");
             auto* wText = new QVBoxLayout;
             wText->setSpacing(2);
             auto* wTitle = new QLabel("WARNING");
             warningTitle = wTitle;
+            wTitle->setObjectName("sessionWarningTitle");
             wTitle->setFont(pretendardFont(FontRole::Bold));
-            wTitle->setStyleSheet(QString("color: %1; font-size: 13px; background: transparent; border: none;").arg(t.WarningText));
             auto* wDesc = new QLabel("불필요한 명령 시퀀스가 감지되었습니다.");
             warningDesc = wDesc;
+            wDesc->setObjectName("sessionWarningDesc");
             wDesc->setFont(pretendardFont(FontRole::Regular));
-            wDesc->setStyleSheet(QString("color: %1; font-size: 12px; background: transparent; border: none;").arg(t.WarningText));
             wText->addWidget(wTitle);
             wText->addWidget(wDesc);
             wl->addWidget(wIcon);
@@ -3994,8 +3955,8 @@ QWidget* MainWindow::createAnalyticsPage()
         // Info rows helper
         auto addSection = [&](const QString& title) {
             auto* lbl = new QLabel(title);
+            lbl->setObjectName("sessionSectionLabel");
             lbl->setFont(pretendardFont(FontRole::SemiBold));
-            lbl->setStyleSheet(QString("QLabel { color: %1; font-size: 13px; }").arg(t.Text));
             bL->addWidget(lbl);
             bL->addSpacing(6);
         };
@@ -4003,11 +3964,11 @@ QWidget* MainWindow::createAnalyticsPage()
         auto addRow = [&](const QString& key, const QString& val, bool valRed = false) -> QLabel* {
             auto* row = new QHBoxLayout;
             auto* k = new QLabel(key);
+            k->setObjectName("sessionKeyLabel");
             k->setFont(pretendardFont(FontRole::Regular));
-            k->setStyleSheet(QString("QLabel { color: %1; font-size: 13px; }").arg(t.Subtext));
             auto* v = new QLabel(val);
+            v->setObjectName(valRed ? "sessionDangerValue" : "sessionValueLabel");
             v->setFont(pretendardFont(FontRole::Medium));
-            v->setStyleSheet(QString("QLabel { color: %1; font-size: 13px; }").arg(valRed ? t.DangerText : t.Text));
             row->addWidget(k);
             row->addStretch();
             row->addWidget(v);
@@ -4145,7 +4106,7 @@ QWidget* MainWindow::createSettingsPage()
 
     // Hoist settable widget pointers
     QComboBox*        comboDev    = nullptr;
-    QComboBox*        comboTheme  = nullptr;
+    QButtonGroup*     themeGroup  = nullptr;
     QCheckBox*        cbAutostart = nullptr;
     QCheckBox*        cbMinimize  = nullptr;
     QCheckBox*        cbNotif     = nullptr;
@@ -4247,7 +4208,8 @@ QWidget* MainWindow::createSettingsPage()
             wl->addSpacing(16);
 
             auto* themeRow = new QWidget;
-            themeRow->setStyleSheet("QWidget { background: transparent; border: none; }");
+            themeRow->setObjectName("themeModeRow");
+            themeRow->setStyleSheet("QWidget#themeModeRow { background: transparent; border: none; }");
             auto* themeRowL = new QHBoxLayout(themeRow);
             themeRowL->setContentsMargins(0, 0, 0, 0);
             themeRowL->setSpacing(14);
@@ -4255,15 +4217,41 @@ QWidget* MainWindow::createSettingsPage()
             themeLabel->setObjectName("sectionHeading");
             themeLabel->setFont(pretendardFont(FontRole::Medium));
             themeLabel->setFixedWidth(120);
-            comboTheme = new QComboBox;
-            comboTheme->addItem(QStringLiteral("시스템 설정"), QStringLiteral("system"));
-            comboTheme->addItem(QStringLiteral("라이트"), QStringLiteral("light"));
-            comboTheme->addItem(QStringLiteral("다크"), QStringLiteral("dark"));
-            comboTheme->setFixedWidth(220);
-            comboTheme->setFixedHeight(36);
-            comboTheme->setFont(pretendardFont(FontRole::Regular));
+            auto* themeToggle = new QFrame;
+            themeToggle->setObjectName("themeSegmentGroup");
+            themeToggle->setFixedSize(300, 46);
+            auto* themeToggleL = new QHBoxLayout(themeToggle);
+            themeToggleL->setContentsMargins(4, 4, 4, 4);
+            themeToggleL->setSpacing(4);
+            themeGroup = new QButtonGroup(themeToggle);
+            themeGroup->setExclusive(true);
+
+            const QList<QPair<QString, QString>> themeOptions = {
+                { QStringLiteral("light"), QStringLiteral("라이트") },
+                { QStringLiteral("dark"), QStringLiteral("다크") },
+                { QStringLiteral("system"), QStringLiteral("시스템") },
+            };
+            for (const auto& option : themeOptions) {
+                auto* button = new QPushButton(option.second);
+                button->setObjectName("themeSegment");
+                button->setCheckable(true);
+                button->setCursor(Qt::PointingHandCursor);
+                button->setFont(pretendardFont(FontRole::Medium));
+                button->setProperty("themeKey", option.first);
+                themeGroup->addButton(button);
+                themeToggleL->addWidget(button, 1);
+            }
+            connect(themeGroup, &QButtonGroup::buttonClicked, this, [this](QAbstractButton* button) {
+                if (!button)
+                    return;
+
+                const QString key = button->property("themeKey").toString();
+                QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+                uiSettings.setValue(QStringLiteral("ui/themeMode"), key.isEmpty() ? QStringLiteral("system") : key);
+                applyTheme(UiTheme::themeModeFromKey(key));
+            });
             themeRowL->addWidget(themeLabel);
-            themeRowL->addWidget(comboTheme);
+            themeRowL->addWidget(themeToggle);
             themeRowL->addStretch();
             wl->addWidget(themeRow);
             wl->addSpacing(16);
@@ -4353,31 +4341,26 @@ QWidget* MainWindow::createSettingsPage()
             for (int i = 0; i < rows.size(); ++i) {
                 const auto& r = rows[i];
                 auto* rowWidget = new QWidget;
+                rowWidget->setObjectName("policySummaryRow");
                 rowWidget->setFixedHeight(42);
-                rowWidget->setStyleSheet("QWidget { background: transparent; border: none; }");
+                rowWidget->setStyleSheet("QWidget#policySummaryRow { background: transparent; border: none; }");
                 auto* line = new QHBoxLayout(rowWidget);
                 line->setContentsMargins(0, 0, 0, 0);
                 auto* lbl = label(r.lbl);
-                lbl->setStyleSheet(QString("color: %1; font-size: 14px;").arg(t.SubtextMid));
+                lbl->setObjectName("policySummaryLabel");
                 lbl->setFont(pretendardFont(FontRole::Regular));
                 line->addWidget(lbl);
                 line->addStretch();
                 if (!r.badge.isEmpty()) {
                     auto* badge = new QLabel(r.val);
+                    badge->setObjectName(r.badge == "warningBadge" ? "settingsWarningBadge" : "settingsSuccessBadge");
                     badge->setAlignment(Qt::AlignCenter);
                     badge->setFont(pretendardFont(FontRole::SemiBold));
-                    badge->setFixedSize(58, 24);
-                    const bool warning = r.badge == "warningBadge";
-                    badge->setStyleSheet(QString(
-                        "QLabel { background: %1; color: %2; border: 1px solid %3;"
-                        " border-radius: 6px; font-size: 11px; padding: 0; }"
-                    ).arg(warning ? t.WarningSoft : t.PrimarySoft,
-                          warning ? t.WarningText : t.Primary,
-                          warning ? t.WarningBorder : t.PrimarySoftBorder));
+                    badge->setFixedSize(64, 26);
                     line->addWidget(badge);
                 } else {
                     auto* valLbl = label(r.val);
-                    valLbl->setStyleSheet(QString("color: %1; font-size: 14px;").arg(t.Text));
+                    valLbl->setObjectName("policySummaryValue");
                     valLbl->setFont(pretendardFont(FontRole::Regular));
                     line->addWidget(valLbl);
                 }
@@ -4402,18 +4385,25 @@ QWidget* MainWindow::createSettingsPage()
         if (cbMinimize)   cbMinimize->setChecked(settings.minimizeToTray);
         if (comboDev)     comboDev->setCurrentIndex(actionIndexFromSetting(settings.unknownDeviceAction));
         if (cbNotif)      cbNotif->setChecked(settings.notifyOnRisk);
-        if (comboTheme) {
+        if (themeGroup) {
             QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
             const QString key = uiSettings.value(QStringLiteral("ui/themeMode"), QStringLiteral("system")).toString();
-            const int idx = comboTheme->findData(key);
-            comboTheme->setCurrentIndex(idx >= 0 ? idx : 0);
+            for (QAbstractButton* button : themeGroup->buttons()) {
+                if (button->property("themeKey").toString() == key) {
+                    button->setChecked(true);
+                    break;
+                }
+            }
+            if (!themeGroup->checkedButton() && !themeGroup->buttons().isEmpty()) {
+                themeGroup->buttons().front()->setChecked(true);
+            }
         }
     }
 
     // Wire Save button
     if (saveBtn) {
         connect(saveBtn, &QPushButton::clicked, this,
-            [this, cbAutostart, cbMinimize, comboDev, comboTheme, cbNotif] {
+            [this, cbAutostart, cbMinimize, comboDev, themeGroup, cbNotif] {
                 Policy::LoadSettings();
                 Policy::Settings settings = Policy::GetSettings();
                 if (cbAutostart)  settings.autoStart = cbAutostart->isChecked();
@@ -4425,8 +4415,8 @@ QWidget* MainWindow::createSettingsPage()
                 }
                 if (cbNotif) settings.notifyOnRisk = cbNotif->isChecked();
                 Policy::SetSettings(settings);
-                if (comboTheme) {
-                    const QString key = comboTheme->currentData().toString();
+                if (themeGroup && themeGroup->checkedButton()) {
+                    const QString key = themeGroup->checkedButton()->property("themeKey").toString();
                     QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
                     uiSettings.setValue(QStringLiteral("ui/themeMode"), key.isEmpty() ? QStringLiteral("system") : key);
                     applyTheme(UiTheme::themeModeFromKey(key));
@@ -4442,7 +4432,6 @@ QWidget* MainWindow::createSettingsPage()
 // ===========================================================================
 QWidget* MainWindow::createHelpPage()
 {
-    const auto& t = UiTheme::tokens();
     auto* page = new QWidget;
     auto* layout = new QVBoxLayout(page);
     layout->setContentsMargins(24, 24, 24, 24);
@@ -4468,12 +4457,12 @@ QWidget* MainWindow::createHelpPage()
         row->setSpacing(8);
         row->setContentsMargins(8, 0, 0, 0);
         auto* dot = new QLabel("•");
-        dot->setStyleSheet(QString("color: %1; font-size: 16px;").arg(t.Subtext));
+        dot->setObjectName("helpBulletDot");
         dot->setFixedWidth(12);
         row->addWidget(dot, 0, Qt::AlignTop);
         auto* bText = new QLabel(text);
+        bText->setObjectName("helpBulletText");
         bText->setFont(pretendardFont(FontRole::Regular));
-        bText->setStyleSheet(QString("color: %1; font-size: 14px;").arg(t.SubtextMid));
         bText->setWordWrap(true);
         row->addWidget(bText, 1);
         parent->addLayout(row);
@@ -4482,20 +4471,20 @@ QWidget* MainWindow::createHelpPage()
 
     auto makeH2 = [&](const QString& text) {
         auto* h = new QLabel(text);
+        h->setObjectName("helpH2");
         h->setFont(pretendardFont(FontRole::Bold));
-        h->setStyleSheet(QString("font-size: 20px; color: %1;").arg(t.Text));
         return h;
     };
     auto makeH3 = [&](const QString& text) {
         auto* h = new QLabel(text);
+        h->setObjectName("helpH3");
         h->setFont(pretendardFont(FontRole::SemiBold));
-        h->setStyleSheet(QString("font-size: 18px; color: %1;").arg(t.Text));
         return h;
     };
     auto makePara = [&](const QString& text) {
         auto* p = new QLabel(text);
+        p->setObjectName("helpPara");
         p->setFont(pretendardFont(FontRole::Regular));
-        p->setStyleSheet(QString("color: %1; font-size: 14px;").arg(t.SubtextMid));
         p->setWordWrap(true);
         return p;
     };
@@ -4519,12 +4508,12 @@ QWidget* MainWindow::createHelpPage()
         }) makeBullet(b, cl);
         cl->addSpacing(8);
         auto* note = new QFrame;
-        note->setStyleSheet("QFrame { background: transparent; border: none; }");
+        note->setObjectName("helpNote");
         auto* nl = new QHBoxLayout(note);
         nl->setContentsMargins(17, 14, 17, 14);
         auto* noteLbl = new QLabel("참고: 설치 후 트레이 아이콘이 나타나면 정상적으로 보호가 시작된 것입니다.");
+        noteLbl->setObjectName("helpNoteText");
         noteLbl->setFont(pretendardFont(FontRole::Medium));
-        noteLbl->setStyleSheet(QString("color: %1; font-size: 14px;").arg(t.PrimaryText));
         noteLbl->setWordWrap(true);
         nl->addWidget(noteLbl);
         cl->addWidget(note);
@@ -4586,7 +4575,6 @@ QWidget* MainWindow::createHelpPage()
         auto* navHeader = new QWidget;
         navHeader->setObjectName("cardHeader");
         navHeader->setFixedHeight(57);
-        navHeader->setStyleSheet(QString("QWidget#cardHeader { background: %1; border-bottom: 1px solid %2; }").arg(t.Surface, t.SurfaceAlt));
         auto* nhL = new QHBoxLayout(navHeader);
         nhL->setContentsMargins(16, 0, 16, 0);
         nhL->setSpacing(8);
@@ -4608,15 +4596,13 @@ QWidget* MainWindow::createHelpPage()
         };
 
         auto navItems = std::make_shared<QVector<QWidget*>>();
-        auto titleLabels = std::make_shared<QVector<QLabel*>>();
 
         for (const auto& item : items) {
             auto* itemW = new QWidget;
+            itemW->setObjectName("helpNavItem");
             itemW->setCursor(Qt::PointingHandCursor);
             const bool active = (item.index == 2);
-            itemW->setStyleSheet(active
-                ? QString("QWidget { background: %1; border-radius: 8px; }").arg(t.PrimarySoft)
-                : "QWidget { background: transparent; border-radius: 8px; }");
+            itemW->setProperty("active", active);
             auto* iL = new QHBoxLayout(itemW);
             iL->setContentsMargins(12, 10, 12, 10);
             iL->setSpacing(0);
@@ -4624,29 +4610,27 @@ QWidget* MainWindow::createHelpPage()
             auto* textBox = new QVBoxLayout;
             textBox->setSpacing(2);
             auto* catLbl = new QLabel(item.category.toUpper());
-            catLbl->setStyleSheet(QString("color: %1; font-size: 10px; letter-spacing: 0.5px;").arg(t.TextMuted));
+            catLbl->setObjectName("helpNavCategory");
+            catLbl->setProperty("active", active);
             catLbl->setFont(pretendardFont(FontRole::SemiBold));
             textBox->addWidget(catLbl);
 
             auto* titleLbl = new QLabel(item.title);
+            titleLbl->setObjectName("helpNavTitle");
+            titleLbl->setProperty("active", active);
             titleLbl->setFont(pretendardFont(FontRole::Medium));
-            titleLbl->setStyleSheet(active
-                ? QString("color: %1; font-size: 14px;").arg(t.PrimaryText)
-                : QString("color: %1; font-size: 14px;").arg(t.SubtextMid));
             titleLbl->setWordWrap(true);
             textBox->addWidget(titleLbl);
             iL->addLayout(textBox, 1);
 
             // Chevron for active item
             auto* chevron = new QLabel("›");
-            chevron->setStyleSheet(active
-                ? QString("color: %1; font-size: 16px;").arg(t.PrimaryText)
-                : "color: transparent; font-size: 16px;");
+            chevron->setObjectName("helpNavChevron");
+            chevron->setProperty("active", active);
             iL->addWidget(chevron);
 
             navL->addWidget(itemW);
             navItems->push_back(itemW);
-            titleLabels->push_back(titleLbl);
 
             const int idx = item.index;
             auto* mouseFilter = new QObject(itemW);
@@ -4657,40 +4641,42 @@ QWidget* MainWindow::createHelpPage()
                 int idx_;
                 QStackedWidget* stack_;
                 std::shared_ptr<QVector<QWidget*>> navItems_;
-                std::shared_ptr<QVector<QLabel*>> titleLabels_;
             public:
                 NavFilter(int i, QStackedWidget* s,
                           std::shared_ptr<QVector<QWidget*>> ni,
-                          std::shared_ptr<QVector<QLabel*>> tl,
                           QObject* parent)
                     : QObject(parent), idx_(i), stack_(s),
-                      navItems_(std::move(ni)), titleLabels_(std::move(tl)) {}
+                      navItems_(std::move(ni)) {}
                 bool eventFilter(QObject*, QEvent* e) override {
                     if (e->type() == QEvent::MouseButtonRelease) {
                         stack_->setCurrentIndex(idx_);
-                        const auto& tk = UiTheme::tokens();
                         for (int i = 0; i < navItems_->size(); ++i) {
                             const bool sel = (i == idx_);
-                            navItems_->at(i)->setStyleSheet(sel
-                                ? QString("QWidget { background: %1; border-radius: 8px; }").arg(tk.PrimarySoft)
-                                : "QWidget { background: transparent; border-radius: 8px; }");
-                            titleLabels_->at(i)->setStyleSheet(sel
-                                ? QString("color: %1; font-size: 14px;").arg(tk.PrimaryText)
-                                : QString("color: %1; font-size: 14px;").arg(tk.SubtextMid));
+                            auto* navItem = navItems_->at(i);
+                            navItem->setProperty("active", sel);
+                            navItem->style()->unpolish(navItem);
+                            navItem->style()->polish(navItem);
+                            for (auto* label : navItem->findChildren<QLabel*>()) {
+                                label->setProperty("active", sel);
+                                label->style()->unpolish(label);
+                                label->style()->polish(label);
+                                label->update();
+                            }
+                            navItem->update();
                         }
                         return true;
                     }
                     return false;
                 }
             };
-            itemW->installEventFilter(new NavFilter(idx, contentStack, navItems, titleLabels, itemW));
+            itemW->installEventFilter(new NavFilter(idx, contentStack, navItems, itemW));
         }
 
         navL->addStretch();
         ncL->addWidget(navContent, 1);
 
         auto* navFooter = new QWidget;
-        navFooter->setStyleSheet(QString("background: %1; border-top: 1px solid %2;").arg(t.Surface, t.SurfaceAlt));
+        navFooter->setObjectName("helpNavFooter");
         auto* nfL = new QVBoxLayout(navFooter);
         nfL->setContentsMargins(16, 14, 16, 14);
         auto* supportBtn = new QPushButton("고객 지원 문의하기");
@@ -4731,8 +4717,8 @@ QWidget* MainWindow::createPolicySummaryPage()
     for (int i = 0; i < rows.size(); ++i) {
         const auto& row = rows[i];
         auto* lineWidget = new QWidget;
+        lineWidget->setObjectName("policySummaryLine");
         lineWidget->setFixedHeight(44);
-        lineWidget->setStyleSheet("QWidget { background: transparent; border: none; }");
         auto* line = new QHBoxLayout(lineWidget);
         line->setContentsMargins(0, 0, 0, 0);
         line->addWidget(label(row[0]));
@@ -4749,17 +4735,6 @@ QWidget* MainWindow::createPolicySummaryPage()
     scrollArea->setFrameShape(QFrame::NoFrame);
     scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-    {
-        const auto& t = UiTheme::tokens();
-        scrollArea->setStyleSheet(QString(
-            "QScrollArea#policySummaryScrollArea { background: %1; border: none; }"
-            "QScrollArea#policySummaryScrollArea > QWidget > QWidget { background: %1; }"
-            "QScrollBar:vertical { background: %1; width: 6px; margin: 0; }"
-            "QScrollBar::handle:vertical { background: %2; border-radius: 3px; min-height: 24px; }"
-            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }"
-            "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: %1; }"
-        ).arg(t.White, t.PrimarySoftBorder));
-    }
     layout->addWidget(scrollArea, 1);
 
     auto* editButton = new QPushButton("정책 편집");
@@ -5016,8 +4991,8 @@ void MainWindow::appendNewLogRows()
             l->setContentsMargins(20, 0, 8, 0);
             auto* lbl = new QLabel(text);
             lbl->setAttribute(Qt::WA_TransparentForMouseEvents);
+            lbl->setObjectName(color == QLatin1String(UiTheme::tokens().Subtext) ? "logTextMuted" : "logTextMid");
             lbl->setFont(pretendardFont(FontRole::Regular));
-            lbl->setStyleSheet(QString("font-size: 14px; color: %1; background: transparent; border: none;").arg(color));
             l->addWidget(lbl);
             l->addStretch();
             return w;
@@ -5031,14 +5006,14 @@ void MainWindow::appendNewLogRows()
             l->setSpacing(8);
             auto* ico = new QLabel;
             ico->setAttribute(Qt::WA_TransparentForMouseEvents);
+            ico->setObjectName("logCellIcon");
             ico->setFixedSize(16, 16);
             ico->setPixmap(QIcon(iconRes).pixmap(16, 16));
-            ico->setStyleSheet("background: transparent;");
             l->addWidget(ico);
             auto* txt = new QLabel(text);
             txt->setAttribute(Qt::WA_TransparentForMouseEvents);
+            txt->setObjectName("logEventText");
             txt->setFont(pretendardFont(FontRole::Medium));
-            txt->setStyleSheet(QString("font-size: 14px; color: %1; background: transparent;").arg(UiTheme::tokens().Text));
             l->addWidget(txt);
             l->addStretch();
             return w;
