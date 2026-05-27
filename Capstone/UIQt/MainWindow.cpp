@@ -2555,13 +2555,13 @@ QWidget* MainWindow::createDashboardPage()
         auto* header = new QHBoxLayout;
         auto* titleBox = new QVBoxLayout;
         titleBox->setSpacing(4);
-        titleBox->addWidget(label("대시보드", "pageTitle"));
-        titleBox->addWidget(label("시스템 보안 상태 및 주요 이벤트를 모니터링합니다.", "pageSubtitle"));
+        titleBox->addWidget(label(tr("대시보드"), "pageTitle"));
+        titleBox->addWidget(label(tr("시스템 보안 상태 및 주요 이벤트를 모니터링합니다."), "pageSubtitle"));
         header->addLayout(titleBox);
         header->addStretch();
-        header->addWidget(label("마지막 업데이트: " + nowTimestamp(), "mutedText"));
+        header->addWidget(label(tr("마지막 업데이트: ") + nowTimestamp(), "mutedText"));
         header->addSpacing(16);
-        auto* bufferButton = new QPushButton("장치 위험도 모니터링 열기");
+        auto* bufferButton = new QPushButton(tr("장치 위험도 모니터링 열기"));
         bufferButton->setObjectName("bufferButton");
         bufferButton->setFont(pretendardFont(FontRole::SemiBold));
         bufferButton->setIcon(QIcon(":/icons/ui-lock.svg"));
@@ -2600,11 +2600,11 @@ QWidget* MainWindow::createDashboardPage()
 
             const Policy::PolicyStatus policyStatus = Policy::Evaluate(item);
             if (policyStatus == Policy::PolicyStatus::Unknown) ++pendingCount;
-            const QString pol = policyStatus == Policy::PolicyStatus::Whitelisted ? "허용"
-                : policyStatus == Policy::PolicyStatus::Blacklisted ? "차단"
-                : "승인 대기";
+            const QString pol = policyStatus == Policy::PolicyStatus::Whitelisted ? tr("허용")
+                : policyStatus == Policy::PolicyStatus::Blacklisted ? tr("차단")
+                : tr("승인 대기");
             const QString mfr = item.vid == 0 ? "-" : "HID Device";
-            dashDevRows.push_back({nowTimestamp().mid(11, 5), "입력 장치", mfr, displayName, pol});
+            dashDevRows.push_back({nowTimestamp().mid(11, 5), tr("입력 장치"), mfr, displayName, pol});
         }
     }
 
@@ -2626,10 +2626,10 @@ QWidget* MainWindow::createDashboardPage()
     {
         auto* stats = new QHBoxLayout;
         stats->setSpacing(16);
-        stats->addWidget(createStatCard("허용 장치",   QString::number(allowedCount), "현재 허용된 장치",      ":/icons/status-allowed.svg"));
-        stats->addWidget(createStatCard("차단 장치",   QString::number(blockedCount), "현재 차단된 장치",      ":/icons/status-blocked.svg"));
-        stats->addWidget(createStatCard("승인 대기",   QString::number(pendingCount), "승인 대기 중인 장치",   ":/icons/status-clock.svg"));
-        stats->addWidget(createStatCard("보안 이벤트", QString::number(eventCount),   "로그 기록 기준",        ":/icons/status-warning.svg"));
+        stats->addWidget(createStatCard(tr("허용 장치"),   QString::number(allowedCount), tr("현재 허용된 장치"),      ":/icons/status-allowed.svg"));
+        stats->addWidget(createStatCard(tr("차단 장치"),   QString::number(blockedCount), tr("현재 차단된 장치"),      ":/icons/status-blocked.svg"));
+        stats->addWidget(createStatCard(tr("승인 대기"),   QString::number(pendingCount), tr("승인 대기 중인 장치"),   ":/icons/status-clock.svg"));
+        stats->addWidget(createStatCard(tr("보안 이벤트"), QString::number(eventCount),   tr("로그 기록 기준"),        ":/icons/status-warning.svg"));
         layout->addLayout(stats);
     }
 
@@ -2656,16 +2656,16 @@ QWidget* MainWindow::createDashboardPage()
             spL->addWidget(iconLabel(":/icons/status-shield-blue.svg", 24));
             auto* spText = new QVBoxLayout;
             spText->setSpacing(2);
-            auto* spTitle = label("시스템 보호 정상", "cardTitle");
+            auto* spTitle = label(tr("시스템 보호 정상"), "cardTitle");
             spTitle->setObjectName("protectionStatusTitle");
             spText->addWidget(spTitle);
-            spText->addWidget(label("모든 보안 모듈이 정상적으로 동작 중입니다.", "pageSubtitle"));
+            spText->addWidget(label(tr("모든 보안 모듈이 정상적으로 동작 중입니다."), "pageSubtitle"));
             spL->addLayout(spText);
             spL->addStretch();
             bl->addWidget(statusPanel);
             bl->addSpacing(12);
 
-            const QStringList protRows = {"실시간 USB 모니터링", "장치 제어 정책", "비정상 입력 탐지", "행위 분석", "감사 로그"};
+            const QStringList protRows = {tr("실시간 USB 모니터링"), tr("장치 제어 정책"), tr("비정상 입력 탐지"), tr("행위 분석"), tr("감사 로그")};
 
             auto* protList = new QWidget;
             protList->setObjectName("protectionList");
@@ -2697,7 +2697,7 @@ QWidget* MainWindow::createDashboardPage()
             scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
             scrollArea->setFixedHeight(4 * 50);
             bl->addWidget(scrollArea, 0);
-            bodyRow->addWidget(createCard("보호 상태 개요", body), 1);
+            bodyRow->addWidget(createCard(tr("보호 상태 개요"), body), 1);
         }
 
         // Recent events card
@@ -2707,7 +2707,7 @@ QWidget* MainWindow::createDashboardPage()
             bl->setContentsMargins(16, 14, 16, 16);
             bl->setSpacing(18);
 
-            auto* viewAllBtn = new QPushButton("전체 보기 >");
+            auto* viewAllBtn = new QPushButton(tr("전체 보기 >"));
             viewAllBtn->setCursor(Qt::PointingHandCursor);
             viewAllBtn->setStyleSheet(QString("color: %1; background: transparent; border: none; font-size: 12px;").arg(UiTheme::tokens().TextMuted));
             connect(viewAllBtn, &QPushButton::clicked, this, [this] { switchPage(2); });
@@ -2745,7 +2745,7 @@ QWidget* MainWindow::createDashboardPage()
                 }
             }
             if (events.isEmpty())
-                events.append({"--:--", "기록된 이벤트 없음", "", "mutedAccent"});
+                events.append({"--:--", tr("기록된 이벤트 없음"), "", "mutedAccent"});
 
             for (const auto& ev : events) {
                 auto* row = new QHBoxLayout;
@@ -2770,7 +2770,7 @@ QWidget* MainWindow::createDashboardPage()
                 bl->addLayout(row);
             }
             bl->addStretch();
-            bodyRow->addWidget(createCard("최근 이벤트 로그", body, viewAllBtn), 1);
+            bodyRow->addWidget(createCard(tr("최근 이벤트 로그"), body, viewAllBtn), 1);
         }
 
         layout->addLayout(bodyRow, 1);
@@ -2780,7 +2780,7 @@ QWidget* MainWindow::createDashboardPage()
     {
         auto* bottomRow = new QHBoxLayout;
         bottomRow->setSpacing(16);
-        auto* viewAllBtn = new QPushButton("전체 보기 >");
+        auto* viewAllBtn = new QPushButton(tr("전체 보기 >"));
         viewAllBtn->setCursor(Qt::PointingHandCursor);
         viewAllBtn->setStyleSheet(QString("color: %1; background: transparent; border: none; font-size: 12px;").arg(UiTheme::tokens().TextMuted));
         // Build mini device table from the scan already done above (no second scan)
@@ -2791,13 +2791,13 @@ QWidget* MainWindow::createDashboardPage()
             devL->setSpacing(12);
             const int displayCount = qMin(dashDevRows.size(), 4);
             auto* table = new QTableWidget(displayCount == 0 ? 1 : displayCount, 5);
-            table->setHorizontalHeaderLabels({"시간", "유형", "제조사", "장치 이름", "상태"});
+            table->setHorizontalHeaderLabels({tr("시간"), tr("유형"), tr("제조사"), tr("장치 이름"), tr("상태")});
             configureTable(table);
             table->verticalHeader()->setDefaultSectionSize(40);
             table->setSelectionMode(QAbstractItemView::NoSelection);
             table->setFocusPolicy(Qt::NoFocus);
             if (dashDevRows.isEmpty()) {
-                table->setItem(0, 3, new QTableWidgetItem("연결된 HID 장치 없음"));
+                table->setItem(0, 3, new QTableWidgetItem(tr("연결된 HID 장치 없음")));
             } else {
                 for (int r = 0; r < displayCount; ++r) {
                     const auto& row = dashDevRows[r];
@@ -2805,8 +2805,8 @@ QWidget* MainWindow::createDashboardPage()
                     table->setItem(r, 1, new QTableWidgetItem(row.type));
                     table->setItem(r, 2, new QTableWidgetItem(row.mfr));
                     table->setItem(r, 3, new QTableWidgetItem(row.name));
-                    const char* badge = row.policy == "허용" ? "successBadge"
-                                      : row.policy == "차단" ? "dangerBadge"
+                    const char* badge = row.policy == tr("허용") ? "successBadge"
+                                      : row.policy == tr("차단") ? "dangerBadge"
                                       : "warningBadge";
                     table->setCellWidget(r, 4, makeBadgeCell(row.policy, badge));
                 }
@@ -2817,14 +2817,14 @@ QWidget* MainWindow::createDashboardPage()
             auto* fl = new QHBoxLayout;
             fl->addWidget(label(
                 dashDevRows.isEmpty()
-                    ? "연결된 장치 없음"
-                    : QString("총 %1개 중 %2개 표시").arg(dashDevRows.size()).arg(displayCount),
+                    ? tr("연결된 장치 없음")
+                    : tr("총 %1개 중 %2개 표시").arg(dashDevRows.size()).arg(displayCount),
                 "mutedText"));
             fl->addStretch();
             devL->addLayout(fl);
         }
-        bottomRow->addWidget(createCard("현재 연결된 장치", devPage, viewAllBtn), 1);
-        bottomRow->addWidget(createCard("운영 정책 요약", createPolicySummaryPage()), 1);
+        bottomRow->addWidget(createCard(tr("현재 연결된 장치"), devPage, viewAllBtn), 1);
+        bottomRow->addWidget(createCard(tr("운영 정책 요약"), createPolicySummaryPage()), 1);
         layout->addLayout(bottomRow, 1);
     }
 
@@ -4785,10 +4785,10 @@ QWidget* MainWindow::createPolicySummaryPage()
     contentLayout->setSpacing(0);
 
     const QList<QStringList> rows = {
-        {"미등록 장치 동작", "차단 및 알림",   "policyDangerText"},
-        {"행위 분석 임계값", "8.0 / 10",       "policyValueText"},
-        {"로그 보관 기간",   "30일",           "policyValueText"},
-        {"실시간 모니터링",  "사용 중",        "policySuccessText"},
+        {tr("미등록 장치 동작"), tr("차단 및 알림"),   "policyDangerText"},
+        {tr("행위 분석 임계값"), "8.0 / 10",           "policyValueText"},
+        {tr("로그 보관 기간"),   "30일",               "policyValueText"},
+        {tr("실시간 모니터링"),  tr("사용 중"),         "policySuccessText"},
     };
     for (int i = 0; i < rows.size(); ++i) {
         const auto& row = rows[i];
@@ -4813,7 +4813,7 @@ QWidget* MainWindow::createPolicySummaryPage()
     scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
     layout->addWidget(scrollArea, 1);
 
-    auto* editButton = new QPushButton("정책 편집");
+    auto* editButton = new QPushButton(tr("정책 편집"));
     editButton->setObjectName("secondaryButton");
     editButton->setFont(pretendardFont(FontRole::SemiBold));
     editButton->setIcon(QIcon(":/icons/ui-lock.svg"));
