@@ -3839,11 +3839,11 @@ QWidget* MainWindow::createAnalyticsPage()
         auto* headerRow = new QHBoxLayout;
         auto* titleBox = new QVBoxLayout;
         titleBox->setSpacing(4);
-        titleBox->addWidget(label("행위 분석", "pageTitle"));
-        titleBox->addWidget(label("키보드 입력 행위를 분석하여 비정상적 또는 악성 활동을 탐지합니다.", "pageSubtitle"));
+        titleBox->addWidget(label(tr("행위 분석"), "pageTitle"));
+        titleBox->addWidget(label(tr("키보드 입력 행위를 분석하여 비정상적 또는 악성 활동을 탐지합니다."), "pageSubtitle"));
         headerRow->addLayout(titleBox);
         headerRow->addStretch();
-        headerRow->addWidget(label("마지막 업데이트: 2026-04-23 14:22:33", "mutedText"));
+        headerRow->addWidget(label(tr("마지막 업데이트: 2026-04-23 14:22:33"), "mutedText"));
         layout->addLayout(headerRow);
     }
 
@@ -3892,7 +3892,7 @@ QWidget* MainWindow::createAnalyticsPage()
 
     // Bar chart card "입력 속도 (keys/sec)"
     {
-        auto* rangeLabel = new QLabel("실시간");
+        auto* rangeLabel = new QLabel(tr("실시간"));
         rangeLabel->setFont(pretendardFont(FontRole::Medium));
         rangeLabel->setStyleSheet(QString("color: %1; font-size: 13px;").arg(t.Subtext));
 
@@ -3901,7 +3901,7 @@ QWidget* MainWindow::createAnalyticsPage()
         cbL->setContentsMargins(16, 8, 16, 16);
         cbL->setSpacing(8);
 
-        auto* metricLabel = new QLabel("초당 키 입력");
+        auto* metricLabel = new QLabel(tr("초당 키 입력"));
         metricLabel->setFont(pretendardFont(FontRole::Regular));
         metricLabel->setStyleSheet(QString("color: %1; font-size: 12px;").arg(t.Subtext));
         auto* subHeader = new QHBoxLayout;
@@ -3914,12 +3914,12 @@ QWidget* MainWindow::createAnalyticsPage()
         barChart->setMinimumHeight(200);
         cbL->addWidget(barChart, 1);
 
-        leftL->addWidget(createCard("입력 속도 (keys/sec)", chartBody, rangeLabel), 1);
+        leftL->addWidget(createCard(tr("입력 속도 (keys/sec)"), chartBody, rangeLabel), 1);
     }
 
     // Risk breakdown card "탐지 기준별 위험도"
     {
-        auto* rangeLabel2 = new QLabel("실시간");
+        auto* rangeLabel2 = new QLabel(tr("실시간"));
         rangeLabel2->setFont(pretendardFont(FontRole::Medium));
         rangeLabel2->setStyleSheet(QString("color: %1; font-size: 13px;").arg(t.Subtext));
 
@@ -3928,7 +3928,7 @@ QWidget* MainWindow::createAnalyticsPage()
         lbL->setContentsMargins(16, 8, 16, 16);
         lbL->setSpacing(8);
 
-        auto* cumulLabel = new QLabel("알고리즘별 위험도 (0-10)");
+        auto* cumulLabel = new QLabel(tr("알고리즘별 위험도 (0-10)"));
         cumulLabel->setFont(pretendardFont(FontRole::Regular));
         cumulLabel->setStyleSheet(QString("color: %1; font-size: 12px;").arg(t.Subtext));
         auto* subHeader2 = new QHBoxLayout;
@@ -3943,16 +3943,16 @@ QWidget* MainWindow::createAnalyticsPage()
 
         auto* legendRow2 = new QHBoxLayout;
         legendRow2->addStretch();
-        legendRow2->addWidget(mkLegendItem("#2563C7", "명령어"));
+        legendRow2->addWidget(mkLegendItem("#2563C7", tr("명령어")));
         legendRow2->addSpacing(12);
         legendRow2->addWidget(mkLegendItem("#7C3AED", "URL"));
         legendRow2->addSpacing(12);
-        legendRow2->addWidget(mkLegendItem("#0891B2", "입력 속도"));
+        legendRow2->addWidget(mkLegendItem("#0891B2", tr("입력 속도")));
         legendRow2->addSpacing(12);
-        legendRow2->addWidget(mkLegendItem("#DB2777", "핫키"));
+        legendRow2->addWidget(mkLegendItem("#DB2777", tr("핫키")));
         lbL->addLayout(legendRow2);
 
-        leftL->addWidget(createCard("탐지 기준별 위험도", breakdownBody, rangeLabel2), 1);
+        leftL->addWidget(createCard(tr("탐지 기준별 위험도"), breakdownBody, rangeLabel2), 1);
     }
 
     contentRow->addWidget(leftPanel, 1);
@@ -3971,7 +3971,7 @@ QWidget* MainWindow::createAnalyticsPage()
         hdr->setFixedHeight(45);
         auto* hdL = new QHBoxLayout(hdr);
         hdL->setContentsMargins(16, 0, 16, 0);
-        hdL->addWidget(label("현재 세션 요약", "cardTitle"));
+        hdL->addWidget(label(tr("현재 세션 요약"), "cardTitle"));
         scL->addWidget(hdr);
 
         // Body
@@ -3996,7 +3996,7 @@ QWidget* MainWindow::createAnalyticsPage()
             warningTitle = wTitle;
             wTitle->setObjectName("sessionWarningTitle");
             wTitle->setFont(pretendardFont(FontRole::Bold));
-            auto* wDesc = new QLabel("불필요한 명령 시퀀스가 감지되었습니다.");
+            auto* wDesc = new QLabel(tr("불필요한 명령 시퀀스가 감지되었습니다."));
             warningDesc = wDesc;
             wDesc->setObjectName("sessionWarningDesc");
             wDesc->setFont(pretendardFont(FontRole::Regular));
@@ -4036,31 +4036,31 @@ QWidget* MainWindow::createAnalyticsPage()
         };
 
         // 세션 정보
-        addSection("세션 정보");
-        addRow("장치 유형",  "Keyboard (HID)");
-        sessionStartValue = addRow("시작 시각", analyticsSessionStart.toString("yyyy-MM-dd HH:mm:ss"));
-        durationValue = addRow("지속 시간", "00:00:00");
+        addSection(tr("세션 정보"));
+        addRow(tr("장치 유형"),  "Keyboard (HID)");
+        sessionStartValue = addRow(tr("시작 시각"), analyticsSessionStart.toString("yyyy-MM-dd HH:mm:ss"));
+        durationValue = addRow(tr("지속 시간"), "00:00:00");
         bL->addWidget(makeDivider());
         bL->addSpacing(12);
 
         // 입력 지표
-        addSection("입력 지표");
-        totalInputValue = addRow("총 키 입력 수", "0");
-        avgSpeedValue = addRow("평균 입력 간격", "-");
-        commandCountValue = addRow("감지 명령", "0");
-        hotkeyCountValue = addRow("핫키 이벤트", "0");
+        addSection(tr("입력 지표"));
+        totalInputValue = addRow(tr("총 키 입력 수"), "0");
+        avgSpeedValue = addRow(tr("평균 입력 간격"), "-");
+        commandCountValue = addRow(tr("감지 명령"), "0");
+        hotkeyCountValue = addRow(tr("핫키 이벤트"), "0");
         bL->addWidget(makeDivider());
         bL->addSpacing(12);
 
         // 위험 평가
-        addSection("위험 평가");
-        commandScoreValue = addRow("명령어 위험도", "0.0 / 10.0");
-        urlScoreValue = addRow("URL 위험도", "0.0 / 10.0");
-        typingScoreValue = addRow("입력 속도 위험도", "0.0 / 10.0");
-        hotkeyScoreValue = addRow("핫키 위험도", "0.0 / 10.0");
-        threatScoreValue = addRow("현재 위협 점수", "0.0 / 10.0", true);
-        levelValue = addRow("판정 등급",  "SAFE");
-        addRow("설정된 임계값",  "8.0");
+        addSection(tr("위험 평가"));
+        commandScoreValue = addRow(tr("명령어 위험도"), "0.0 / 10.0");
+        urlScoreValue = addRow(tr("URL 위험도"), "0.0 / 10.0");
+        typingScoreValue = addRow(tr("입력 속도 위험도"), "0.0 / 10.0");
+        hotkeyScoreValue = addRow(tr("핫키 위험도"), "0.0 / 10.0");
+        threatScoreValue = addRow(tr("현재 위협 점수"), "0.0 / 10.0", true);
+        levelValue = addRow(tr("판정 등급"),  "SAFE");
+        addRow(tr("설정된 임계값"),  "8.0");
 
         bL->addStretch();
         scL->addWidget(body, 1);
@@ -4135,10 +4135,10 @@ QWidget* MainWindow::createAnalyticsPage()
             if (showWarning && warningTitle && warningDesc) {
                 if (snapshot.verdict.level == CompoundScorer::DANGER) {
                     warningTitle->setText("DANGER");
-                    warningDesc->setText(QStringLiteral("고위험 명령 시퀀스가 감지되었습니다."));
+                    warningDesc->setText(tr("고위험 명령 시퀀스가 감지되었습니다."));
                 } else {
                     warningTitle->setText("WARNING");
-                    warningDesc->setText(QStringLiteral("불필요한 명령 시퀀스가 감지되었습니다."));
+                    warningDesc->setText(tr("불필요한 명령 시퀀스가 감지되었습니다."));
                 }
             }
         }
