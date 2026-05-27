@@ -85,7 +85,7 @@ if(BUILD_QT_UI)
     set(CMAKE_AUTORCC ON)
     set(CMAKE_AUTOUIC ON)
 
-    find_package(Qt6 REQUIRED COMPONENTS Widgets Svg)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets Svg LinguistTools)
 
     add_executable(CapstoneQtApp WIN32
         Capstone/UIQt/main_qt.cpp
@@ -101,6 +101,11 @@ if(BUILD_QT_UI)
         CapstoneCore
         Qt6::Svg
         Qt6::Widgets
+    )
+
+    qt_add_translations(CapstoneQtApp
+        TS_FILES Capstone/UIQt/Assets/i18n/en.ts
+        RESOURCE_PREFIX "/i18n"
     )
 
     if(MSVC)
