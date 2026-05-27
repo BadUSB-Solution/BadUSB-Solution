@@ -9,6 +9,7 @@
 
 #include "hid_approval_flow.h"
 #include "logger.h"
+#include "json_log.h"
 
 namespace HidMonitor
 {

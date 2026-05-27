@@ -214,6 +214,7 @@ static constexpr ShortcutDef CTRL_SHIFT_SHORTCUTS[] = {
     { M_CTRL|M_SHIFT, VK_LEFT,  L"Ctrl+Shift+Left",  L"단어 단위 왼쪽 선택" },
     { M_CTRL|M_SHIFT, VK_RIGHT, L"Ctrl+Shift+Right", L"단어 단위 오른쪽 선택" },
     { M_CTRL|M_SHIFT, VK_ESCAPE, L"Ctrl+Shift+Esc",  L"작업 관리자 바로 열기" }, // BadUSB 관련
+    { M_CTRL|M_SHIFT, VK_RETURN, L"Ctrl+Shift+Enter", L"관리자 권한으로 실행 (UAC 승급)" }, // BadUSB 핵심
 };
 
 // =============================================================================

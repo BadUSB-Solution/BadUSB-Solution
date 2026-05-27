@@ -9,6 +9,7 @@
 #include "hid_scan.h"
 #include "keyboard_hook.h"
 #include "logger.h"
+#include "json_log.h"
 #include "policy.h"
 #include "../Policy/device_blocker.h"
 #include "ui_approval.h"
