@@ -119,15 +119,22 @@ namespace KeyNormalizer
 
             // --- Enter 처리 ---
             if (vk == VK_RETURN) {
-                if (winDown || altDown) {
-                    // Win+Enter(내레이터), Alt+Enter(속성) -> HotkeyEvent
-                    uint8_t mods = BuildMods(winDown, false, altDown, false);
+                // Win+Enter, Alt+Enter, Ctrl+Shift+Enter (관리자 권한 승급) -> HotkeyEvent
+                // 단독 Enter, Ctrl+Enter, Shift+Enter -> 줄바꿈 (편집 컨텍스트의 일반 사용)
+                bool isHotkey = winDown || altDown || (ctrlDown && shiftDown);
+                if (isHotkey) {
+                    uint8_t mods = BuildMods(winDown, ctrlDown, altDown, shiftDown);
                     auto def = KeyShortcutRef::Lookup(mods, vk);
                     std::wstring combo = def ? def->combo
-                                             : BuildComboFallback(winDown, false, altDown, false, vk);
+                                             : BuildComboFallback(winDown, ctrlDown, altDown, shiftDown, vk);
                     result.hotkeys.push_back({ combo, 0, result.lines.size() - 1 });
+
+                    // Ctrl+Shift+Enter 는 새 컨텍스트(관리자 셸) 진입 → 줄바꿈도 추가
+                    // Win+Enter / Alt+Enter 는 현재 창에서 동작이라 줄바꿈 안 함
+                    if (ctrlDown && shiftDown) {
+                        result.lines.push_back(L"");
+                    }
                 } else {
-                    // Ctrl+Enter, Shift+Enter, 단독 Enter -> 줄바꿈
                     result.lines.push_back(L"");
                 }
                 winXPending = false;

@@ -26,8 +26,6 @@ namespace Policy
 
     // 조회: 블랙리스트가 화이트리스트보다 우선한다.
     PolicyStatus Evaluate(const UsbItem& item);
-    bool IsWhitelisted(uint64_t fp);
-    bool IsBlacklisted(uint64_t fp);
 
     // 추가 (메모리 + 즉시 파일 저장)
     void AddWhitelist(const UsbItem& item);

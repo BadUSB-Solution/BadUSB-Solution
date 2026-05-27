@@ -8,6 +8,7 @@
 #include "compound_scorer.h"
 #include "hotkey_scorer.h"
 #include "logger.h"
+#include "json_log.h"
 #include <string>
 
 // ──────────────────────────────────────────────────────────────────────
@@ -64,6 +65,15 @@ namespace {
             _snwprintf_s(buf, _TRUNCATE, L"[Score] final=%.2f, %ls",
                 verdict.final_score, lvName);
             Logger::Add(buf);
+
+            wchar_t jdetail[160];
+            _snwprintf_s(jdetail, _TRUNCATE,
+                L"final=%.2f level=%ls", verdict.final_score, lvName);
+            JsonLog::Add(L"Keyboard (HID)",
+                         L"RISK_SCORE_COMPUTED",
+                         jdetail,
+                         verdict.final_score,
+                         lvName);
         }
 
         SetWindowTextW(g_hVerdict, CompoundScorer::FormatVerdict(verdict).c_str());

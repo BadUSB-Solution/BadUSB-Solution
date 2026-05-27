@@ -425,18 +425,6 @@ namespace Policy
         return PolicyStatus::Unknown;
     }
 
-    bool IsWhitelisted(uint64_t fp)
-    {
-        std::lock_guard<std::mutex> lk(g_mu);
-        return Contains(g_whitelist, fp);
-    }
-
-    bool IsBlacklisted(uint64_t fp)
-    {
-        std::lock_guard<std::mutex> lk(g_mu);
-        return Contains(g_blacklist, fp);
-    }
-
     void AddWhitelist(const UsbItem& item)
     {
         {

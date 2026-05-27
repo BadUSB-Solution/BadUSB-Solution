@@ -9,6 +9,7 @@
 #include "hid_scan.h"
 #include "keyboard_hook.h"
 #include "logger.h"
+#include "json_log.h"
 #include "policy.h"
 #include "../Policy/device_blocker.h"
 #include "ui_approval.h"
@@ -165,12 +166,17 @@ bool DeviceApprovalFlow::ApproveDeviceFromPath(HWND hWnd, const std::wstring& pa
         std::wstring blockDetail;
         const DeviceBlocker::BlockResult blockResult = DeviceBlocker::BlockByDevicePath(path, &blockDetail);
         Logger::Add(L"[Block] Result=" + std::to_wstring(static_cast<int>(blockResult)) + L", " + blockDetail);
+        JsonLog::Add(hotplugItem.name, L"DEVICE_BLOCKED",
+                     L"result=" + std::to_wstring(static_cast<int>(blockResult)) + L" " + blockDetail,
+                     -1, L"DANGER");
         return false;
     }
 
     // 이미 허용된 장치 -> Hook/뷰어/다이얼로그 없이 통과
     if (status == Policy::PolicyStatus::Whitelisted) {
         Logger::Add(L"[Approval] Auto-allow (whitelisted): " + hotplugItem.name);
+        JsonLog::Add(hotplugItem.name, L"DEVICE_ALLOWED", L"whitelist match",
+                     -1, L"SAFE");
         return true;
     }
 
