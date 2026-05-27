@@ -3425,9 +3425,9 @@ QWidget* MainWindow::createLogPage()
     // ── Header ───────────────────────────────────────────────────────────────
     {
         auto* headerRow = new QHBoxLayout;
-        headerRow->addWidget(label("로그", "pageTitle"));
+        headerRow->addWidget(label(tr("로그"), "pageTitle"));
         headerRow->addStretch();
-        headerRow->addWidget(makeSearchBox("이벤트, 장치명 등 검색", 256));
+        headerRow->addWidget(makeSearchBox(tr("이벤트, 장치명 등 검색"), 256));
         headerRow->addSpacing(8);
 
         auto mkBtn = [&](const QString& text, const QString& icon) {
@@ -3438,10 +3438,10 @@ QWidget* MainWindow::createLogPage()
             btn->setIconSize(QSize(16, 16));
             return btn;
         };
-        headerRow->addWidget(mkBtn("기간 선택",   ":/icons/status-clock.svg"));
-        headerRow->addWidget(mkBtn("이벤트 필터", ":/icons/action-filter.svg"));
+        headerRow->addWidget(mkBtn(tr("기간 선택"),   ":/icons/status-clock.svg"));
+        headerRow->addWidget(mkBtn(tr("이벤트 필터"), ":/icons/action-filter.svg"));
 
-        auto* exportBtn = new QPushButton("내보내기 (CSV)");
+        auto* exportBtn = new QPushButton(tr("내보내기 (CSV)"));
         exportBtn->setObjectName("primaryButton");
         exportBtn->setFont(pretendardFont(FontRole::Medium));
         headerRow->addWidget(exportBtn);
@@ -3450,20 +3450,20 @@ QWidget* MainWindow::createLogPage()
 
     // ── Per-row helpers shared by initial fill and appendNewLogRows() ───────────
     // Classify a log line → (icon resource, result label, badge objectName)
-    auto classifyLine = [](const QString& line)
+    auto classifyLine = [this](const QString& line)
         -> std::tuple<QString,QString,QString>
     {
         if (line.contains("block", Qt::CaseInsensitive) ||
             line.contains("blacklist", Qt::CaseInsensitive) || line.contains("차단"))
-            return {":/icons/status-blocked.svg", "차단", "blockBadge"};
+            return {":/icons/status-blocked.svg", tr("차단"), "blockBadge"};
         if (line.contains("allow", Qt::CaseInsensitive) ||
             line.contains("whitelist", Qt::CaseInsensitive) || line.contains("허용"))
-            return {":/icons/status-allowed.svg", "허용", "successBadge"};
+            return {":/icons/status-allowed.svg", tr("허용"), "successBadge"};
         if (line.contains("warning", Qt::CaseInsensitive) ||
             line.contains("anomaly", Qt::CaseInsensitive) ||
             line.contains("unknown", Qt::CaseInsensitive))
-            return {":/icons/status-warning.svg", "확인 필요", "warningBadge"};
-        return {":/icons/status-info.svg", "기록", "neutralBadge"};
+            return {":/icons/status-warning.svg", tr("확인 필요"), "warningBadge"};
+        return {":/icons/status-info.svg", tr("기록"), "neutralBadge"};
     };
 
     // Extract a device name from the log line (text after known ": " prefixes)
@@ -3496,8 +3496,8 @@ QWidget* MainWindow::createLogPage()
         logRows.push_back({nowTimestamp(), line, icon, extractDevice(line), result, badge});
     }
     if (logRows.isEmpty())
-        logRows.push_back({nowTimestamp(), "아직 기록된 로그가 없습니다.",
-                           ":/icons/status-info.svg", "-", "대기", "neutralBadge"});
+        logRows.push_back({nowTimestamp(), tr("아직 기록된 로그가 없습니다."),
+                           ":/icons/status-info.svg", "-", tr("대기"), "neutralBadge"});
 
     QTableWidget* logTable = nullptr;
 
@@ -3515,7 +3515,7 @@ QWidget* MainWindow::createLogPage()
         logTable = table;
         logTable_ = table;
         lastLogLineCount_ = logRows.size();
-        table->setHorizontalHeaderLabels({"시간", "이벤트", "장치", "처리 결과"});
+        table->setHorizontalHeaderLabels({tr("시간"), tr("이벤트"), tr("장치"), tr("처리 결과")});
         configureTable(table);
         // Same as USB table: NoSelection + WA_TransparentForMouseEvents on all
         // cell widgets → clicks pass through to the viewport → cellClicked fires.
@@ -3605,7 +3605,7 @@ QWidget* MainWindow::createLogPage()
         panelHdr->setFixedHeight(45);
         auto* phl = new QHBoxLayout(panelHdr);
         phl->setContentsMargins(16, 0, 16, 0);
-        phl->addWidget(label("이벤트 상세 정보", "cardTitle"));
+        phl->addWidget(label(tr("이벤트 상세 정보"), "cardTitle"));
         phl->addStretch();
         dcl->addWidget(panelHdr);
 
@@ -3669,13 +3669,13 @@ QWidget* MainWindow::createLogPage()
         detDevBadge->setObjectName("detailDeviceBadge");
         detDevBadge->setFont(pretendardFont(FontRole::Medium));
         detDevBadge->setWordWrap(true);
-        addDetailSection("장치 정보", detDevBadge);
+        addDetailSection(tr("장치 정보"), detDevBadge);
 
-        auto* detDesc = new QLabel("등록되지 않은 저장 장치가 연결되었습니다.");
+        auto* detDesc = new QLabel(tr("등록되지 않은 저장 장치가 연결되었습니다."));
         detDesc->setObjectName("detailDescription");
         detDesc->setFont(pretendardFont(FontRole::Regular));
         detDesc->setWordWrap(true);
-        addDetailSection("상세 설명", detDesc);
+        addDetailSection(tr("상세 설명"), detDesc);
 
         auto* detResultBadge = new QLabel(logRows[0].result);
         detResultBadge->setObjectName(logRows[0].badge.toUtf8().constData());
@@ -3688,7 +3688,7 @@ QWidget* MainWindow::createLogPage()
             row2->setSpacing(0);
             auto* resultCol = new QVBoxLayout;
             resultCol->setSpacing(6);
-            auto* rLbl = new QLabel("처리 결과");
+            auto* rLbl = new QLabel(tr("처리 결과"));
             rLbl->setObjectName("detailSectionLabel");
             rLbl->setFont(pretendardFont(FontRole::Medium));
             resultCol->addWidget(rLbl);
@@ -3701,7 +3701,7 @@ QWidget* MainWindow::createLogPage()
             row2->addStretch();
             auto* userCol = new QVBoxLayout;
             userCol->setSpacing(6);
-            auto* uLbl = new QLabel("관련 사용자");
+            auto* uLbl = new QLabel(tr("관련 사용자"));
             uLbl->setObjectName("detailSectionLabel");
             uLbl->setFont(pretendardFont(FontRole::Medium));
             userCol->addWidget(uLbl);
@@ -5038,14 +5038,14 @@ void MainWindow::appendNewLogRows()
             return ":/icons/status-warning.svg";
         return ":/icons/status-info.svg";
     };
-    auto badgeForLine = [](const QString& line) -> std::pair<QString,QString> {
+    auto badgeForLine = [this](const QString& line) -> std::pair<QString,QString> {
         if (line.contains("block", Qt::CaseInsensitive) || line.contains("blacklist", Qt::CaseInsensitive) || line.contains("차단"))
-            return {"차단", "blockBadge"};
+            return {tr("차단"), "blockBadge"};
         if (line.contains("allow", Qt::CaseInsensitive) || line.contains("whitelist", Qt::CaseInsensitive) || line.contains("허용"))
-            return {"허용", "successBadge"};
+            return {tr("허용"), "successBadge"};
         if (line.contains("warning", Qt::CaseInsensitive) || line.contains("anomaly", Qt::CaseInsensitive) || line.contains("unknown", Qt::CaseInsensitive))
-            return {"확인 필요", "warningBadge"};
-        return {"기록", "neutralBadge"};
+            return {tr("확인 필요"), "warningBadge"};
+        return {tr("기록"), "neutralBadge"};
     };
 
     const int startRow = logTable_->rowCount();
