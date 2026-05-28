@@ -52,8 +52,10 @@ WizardStyle=modern
 DisableWelcomePage=no
 DisableProgramGroupPage=yes
 ShowLanguageDialog=yes
-SetupIconFile=
+; 마법사 + 인스톨러 EXE 자체 아이콘
+SetupIconFile=assets\icon.ico
 UninstallDisplayName={#AppName}
+; 언인스톨러도 같은 아이콘으로 (제어판 / 설정→앱 표시용)
 UninstallDisplayIcon={app}\{#AppExeName}
 
 ; 언인스톨 정리
