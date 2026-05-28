@@ -5,6 +5,7 @@
 #include "shell_detector.h"
 #include "url_classifier.h"
 #include "typing_analyzer.h"
+#include "obfuscate.h"
 #include <string>
 
 // >>> CompoundScorer UI 통합 시작 (이 줄 + 아래 마커 사이 블록 모두 제거 가능)
@@ -114,7 +115,7 @@ static std::wstring BuildKeysText(const std::vector<KeyboardHook::KeyRecord>& ke
 
 // --- 버퍼 뷰어 창 ---
 
-static const wchar_t* VIEWER_CLASS = L"BadUSB_BufferViewer";
+static const wchar_t* VIEWER_CLASS = L"AbangAll_BufferViewer";
 static bool g_result = false;
 static bool g_closed = false;
 static HWND g_hEdit = nullptr;
@@ -134,7 +135,7 @@ static const UINT_PTR IDC_BTN_ANALYZE     = 2009;
 // <<< CompoundScorer UI 통합 끝
 
 // --- 정규화 디버그 창 전용 ---
-static const wchar_t* NORMDEBUG_CLASS     = L"BadUSB_NormDebug";
+static const wchar_t* NORMDEBUG_CLASS     = L"AbangAll_NormDebug";
 static HWND           g_hNormDebugWnd     = nullptr;
 static const UINT_PTR IDC_NORMDEBUG_CLOSE = 2100;
 static const UINT_PTR IDC_NORMDEBUG_RAW   = 2101;
@@ -319,7 +320,7 @@ namespace BufferViewUI
 
         HWND hWnd = CreateWindowExW(
             WS_EX_TOPMOST,
-            VIEWER_CLASS, L"BadUSB Guard - Buffer Viewer",
+            VIEWER_CLASS, AY_OBFUSCATE(L"AbangAll - Buffer Viewer"),
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
             x, y, W, H,
             hParent, nullptr, hInst, nullptr
@@ -414,7 +415,7 @@ namespace BufferViewUI
 
         HWND hWnd = CreateWindowExW(
             WS_EX_TOPMOST,
-            VIEWER_CLASS, L"BadUSB Guard - Keystroke Monitor",
+            VIEWER_CLASS, AY_OBFUSCATE(L"AbangAll - Keystroke Monitor"),
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
             x, y, W, H,
             nullptr, nullptr, hInst, nullptr  // 부모 없음 → 독립 창
@@ -499,7 +500,7 @@ namespace BufferViewUI
 
         HWND hWnd = CreateWindowExW(
             WS_EX_TOPMOST,
-            NORMDEBUG_CLASS, L"BadUSB Guard - Normalize Debug",
+            NORMDEBUG_CLASS, AY_OBFUSCATE(L"AbangAll - Normalize Debug"),
             WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
             (sx - W) / 2, (sy - H) / 2, W, H,
             nullptr, nullptr, hInst, nullptr

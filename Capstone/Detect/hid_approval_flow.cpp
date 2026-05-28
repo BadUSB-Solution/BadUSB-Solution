@@ -10,7 +10,6 @@
 #include "hid_scan.h"
 #include "keyboard_hook.h"
 #include "logger.h"
-#include "json_log.h"
 #include "policy.h"
 #include "../Policy/device_blocker.h"
 #include "ui_approval.h"
@@ -70,37 +69,35 @@ namespace
             }
         }
 
-        Logger::Add(L"[UI] Showing approval list dialog...");
+        Logger::Msg::ShowingApprovalDialog();
         const bool saved = ApprovalUI::ShowUsbListDialog(hWnd, pending);
 
         if (!saved) {
-            Logger::Add(L"[UI] Canceled. No policy changes.");
+            Logger::Msg::Canceled();
             return false;
         }
 
-        Logger::Add(L"[UI] Saved. Applying policy...");
+        Logger::Msg::Saved();
 
         // 항목별 정책 반영.
         // blacklist로 저장한 항목은 현재 연결된 장치도 즉시 disable/eject 시도한다.
         for (const auto& item : pending) {
             if (item.allow) {
                 Policy::AddWhitelist(item);
-                Logger::Add(L"[T] Saved as Whitelist: " + std::to_wstring(item.fingerprint));
+                Logger::Msg::SavedAsWhitelist(item.fingerprint);
                 std::wstring enableDetail;
                 const DeviceBlocker::EnableResult enableResult =
                     DeviceBlocker::EnableByVidPid(item.vid, item.pid, &enableDetail);
-                Logger::Add(L"[Block] Saved whitelist item enable result=" +
-                    std::to_wstring(static_cast<int>(enableResult)) + L", " + enableDetail);
+                Logger::Msg::BlockSavedWhitelistEnableResult(static_cast<int>(enableResult), enableDetail);
             }
             else {
                 Policy::AddBlacklist(item);
-                Logger::Add(L"[T] Saved as Blacklist: " + std::to_wstring(item.fingerprint));
+                Logger::Msg::SavedAsBlacklist(item.fingerprint);
                 if (!item.devicePath.empty()) {
                     std::wstring blockDetail;
                     const DeviceBlocker::BlockResult blockResult =
                         DeviceBlocker::BlockByDevicePath(item.devicePath, &blockDetail);
-                    Logger::Add(L"[Block] Saved blacklist item block result=" +
-                        std::to_wstring(static_cast<int>(blockResult)) + L", " + blockDetail);
+                    Logger::Msg::BlockSavedBlacklistResult(static_cast<int>(blockResult), blockDetail);
                 }
             }
         }
@@ -124,7 +121,7 @@ bool DeviceApprovalFlow::ApproveDevicesFromPaths(HWND hWnd, const std::vector<st
 
         // 이미 차단된 후보는 승인 UI에 다시 올리지 않는다.
         if (status == Policy::PolicyStatus::Blacklisted) {
-            Logger::Add(L"[Approval] Auto-block candidate (blacklisted VID/PID): " + item.name);
+            Logger::Msg::ApprovalAutoBlockCandidateVidPid(item.name);
             continue;
         }
 
@@ -141,14 +138,14 @@ bool DeviceApprovalFlow::ApproveDevicesFromPaths(HWND hWnd, const std::vector<st
     }
 
     if (pending.empty()) {
-        Logger::Add(L"[Approval] No unknown HID devices.");
+        Logger::Msg::ApprovalNoUnknownDevices();
         return false;
     }
 
     SortPending(pending);
 
     for (const auto& item : pending) {
-        Logger::Add(L"[Approval] Candidate: " + item.name);
+        Logger::Msg::ApprovalCandidate(item.name);
     }
 
     return RunApprovalDialog(hWnd, pending);
@@ -166,13 +163,10 @@ bool DeviceApprovalFlow::ApproveDeviceFromPath(HWND hWnd, const std::wstring& pa
 
     // 이미 차단된 장치 -> 승인 UI 없이 Windows 장치 비활성화/eject 시도
     if (status == Policy::PolicyStatus::Blacklisted) {
-        Logger::Add(L"[Approval] Auto-block (blacklisted): " + hotplugItem.name);
+        Logger::Msg::ApprovalAutoBlock(hotplugItem.name);
         std::wstring blockDetail;
         const DeviceBlocker::BlockResult blockResult = DeviceBlocker::BlockByDevicePath(path, &blockDetail);
-        Logger::Add(L"[Block] Result=" + std::to_wstring(static_cast<int>(blockResult)) + L", " + blockDetail);
-        JsonLog::Add(hotplugItem.name, L"DEVICE_BLOCKED",
-                     L"result=" + std::to_wstring(static_cast<int>(blockResult)) + L" " + blockDetail,
-                     -1, L"DANGER");
+        Logger::Msg::BlockResult(static_cast<int>(blockResult), blockDetail);
         // 비활성화 후 seen 집합에서 제거 — 재연결 시 다시 감지되도록
         HidMonitor::ForgetPath(path);
         return false;
@@ -180,14 +174,12 @@ bool DeviceApprovalFlow::ApproveDeviceFromPath(HWND hWnd, const std::wstring& pa
 
     // 이미 허용된 장치 -> Hook/뷰어/다이얼로그 없이 통과
     if (status == Policy::PolicyStatus::Whitelisted) {
-        Logger::Add(L"[Approval] Auto-allow (whitelisted): " + hotplugItem.name);
-        JsonLog::Add(hotplugItem.name, L"DEVICE_ALLOWED", L"whitelist match",
-                     -1, L"SAFE");
+        Logger::Msg::ApprovalAutoAllow(hotplugItem.name);
         return true;
     }
 
     // ── Unknown → 키보드 훅 + 모니터링 창 + 승인 다이얼로그 동시 ──
-    Logger::Add(L"[Approval] Unknown device → starting hook + viewer: " + hotplugItem.name);
+    Logger::Msg::ApprovalUnknownStartHook(hotplugItem.name);
 
     KeyboardHook::Install();
     BufferViewUI::Open(hWnd, hotplugItem.vid, hotplugItem.pid, hotplugItem.name);

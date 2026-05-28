@@ -1,5 +1,6 @@
 #include "threat_db_connect.h"
 #include "sqlite3.h"
+#include "obfuscate.h"
 #include <Windows.h>
 #include <mutex>
 
@@ -120,8 +121,7 @@ namespace {
 
         for (int sid : order) {
             sqlite3_stmt* stmt = Prepare(
-                "SELECT command_id FROM commands "
-                "WHERE shell_id = ? AND command_name = ? COLLATE NOCASE LIMIT 1");
+                AY_OBFUSCATE("SELECT command_id FROM commands WHERE shell_id = ? AND command_name = ? COLLATE NOCASE LIMIT 1"));
             if (stmt) {
                 sqlite3_bind_int(stmt, 1, sid);
                 BindWStr(stmt, 2, cmd_name);
@@ -133,8 +133,7 @@ namespace {
             }
 
             stmt = Prepare(
-                "SELECT canonical_id FROM command_aliases "
-                "WHERE shell_id = ? AND alias_name = ? COLLATE NOCASE LIMIT 1");
+                AY_OBFUSCATE("SELECT canonical_id FROM command_aliases WHERE shell_id = ? AND alias_name = ? COLLATE NOCASE LIMIT 1"));
             if (stmt) {
                 sqlite3_bind_int(stmt, 1, sid);
                 BindWStr(stmt, 2, cmd_name);
@@ -285,12 +284,7 @@ ParamRow LookupParameter(int command_id, const std::wstring& param)
     if (!g_db && !Open()) return r;
 
     sqlite3_stmt* stmt = Prepare(
-        "SELECT t.tag_key, p.axis, COALESCE(t.base_score, 0) "
-        "FROM parameters p "
-        "LEFT JOIN tags t ON p.tag_id = t.tag_id "
-        "WHERE p.command_id = ? AND p.parameter_name = ? "
-        "ORDER BY (p.axis = 'X') "
-        "LIMIT 1");
+        AY_OBFUSCATE("SELECT t.tag_key, p.axis, COALESCE(t.base_score, 0) FROM parameters p LEFT JOIN tags t ON p.tag_id = t.tag_id WHERE p.command_id = ? AND p.parameter_name = ? ORDER BY (p.axis = 'X') LIMIT 1"));
     if (!stmt) return r;
     sqlite3_bind_int(stmt, 1, command_id);
     BindWStr(stmt, 2, param);
@@ -313,9 +307,7 @@ ParamRow LookupCommonParameter(const std::wstring& param)
     if (!g_db && !Open()) return r;
 
     sqlite3_stmt* stmt = Prepare(
-        "SELECT t.tag_key, t.axis, t.base_score "
-        "FROM common_parameters cp JOIN tags t ON cp.tag_id = t.tag_id "
-        "WHERE cp.param_name = ? COLLATE NOCASE LIMIT 1");
+        AY_OBFUSCATE("SELECT t.tag_key, t.axis, t.base_score FROM common_parameters cp JOIN tags t ON cp.tag_id = t.tag_id WHERE cp.param_name = ? COLLATE NOCASE LIMIT 1"));
     if (!stmt) return r;
     BindWStr(stmt, 1, param);
 
@@ -337,9 +329,7 @@ std::vector<ParamRow> LookupCommandSelf(int command_id)
     if (!g_db && !Open()) return out;
 
     sqlite3_stmt* stmt = Prepare(
-        "SELECT t.tag_key, t.axis, t.base_score "
-        "FROM parameters p JOIN tags t ON p.tag_id = t.tag_id "
-        "WHERE p.command_id = ? AND p.parameter_name = ''");
+        AY_OBFUSCATE("SELECT t.tag_key, t.axis, t.base_score FROM parameters p JOIN tags t ON p.tag_id = t.tag_id WHERE p.command_id = ? AND p.parameter_name = ''"));
     if (!stmt) return out;
     sqlite3_bind_int(stmt, 1, command_id);
 
@@ -367,9 +357,7 @@ double LookupEnumAdjust(const std::wstring& cmd_name,
     // 1) command-specific
     if (!cmd_name.empty()) {
         sqlite3_stmt* stmt = Prepare(
-            "SELECT score_adjust FROM enum_threats "
-            "WHERE command_name = ? AND parameter_name = ? AND value_name = ? "
-            "LIMIT 1");
+            AY_OBFUSCATE("SELECT score_adjust FROM enum_threats WHERE command_name = ? AND parameter_name = ? AND value_name = ? LIMIT 1"));
         if (stmt) {
             BindWStr(stmt, 1, cmd_name);
             BindWStr(stmt, 2, param);
@@ -384,9 +372,7 @@ double LookupEnumAdjust(const std::wstring& cmd_name,
 
     // 2) global (command_name IS NULL)
     sqlite3_stmt* stmt = Prepare(
-        "SELECT score_adjust FROM enum_threats "
-        "WHERE command_name IS NULL AND parameter_name = ? AND value_name = ? "
-        "LIMIT 1");
+        AY_OBFUSCATE("SELECT score_adjust FROM enum_threats WHERE command_name IS NULL AND parameter_name = ? AND value_name = ? LIMIT 1"));
     if (!stmt) return 0.0;
     BindWStr(stmt, 1, param);
     BindWStr(stmt, 2, value);
@@ -402,7 +388,7 @@ std::wstring GetCommandName(int command_id)
 {
     if (!g_db && !Open()) return std::wstring();
     sqlite3_stmt* stmt = Prepare(
-        "SELECT command_name FROM commands WHERE command_id = ?");
+        AY_OBFUSCATE("SELECT command_name FROM commands WHERE command_id = ?"));
     if (!stmt) return std::wstring();
     sqlite3_bind_int(stmt, 1, command_id);
     std::wstring name;

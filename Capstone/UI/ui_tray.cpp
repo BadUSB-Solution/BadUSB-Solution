@@ -1,6 +1,7 @@
 // background ui tray
 
 #include "ui_tray.h"
+#include "obfuscate.h"
 #include <shellapi.h>
 #include "ui_message_id.h"
 
@@ -19,7 +20,7 @@ namespace UiTray
         nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         nid.uCallbackMessage = WM_TRAYICON;
         nid.hIcon = LoadIconW(hInst, MAKEINTRESOURCE(iconResId));
-        (void)lstrcpynW(nid.szTip, L"BadUSB Guard (Demo)", ARRAYSIZE(nid.szTip));
+        (void)lstrcpynW(nid.szTip, AY_OBFUSCATE(L"AbangAll"), ARRAYSIZE(nid.szTip));
         Shell_NotifyIconW(NIM_ADD, &nid);
     }
 
@@ -38,9 +39,9 @@ namespace UiTray
         GetCursorPos(&pt);
 
         HMENU menu = CreatePopupMenu();
-        AppendMenuW(menu, MF_STRING, IDM_TRAY_OPEN, L"Open");
+        AppendMenuW(menu, MF_STRING, IDM_TRAY_OPEN, AY_OBFUSCATE(L"Open"));
         AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-        AppendMenuW(menu, MF_STRING, IDM_TRAY_EXIT, L"Exit");
+        AppendMenuW(menu, MF_STRING, IDM_TRAY_EXIT, AY_OBFUSCATE(L"Exit"));
 
         SetForegroundWindow(hWnd);
         TrackPopupMenu(menu, TPM_RIGHTBUTTON, pt.x, pt.y, 0, hWnd, nullptr);
