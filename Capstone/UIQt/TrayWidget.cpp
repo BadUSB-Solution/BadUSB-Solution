@@ -4,6 +4,7 @@
 
 #include <QApplication>
 #include <QFrame>
+#include <QGraphicsColorizeEffect>
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QIcon>
@@ -122,7 +123,7 @@ TrayWidget::TrayWidget(QWidget* parent)
     usbText->addStretch();
     usbHeaderLabel_ = makeLabel(tr("연결된 USB"));
     usbText->addWidget(usbHeaderLabel_);
-    usbCountLabel_ = makeLabel("0개 장치");
+    usbCountLabel_ = makeLabel(tr("%1개 장치").arg(0));
     usbText->addWidget(usbCountLabel_);
     usbText->addStretch();
     usbL->addLayout(usbText);
@@ -159,16 +160,7 @@ TrayWidget::TrayWidget(QWidget* parent)
     threatL->addLayout(threatText);
     threatL->addStretch();
 
-    mascot_ = new QLabel;
-    mascot_->setFixedSize(72, 72);
-    mascot_->setStyleSheet("QLabel { background: transparent; border: none; }");
-    mascot_->setPixmap(QPixmap(":/icons/mascot_ver3.png").scaled(
-        72, 72, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    mascot_->setAttribute(Qt::WA_TransparentForMouseEvents);
-    auto* opacity = new QGraphicsOpacityEffect(mascot_);
-    opacity->setOpacity(0.35);
-    mascot_->setGraphicsEffect(opacity);
-    threatL->addWidget(mascot_, 0, Qt::AlignVCenter);
+    mascot_ = nullptr;
 
     contentL->addWidget(threatCard_);
     root->addWidget(content, 1);
@@ -271,10 +263,6 @@ void TrayWidget::applyTheme()
     eventText_->setStyleSheet(labelStyle(13, t.TextDark, 600));
     eventTime_->setStyleSheet(labelStyle(12, t.SubtextMid, 600));
 
-    // Mascot opacity tuned by theme — slightly higher in dark for visibility.
-    if (auto* fx = qobject_cast<QGraphicsOpacityEffect*>(mascot_->graphicsEffect())) {
-        fx->setOpacity(dark ? 0.40 : 0.32);
-    }
 
     applyLevel();
 }
@@ -288,7 +276,7 @@ void TrayWidget::setThreatLevel(ThreatLevel level)
 void TrayWidget::setUsbCount(int count)
 {
     if (usbCountLabel_)
-        usbCountLabel_->setText(QString("%1개 장치").arg(count));
+        usbCountLabel_->setText(tr("%1개 장치").arg(count));
 }
 
 void TrayWidget::setRecentEvent(const QString& time, const QString& text)

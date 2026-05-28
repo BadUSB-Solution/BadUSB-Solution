@@ -12,6 +12,7 @@
         <file alias="detect_good.png">../../../docs/detect_good.png</file>
         <file alias="detect_bad.png">../../../docs/detect_bad.png</file>
         <file alias="mascot_ver3.png">icons/mascot_ver3.png</file>
+        <file alias="mascot_darkVer.png">../../../docs/mascot_darkVer.png</file>
         <file alias="device-keyboard.svg">icons/device-keyboard.svg</file>
         <file alias="device-network.svg">icons/device-network.svg</file>
         <file alias="device-storage.svg">icons/device-storage.svg</file>

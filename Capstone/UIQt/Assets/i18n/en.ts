@@ -353,5 +353,7 @@ Shown in hexadecimal format.</translation></message>
     <message><source>안전</source><translation>Safe</translation></message>
     <message><source>주의</source><translation>Caution</translation></message>
     <message><source>최근 이벤트</source><translation>Recent Events</translation></message>
+    <message><source>●  모니터링 ON</source><translation>●  Monitoring ON</translation></message>
+    <message><source>%1개 장치</source><translation>%1 device(s)</translation></message>
 </context>
 </TS>

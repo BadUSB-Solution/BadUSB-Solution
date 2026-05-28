@@ -86,7 +86,7 @@ if(BUILD_QT_UI)
     set(CMAKE_AUTORCC ON)
     set(CMAKE_AUTOUIC ON)
 
-    find_package(Qt6 REQUIRED COMPONENTS Widgets Svg LinguistTools)
+    find_package(Qt6 REQUIRED COMPONENTS Widgets Svg Network LinguistTools)
 
     add_executable(CapstoneQtApp WIN32
         Capstone/UIQt/main_qt.cpp
@@ -100,6 +100,7 @@ if(BUILD_QT_UI)
 
     target_link_libraries(CapstoneQtApp PRIVATE
         CapstoneCore
+        Qt6::Network
         Qt6::Svg
         Qt6::Widgets
     )

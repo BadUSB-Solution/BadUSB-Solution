@@ -10,6 +10,7 @@
 #include <QApplication>
 #include <QFile>
 #include <QFileDialog>
+#include <QProcess>
 #include <QMenu>
 #include <QMessageBox>
 #include <QStringConverter>
@@ -506,16 +507,51 @@ namespace
 #ifdef Q_OS_WIN
     void setWindowsAutoStart(bool enabled)
     {
+        // HKCU\Run cannot launch apps that require UAC elevation (requireAdministrator manifest).
+        // Use Task Scheduler with HIGHEST_AVAILABLE privilege instead — no UAC prompt at login.
+        const QString appName = QStringLiteral("Abang-All");
+        const QString exe = QDir::toNativeSeparators(QApplication::applicationFilePath());
+
+        if (enabled) {
+            const QString xml = QStringLiteral(
+                "<?xml version=\"1.0\" encoding=\"UTF-16\"?>"
+                "<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">"
+                "<Triggers><LogonTrigger><Enabled>true</Enabled></LogonTrigger></Triggers>"
+                "<Principals><Principal id=\"Author\">"
+                "<LogonType>InteractiveToken</LogonType>"
+                "<RunLevel>HighestAvailable</RunLevel>"
+                "</Principal></Principals>"
+                "<Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>"
+                "<DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>"
+                "<StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>"
+                "<ExecutionTimeLimit>PT0S</ExecutionTimeLimit>"
+                "<Priority>7</Priority></Settings>"
+                "<Actions Context=\"Author\">"
+                "<Exec><Command>\"%1\"</Command></Exec>"
+                "</Actions></Task>").arg(exe);
+
+            // Write XML to temp file then import via schtasks
+            const QString tmpXml = QDir::tempPath() + QStringLiteral("/abangall_task.xml");
+            QFile f(tmpXml);
+            if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                f.write(xml.toUtf8());
+                f.close();
+            }
+            QProcess::execute(QStringLiteral("schtasks"),
+                {QStringLiteral("/Create"), QStringLiteral("/TN"), appName,
+                 QStringLiteral("/XML"), tmpXml, QStringLiteral("/F")});
+            QFile::remove(tmpXml);
+        } else {
+            QProcess::execute(QStringLiteral("schtasks"),
+                {QStringLiteral("/Delete"), QStringLiteral("/TN"), appName,
+                 QStringLiteral("/F")});
+        }
+
+        // Also clean up any legacy HKCU\Run entry
         QSettings runKey(
             QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"),
             QSettings::NativeFormat);
-        const QString appName = QStringLiteral("Abang-All");
-        if (enabled) {
-            const QString exe = QDir::toNativeSeparators(QApplication::applicationFilePath());
-            runKey.setValue(appName, QStringLiteral("\"%1\"").arg(exe));
-        } else {
-            runKey.remove(appName);
-        }
+        runKey.remove(appName);
     }
 #endif
 
