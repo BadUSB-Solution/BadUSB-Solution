@@ -107,6 +107,9 @@ Source: "{#SourceExePath}"; DestDir: "{app}"; DestName: "{#AppExeName}"; Flags: 
 
 ; ── 시그니처 DB
 Source: "{#SourceDbPath}"; DestDir: "{app}"; Flags: ignoreversion
+; HID 스캔 PowerShell 스크립트 — 인스톨러 EXE 안에 묶고, {tmp} 에 일시 추출
+;   본체 hid_fingerprint.cpp 와 동일 로직 (ContainerId 통합 + 부모 chain 이름 탐색)
+Source: "scripts\hid_scan.ps1"; Flags: dontcopy
 
 ; ── Qt6 핵심 DLL (windeployqt가 build-qt/Release에 자동 배치)
 Source: "{#SourceDir}\Qt6Core.dll";       DestDir: "{app}"; Flags: ignoreversion
@@ -151,115 +154,22 @@ Filename: "{app}\{#AppExeName}"; \
 [Code]
 // ============================================================================
 // 인스톨 마법사 — 기존 USB/HID 장치 스캔 + 일괄 승인 페이지
+//
+// 실제 HID 열거 / 이름 추출 / fingerprint 계산은 Installer\scripts\hid_scan.ps1
+// 가 담당. 이 스크립트는 본체 Capstone 의 hid_fingerprint.cpp / hid_scan.cpp
+// 로직을 그대로 포팅한 것 → 솔루션과 결과가 일관됨.
+// Pascal 측은 PS 출력 (한 줄 = Name|InstanceId|FpHex16|VidHex4|PidHex4) 을
+// 파싱해서 체크 리스트로만 띄움.
 // ============================================================================
-
-// ─── Windows API 상수 ──────────────────────────────────────────────────────
-const
-  // GUID_DEVINTERFACE_HID = {4D1E55B2-F16F-11CF-88CB-001111000030}
-  // Inno Setup Pascal 에선 TGUID 상수 직접 선언 안 되니까 inline 으로 채움.
-
-  DIGCF_PRESENT              = $00000002;
-  DIGCF_DEVICEINTERFACE      = $00000010;
-  ERROR_INSUFFICIENT_BUFFER  = 122;
-  ERROR_NO_MORE_ITEMS        = 259;
-  INVALID_HANDLE_VALUE_INT   = -1;
-  GENERIC_READ               = $80000000;
-  GENERIC_WRITE              = $40000000;
-  FILE_SHARE_READ            = $00000001;
-  FILE_SHARE_WRITE           = $00000002;
-  OPEN_EXISTING              = 3;
-
-// ─── Windows API 구조체 ────────────────────────────────────────────────────
-type
-  TSpDeviceInterfaceData = record
-    cbSize:             DWORD;
-    InterfaceClassGuid: TGUID;
-    Flags:              DWORD;
-    Reserved:           DWORD;   // 32-bit Setup: ULONG_PTR == DWORD
-  end;
-
-  // SP_DEVICE_INTERFACE_DETAIL_DATA_W 의 32-bit alignment.
-  //   - 첫 DWORD = cbSize (32-bit Setup 에선 6 [DWORD + WCHAR] 의 정렬 후 6 또는 4+2=6).
-  //   - 이어 DevicePath 가 가변 길이로 따라옴 → 별도 buffer 로 처리.
-  THiddAttributes = record
-    Size:           DWORD;
-    VendorID:       Word;
-    ProductID:      Word;
-    VersionNumber:  Word;
-  end;
-
-// ─── setupapi.dll ──────────────────────────────────────────────────────────
-function SetupDiGetClassDevsW(
-    const ClassGuid: TGUID;
-    Enumerator:      PAnsiChar;   // NULL = 모든 enumerator
-    hwndParent:      HWND;
-    Flags:           DWORD): THandle;
-  external 'SetupDiGetClassDevsW@setupapi.dll stdcall';
-
-function SetupDiEnumDeviceInterfaces(
-    DeviceInfoSet:           THandle;
-    DeviceInfoData:          Cardinal;   // NULL
-    const InterfaceClassGuid:TGUID;
-    MemberIndex:             DWORD;
-    var DeviceInterfaceData: TSpDeviceInterfaceData): Boolean;
-  external 'SetupDiEnumDeviceInterfaces@setupapi.dll stdcall';
-
-function SetupDiGetDeviceInterfaceDetailW(
-    DeviceInfoSet:                  THandle;
-    var DeviceInterfaceData:        TSpDeviceInterfaceData;
-    DeviceInterfaceDetailData:      Cardinal;   // pointer (NULL on size probe)
-    DeviceInterfaceDetailDataSize:  DWORD;
-    var RequiredSize:               DWORD;
-    DeviceInfoData:                 Cardinal): Boolean;
-  external 'SetupDiGetDeviceInterfaceDetailW@setupapi.dll stdcall';
-
-// 실제 버퍼에 채우는 두 번째 호출용 — 버퍼 raw 포인터 받는 형태.
-function SetupDiGetDeviceInterfaceDetailW_Fill(
-    DeviceInfoSet:                  THandle;
-    var DeviceInterfaceData:        TSpDeviceInterfaceData;
-    DeviceInterfaceDetailData:      AnsiString;
-    DeviceInterfaceDetailDataSize:  DWORD;
-    var RequiredSize:               DWORD;
-    DeviceInfoData:                 Cardinal): Boolean;
-  external 'SetupDiGetDeviceInterfaceDetailW@setupapi.dll stdcall';
-
-function SetupDiDestroyDeviceInfoList(DeviceInfoSet: THandle): Boolean;
-  external 'SetupDiDestroyDeviceInfoList@setupapi.dll stdcall';
-
-// ─── kernel32.dll ──────────────────────────────────────────────────────────
-function CreateFileW(
-    FileName:           string;
-    DesiredAccess:      DWORD;
-    ShareMode:          DWORD;
-    SecurityAttributes: Cardinal;
-    CreationDisposition:DWORD;
-    FlagsAndAttributes: DWORD;
-    TemplateFile:       THandle): THandle;
-  external 'CreateFileW@kernel32.dll stdcall';
-
-function CloseHandle(hObject: THandle): Boolean;
-  external 'CloseHandle@kernel32.dll stdcall';
-
-// ─── hid.dll ───────────────────────────────────────────────────────────────
-function HidD_GetAttributes(
-    HidDeviceObject: THandle;
-    var Attributes:  THiddAttributes): Boolean;
-  external 'HidD_GetAttributes@hid.dll stdcall';
-
-function HidD_GetProductString(
-    HidDeviceObject: THandle;
-    Buffer:          string;
-    BufferLength:    DWORD): Boolean;
-  external 'HidD_GetProductString@hid.dll stdcall';
 
 // ─── 데이터 타입 ──────────────────────────────────────────────────────────
 type
   THidDevice = record
-    Vid:         Word;       // 0x046D
-    Pid:         Word;       // 0xC077
-    Name:        string;     // "USB Optical Mouse" (또는 빈 문자열)
-    DevicePath:  string;     // \\?\HID#VID_046D&PID_C077...
-    Fingerprint: Int64;      // VID/PID 기반 unique 해시 (allow_list.json 용)
+    Vid:         Word;     // 0x046D — 없으면 0 (Bluetooth / ACPI 등)
+    Pid:         Word;     // 0xC077 — 없으면 0
+    Name:        string;   // 본체 SelectBestCandidateName 결과
+    DevicePath:  string;   // Pnp InstanceId (예: HID\VID_046D&PID_C077\7&...)
+    Fingerprint: string;   // FNV-1a 64 결과 16 char hex 대문자 (0x prefix 없음)
   end;
 
 var
@@ -272,23 +182,7 @@ var
   g_Devices: array of THidDevice;
   g_Scanned: Boolean;
 
-function MakeHidGuid(): TGUID;
-begin
-  // {4D1E55B2-F16F-11CF-88CB-001111000030}
-  Result.D1 := $4D1E55B2;
-  Result.D2 := $F16F;
-  Result.D3 := $11CF;
-  Result.D4[0] := $88;
-  Result.D4[1] := $CB;
-  Result.D4[2] := $00;
-  Result.D4[3] := $11;
-  Result.D4[4] := $11;
-  Result.D4[5] := $00;
-  Result.D4[6] := $00;
-  Result.D4[7] := $30;
-end;
-
-// ─── 헬퍼: hex 문자열 → 정수 ──────────────────────────────────────────────
+// ─── hex 문자열 → 정수 ────────────────────────────────────────────────────
 function HexToInt(const s: string): Integer;
 var
   i, c: Integer;
@@ -306,77 +200,77 @@ begin
   end;
 end;
 
-// ─── DeviceID 에서 VID/PID 추출 ────────────────────────────────────────────
-//   예) "HID\VID_046D&PID_C077\7&1A23FEBF&0&0000"
-//   → vid=$046D, pid=$C077
-procedure ExtractVidPid(const deviceId: string; var vid: Word; var pid: Word);
-var
-  posVid, posPid: Integer;
-begin
-  vid := 0;
-  pid := 0;
-  posVid := Pos('VID_', Uppercase(deviceId));
-  posPid := Pos('PID_', Uppercase(deviceId));
-  if (posVid > 0) and (Length(deviceId) >= posVid + 7) then
-    vid := HexToInt(Copy(deviceId, posVid + 4, 4));
-  if (posPid > 0) and (Length(deviceId) >= posPid + 7) then
-    pid := HexToInt(Copy(deviceId, posPid + 4, 4));
-end;
-
-// ─── 같은 VID/PID 중복 제거 ────────────────────────────────────────────────
-// HID 클래스는 한 USB 디바이스가 여러 HID interface(MI_00, MI_01, COL01..05)
-// 로 쪼개져서 나옴. 사용자에겐 VID/PID 단위로만 보여주면 충분.
-function AlreadyAdded(vid, pid: Word): Boolean;
+// ─── fingerprint 기준 중복 제거 ───────────────────────────────────────────
+// PS 측에서 이미 dedupe 하지만, 호출 실패/병합 등에 대비해 Pascal 측에서도 한 번 더.
+function AlreadyAdded(const fingerprint: string): Boolean;
 var
   i: Integer;
 begin
   Result := False;
   for i := 0 to GetArrayLength(g_Devices) - 1 do
-    if (g_Devices[i].Vid = vid) and (g_Devices[i].Pid = pid) then
+    if g_Devices[i].Fingerprint = fingerprint then
     begin
       Result := True;
       Exit;
     end;
 end;
 
-// ─── 한 줄 (Name=...|DeviceID=...) 파싱 ────────────────────────────────────
+// ─── 한 줄 ("Name|InstanceId|FpHex16|VidHex4|PidHex4") 파싱 ──────────────
+//   Pascal Script 에는 SplitString 이 없어 직접 분리.
 procedure ParseScanLine(const line: string);
 var
-  pipePos: Integer;
-  namePart, idPart: string;
-  vid, pid: Word;
+  parts: array of string;
+  i, partIdx, startPos: Integer;
   dev: THidDevice;
   n: Integer;
 begin
-  pipePos := Pos('|', line);
-  if pipePos <= 0 then Exit;
-  namePart := Trim(Copy(line, 1, pipePos - 1));
-  idPart   := Trim(Copy(line, pipePos + 1, Length(line)));
+  if line = '' then Exit;
 
-  ExtractVidPid(idPart, vid, pid);
-  if (vid = 0) and (pid = 0) then Exit;
-  if AlreadyAdded(vid, pid) then Exit;
+  SetArrayLength(parts, 0);
+  partIdx := 0;
+  startPos := 1;
+  for i := 1 to Length(line) do
+  begin
+    if line[i] = '|' then
+    begin
+      SetArrayLength(parts, partIdx + 1);
+      parts[partIdx] := Copy(line, startPos, i - startPos);
+      partIdx := partIdx + 1;
+      startPos := i + 1;
+    end;
+  end;
+  // 마지막 토큰
+  SetArrayLength(parts, partIdx + 1);
+  parts[partIdx] := Copy(line, startPos, Length(line) - startPos + 1);
 
-  dev.Vid := vid;
-  dev.Pid := pid;
-  dev.Name := namePart;
-  dev.DevicePath := idPart;
-  // fingerprint: VID/PID 만으로 unique 한 정수 (allow_list.json 호환용 임시값).
-  // 솔루션의 진짜 fingerprint 알고리즘은 더 복잡하지만, 첫 실행 시 다시 계산되니까 OK.
-  dev.Fingerprint := (Int64(vid) shl 16) or Int64(pid);
+  if GetArrayLength(parts) < 5 then Exit;
+
+  dev.Name        := Trim(parts[0]);
+  dev.DevicePath  := Trim(parts[1]);
+  dev.Fingerprint := Trim(parts[2]);
+  dev.Vid         := HexToInt(Trim(parts[3]));
+  dev.Pid         := HexToInt(Trim(parts[4]));
+
+  if dev.Fingerprint = '' then Exit;
+  if AlreadyAdded(dev.Fingerprint) then Exit;
+
+  if dev.Name = '' then
+  begin
+    if (dev.Vid <> 0) or (dev.Pid <> 0) then
+      dev.Name := Format('HID Device (VID_%4.4X&PID_%4.4X)', [dev.Vid, dev.Pid])
+    else
+      dev.Name := 'Unknown HID Device';
+  end;
 
   n := GetArrayLength(g_Devices);
   SetArrayLength(g_Devices, n + 1);
   g_Devices[n] := dev;
 end;
 
-// ─── PowerShell 로 HID 장치 enum ────────────────────────────────────────────
-//   - Get-PnpDevice 로 현재 연결된 HIDClass 장치 목록 가져옴.
-//   - Get-PnpDeviceProperty -KeyName 'DEVPKEY_Device_BusReportedDeviceDesc' 로
-//     USB 가 보고하는 진짜 device description (제조사 펌웨어 product string) 추출.
-//     이게 없는 디바이스는 FriendlyName 으로 fallback.
-//   - 출력 인코딩: UTF-16 LE BOM (Out-File -Encoding Unicode)
-//     → Inno Setup LoadStringsFromFile 가 자동 인식. 한국어/유니코드 정상.
+// ─── PowerShell 로 HID 장치 enum ──────────────────────────────────────────
+//   - hid_scan.ps1 을 인스톨러 EXE 에서 {tmp} 로 추출 (ExtractTemporaryFile)
+//   - 64-bit PowerShell (SysNative) 로 실행 — 32-bit 인스톨러 호환
+//   - 실패 시 기본 powershell.exe (WOW64) 로 fallback
 function EnumerateHidDevices(): Boolean;
 var
   scanScript, scanOutput: string;
@@ -386,36 +280,21 @@ var
 begin
   SetArrayLength(g_Devices, 0);
 
+  // hid_scan.ps1 을 {tmp} 에 추출
+  ExtractTemporaryFile('hid_scan.ps1');
   scanScript := ExpandConstant('{tmp}\hid_scan.ps1');
   scanOutput := ExpandConstant('{tmp}\hid_scan.txt');
 
-  SaveStringToFile(scanScript,
-    '$ErrorActionPreference = ''SilentlyContinue''' + #13#10 +
-    'Get-PnpDevice -PresentOnly -Class HIDClass |' + #13#10 +
-    '  Where-Object { $_.Status -eq ''OK'' } |' + #13#10 +
-    '  ForEach-Object {' + #13#10 +
-    '    $busDesc = $null' + #13#10 +
-    '    try {' + #13#10 +
-    '      $prop = Get-PnpDeviceProperty -InstanceId $_.InstanceId -KeyName ''DEVPKEY_Device_BusReportedDeviceDesc'' -ErrorAction SilentlyContinue' + #13#10 +
-    '      if ($prop -and $prop.Data) { $busDesc = $prop.Data }' + #13#10 +
-    '    } catch {}' + #13#10 +
-    '    $displayName = if ($busDesc) { $busDesc } else { $_.FriendlyName }' + #13#10 +
-    '    if (-not $displayName) { $displayName = ''(Unknown HID device)'' }' + #13#10 +
-    '    "$displayName|$($_.InstanceId)"' + #13#10 +
-    '  } |' + #13#10 +
-    '  Out-File -FilePath ''' + scanOutput + ''' -Encoding UTF8' + #13#10,
-    False);
-
-  // 64-bit PowerShell 호출 (SysNative redirect — 32-bit 인스톨러용)
   Exec(ExpandConstant('{sysnative}\WindowsPowerShell\v1.0\powershell.exe'),
-       '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + scanScript + '"',
+       '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + scanScript +
+       '" -OutputPath "' + scanOutput + '"',
        '', SW_HIDE, ewWaitUntilTerminated, resultCode);
 
   if not FileExists(scanOutput) then
   begin
-    // fallback: 일반 powershell.exe (WOW64 redirect)
     Exec('powershell.exe',
-         '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + scanScript + '"',
+         '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + scanScript +
+         '" -OutputPath "' + scanOutput + '"',
          '', SW_HIDE, ewWaitUntilTerminated, resultCode);
   end;
 
@@ -434,10 +313,7 @@ begin
   for i := 0 to GetArrayLength(lines) - 1 do
     ParseScanLine(lines[i]);
 
-  // 임시 파일 정리.
-  DeleteFile(scanScript);
   DeleteFile(scanOutput);
-
   Result := True;
 end;
 
@@ -530,7 +406,7 @@ begin
       json := json + '            "vid": "'         + Format('%4.4X', [g_Devices[i].Vid]) + '",' + #13#10;
       json := json + '            "pid": "'         + Format('%4.4X', [g_Devices[i].Pid]) + '",' + #13#10;
       json := json + '            "name": "'        + g_Devices[i].Name + '",' + #13#10;
-      json := json + '            "fingerprint": "0x' + Format('%16.16X', [g_Devices[i].Fingerprint]) + '"' + #13#10;
+      json := json + '            "fingerprint": "0x' + g_Devices[i].Fingerprint + '"' + #13#10;
       json := json + '        }';
       isFirstWhite := False;
     end;
@@ -551,7 +427,7 @@ begin
       json := json + '            "vid": "'         + Format('%4.4X', [g_Devices[i].Vid]) + '",' + #13#10;
       json := json + '            "pid": "'         + Format('%4.4X', [g_Devices[i].Pid]) + '",' + #13#10;
       json := json + '            "name": "'        + g_Devices[i].Name + '",' + #13#10;
-      json := json + '            "fingerprint": "0x' + Format('%16.16X', [g_Devices[i].Fingerprint]) + '"' + #13#10;
+      json := json + '            "fingerprint": "0x' + g_Devices[i].Fingerprint + '"' + #13#10;
       json := json + '        }';
       isFirstBlack := False;
     end;
