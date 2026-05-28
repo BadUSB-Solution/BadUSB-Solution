@@ -22,6 +22,12 @@ namespace HidMonitor
     static ULONGLONG g_lastArrivalTick = 0;
     static const ULONGLONG ARRIVAL_COOLDOWN_MS = 300;
 
+    void ForgetPath(const std::wstring& path)
+    {
+        if (!path.empty())
+            g_seenDevicePaths.erase(path);
+    }
+
     void RegisterNotifications(HWND hWnd)
     {
         DEV_BROADCAST_DEVICEINTERFACE_W filter{};
@@ -71,6 +77,10 @@ namespace HidMonitor
             std::wstring path = di->dbcc_name ? di->dbcc_name : L"";
             if (!path.empty()) {
                 g_seenDevicePaths.erase(path);
+            } else {
+                // 프로그래밍 방식 비활성화(차단) 시 경로가 비어있을 수 있음.
+                // seen 집합 전체를 초기화해 재연결 인식을 보장한다.
+                g_seenDevicePaths.clear();
             }
 
             Logger::Add(L"[Auto] HID removed.");

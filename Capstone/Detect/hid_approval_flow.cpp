@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "hid_fingerprint.h"
+#include "hid_monitor.h"
 #include "hid_scan.h"
 #include "keyboard_hook.h"
 #include "logger.h"
@@ -157,6 +158,9 @@ bool DeviceApprovalFlow::ApproveDeviceFromPath(HWND hWnd, const std::wstring& pa
 {
     if (path.empty()) return false;
 
+    // 외부에서 JSON DB가 수정됐을 수 있으므로 매 도착마다 디스크에서 최신 정책을 재로드
+    Policy::Load();
+
     UsbItem hotplugItem = HidFingerprint::BuildUsbItemFromPath(path);
     const Policy::PolicyStatus status = Policy::Evaluate(hotplugItem);
 
@@ -169,6 +173,8 @@ bool DeviceApprovalFlow::ApproveDeviceFromPath(HWND hWnd, const std::wstring& pa
         JsonLog::Add(hotplugItem.name, L"DEVICE_BLOCKED",
                      L"result=" + std::to_wstring(static_cast<int>(blockResult)) + L" " + blockDetail,
                      -1, L"DANGER");
+        // 비활성화 후 seen 집합에서 제거 — 재연결 시 다시 감지되도록
+        HidMonitor::ForgetPath(path);
         return false;
     }
 

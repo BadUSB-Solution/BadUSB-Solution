@@ -293,8 +293,8 @@ The language will change after you fully quit it from the tray icon ("Quit") and
     <message><source>입력이 멈춘 뒤 3초 동안 패턴을 종합해 안전 여부를 확인합니다.</source><translation>After input stops, patterns are aggregated over 3 seconds to determine safety.</translation></message>
     <message><source>이 장치에서 위험한 입력 패턴이 감지되어 차단을 권장합니다.</source><translation>Dangerous input patterns were detected on this device; blocking is recommended.</translation></message>
     <message><source>이 장치는 현재까지 확인된 위험 패턴이 없어 안전한 장치로 판단되었습니다.</source><translation>No risky patterns were found, so this device is considered safe.</translation></message>
-    <message><source>검사 결과 &lt;span style='color:%1;'&gt;위험</source><translation>Result: &lt;span style='color:%1;'&gt;Danger</translation></message>
-    <message><source>검사 결과 &lt;span style='color:%1;'&gt;안전</source><translation>Result: &lt;span style='color:%1;'&gt;Safe</translation></message>
+    <message><source>검사 결과 &lt;span style='color:%1;'&gt;위험&lt;/span&gt;</source><translation>Result: &lt;span style='color:%1;'&gt;Danger&lt;/span&gt;</translation></message>
+    <message><source>검사 결과 &lt;span style='color:%1;'&gt;안전&lt;/span&gt;</source><translation>Result: &lt;span style='color:%1;'&gt;Safe&lt;/span&gt;</translation></message>
     <message><source>비정상 입력 패턴 없음</source><translation>No anomalous input patterns</translation></message>
     <message><source>명령/실행 패턴 미검출</source><translation>No command / execution patterns</translation></message>
     <message><source>위험 URL 및 조합 미검출</source><translation>No risky URLs or combinations</translation></message>
@@ -341,6 +341,79 @@ When key input is detected from an unregistered HID device, it will be shown her
     <message><source>입력 대기 중...
 16진수 형식으로 표시됩니다.</source><translation>Waiting for input...
 Shown in hexadecimal format.</translation></message>
+    <message><source>백그라운드에서 계속 모니터링 중입니다.</source><translation>Continuing to monitor in the background.</translation></message>
+    <message><source>차단된 장치가 연결되었습니다.
+%1</source><translation>A blocked device has been connected.
+%1</translation></message>
+    <message><source>승인 대기 장치가 연결되었습니다.
+%1</source><translation>A device awaiting approval has been connected.
+%1</translation></message>
+    <message><source>자동 입력으로 의심되는 빠르고 균일한 키 입력이 감지되었습니다.</source><translation>Fast and uniform key input suspected of automated typing was detected.</translation></message>
+    <message><source>실행/명령 입력 패턴이 감지되었습니다.</source><translation>Execution/command input patterns were detected.</translation></message>
+    <message><source>위험 단축키 조합이 포함되어 있습니다.</source><translation>A dangerous hotkey combination was included.</translation></message>
+    <message><source>의심 URL 또는 실행 파일 URL 패턴이 포함되어 있습니다.</source><translation>Suspicious URL or executable URL patterns were included.</translation></message>
+    <message><source>여러 입력 신호가 조합되어 위험 점수가 상승했습니다.</source><translation>Multiple input signals combined to raise the risk score.</translation></message>
+
+    <!-- ── 정책 변경 확인 다이얼로그 ── -->
+    <message><source>선택한 장치</source><translation>Selected Device</translation></message>
+    <message><source>장치 허용 확인</source><translation>Confirm Device Allow</translation></message>
+    <message><source>장치 차단 확인</source><translation>Confirm Device Block</translation></message>
+    <message><source>신뢰 목록에 등록하기 전에 한 번 더 확인합니다.</source><translation>Confirm once more before adding to the trusted list.</translation></message>
+    <message><source>차단 정책을 적용하기 전에 한 번 더 확인합니다.</source><translation>Confirm once more before applying the block policy.</translation></message>
+    <message><source>허용된 장치는 이후 연결 시 키보드 후킹과 입력 차단이 적용되지 않습니다.
+신뢰할 수 있는 장치인지 확인한 뒤 진행하세요.</source><translation>Allowed devices will skip keyboard hooking and input blocking on future connections.
+Verify the device is trustworthy before proceeding.</translation></message>
+    <message><source>차단된 장치는 블랙리스트에 등록되며 이후 연결 시 입력 차단 상태가 적용됩니다.
+현재 사용 중인 정상 장치가 아닌지 확인한 뒤 진행하세요.</source><translation>Blocked devices are added to the blacklist and will be input-blocked on future connections.
+Verify this is not a legitimate device currently in use before proceeding.</translation></message>
+    <message><source>취소</source><translation>Cancel</translation></message>
+
+    <!-- ── 정책 적용 결과 메시지 ── -->
+    <message><source>허용 목록에 저장했습니다. VID/PID 정보가 없어 장치 재활성화는 건너뛰었습니다.</source><translation>Saved to allow list. Device re-enable was skipped because VID/PID is missing.</translation></message>
+    <message><source>허용 목록에 저장하고 장치 재활성화를 요청했습니다.</source><translation>Saved to allow list and requested device re-enable.</translation></message>
+    <message><source>허용 목록에 저장했습니다. 현재 재활성화할 장치를 찾지 못했습니다.</source><translation>Saved to allow list. No matching device found to re-enable.</translation></message>
+    <message><source>허용 목록에 저장했지만 장치 재활성화 요청은 실패했습니다.</source><translation>Saved to allow list, but device re-enable request failed.</translation></message>
+    <message><source>차단 목록에 저장했습니다. 장치 경로가 없어 현재 연결 차단은 건너뛰었습니다.</source><translation>Saved to block list. Current-connection block was skipped because device path is missing.</translation></message>
+    <message><source>차단 목록에 저장하고 현재 장치를 비활성화했습니다.</source><translation>Saved to block list and disabled the current device.</translation></message>
+    <message><source>차단 목록에 저장하고 현재 장치 제거를 요청했습니다.</source><translation>Saved to block list and requested current device removal.</translation></message>
+    <message><source>차단 목록에 저장했지만 현재 장치 노드를 찾지 못했습니다.</source><translation>Saved to block list, but could not locate current device node.</translation></message>
+    <message><source>차단 목록에 저장했지만 현재 장치 차단 요청은 실패했습니다. 관리자 권한으로 실행했는지 확인하세요.</source><translation>Saved to block list, but the block request failed. Check that the app is running as administrator.</translation></message>
+
+    <!-- ── F1 도움말 팝업 ── -->
+    <message><source>대시보드 도움말</source><translation>Dashboard Help</translation></message>
+    <message><source>현재 보호 상태, 최근 이벤트, 연결 장치와 운영 정책을 한 화면에서 확인합니다.</source><translation>View current protection status, recent events, connected devices, and operating policy in one place.</translation></message>
+    <message><source>상단 카드는 허용/차단/승인 대기/보안 이벤트 수를 요약합니다.</source><translation>Top cards summarize the count of Allowed / Blocked / Pending / Security events.</translation></message>
+    <message><source>보호 상태 개요는 주요 보안 모듈의 동작 여부를 보여줍니다.</source><translation>The Protection Overview shows whether key security modules are active.</translation></message>
+    <message><source>운영 정책 요약에서 미등록 장치 처리 방식과 분석 임계값을 확인합니다.</source><translation>Check the unregistered-device handling policy and analysis thresholds in the Policy Summary.</translation></message>
+    <message><source>USB 목록 도움말</source><translation>USB List Help</translation></message>
+    <message><source>탐지된 HID 장치를 확인하고 허용 또는 차단 정책을 적용합니다.</source><translation>Review detected HID devices and apply Allow or Block policies.</translation></message>
+    <message><source>장치를 선택하면 오른쪽 상세 정보에서 VID/PID와 정책 상태를 확인합니다.</source><translation>Selecting a device shows its VID/PID and policy state in the right-side detail panel.</translation></message>
+    <message><source>신뢰 가능한 장치는 허용 목록에 등록합니다.</source><translation>Add trusted devices to the allow list.</translation></message>
+    <message><source>의심 장치는 차단 목록에 등록하고 필요하면 장치 연결을 종료합니다.</source><translation>Add suspicious devices to the block list and terminate the connection if needed.</translation></message>
+    <message><source>로그 도움말</source><translation>Log Help</translation></message>
+    <message><source>장치 탐지, 정책 변경, 차단 이벤트 기록을 확인합니다.</source><translation>Review records of device detection, policy changes, and block events.</translation></message>
+    <message><source>검색과 필터로 필요한 이벤트만 좁혀봅니다.</source><translation>Use search and filters to narrow down events.</translation></message>
+    <message><source>차단 또는 허용 이벤트는 정책 적용 여부를 확인하는 기준이 됩니다.</source><translation>Block or Allow events serve as evidence that policies were applied.</translation></message>
+    <message><source>실제 테스트 후 이벤트가 없으면 장치가 HID로 정상 인식됐는지 먼저 확인합니다.</source><translation>If no events appear after testing, first check whether the device was recognized as HID.</translation></message>
+    <message><source>행위 분석 도움말</source><translation>Behavior Analysis Help</translation></message>
+    <message><source>입력 패턴, 명령 실행, URL, 단축키 조합을 종합해 위험도를 분석합니다.</source><translation>Combines input patterns, command execution, URLs, and hotkey combinations to assess risk.</translation></message>
+    <message><source>탐지 기준별 위험도는 각 알고리즘 점수를 0-10 범위로 표시합니다.</source><translation>Risk by detection criterion shows each algorithm's score on a 0-10 scale.</translation></message>
+    <message><source>입력 속도 그래프는 자동 입력으로 의심되는 패턴을 확인하는 용도입니다.</source><translation>The input-speed graph helps identify patterns suspected of automated typing.</translation></message>
+    <message><source>위험 점수가 임계값을 넘으면 차단 권장 상태로 판단합니다.</source><translation>When the risk score exceeds the threshold, the state is judged as block-recommended.</translation></message>
+    <message><source>설정 도움말</source><translation>Settings Help</translation></message>
+    <message><source>미등록 장치 처리 방식과 행위 분석 임계값 같은 운영 정책을 조정합니다.</source><translation>Adjust operating policies such as unregistered-device handling and analysis thresholds.</translation></message>
+    <message><source>자동 차단은 테스트 전 관리자 권한 실행이 필요합니다.</source><translation>Auto-block requires running as administrator before testing.</translation></message>
+    <message><source>임계값을 낮추면 민감하게 탐지하고, 높이면 오탐 가능성이 줄어듭니다.</source><translation>Lowering the threshold makes detection more sensitive; raising it reduces false positives.</translation></message>
+    <message><source>저장 후 대시보드 정책 요약에 반영되는지 확인합니다.</source><translation>After saving, check that changes are reflected in the Dashboard Policy Summary.</translation></message>
+    <message><source>도움말</source><translation>Help</translation></message>
+    <message><source>현재 화면의 주요 사용 흐름을 안내합니다.</source><translation>Guides you through the main flow of the current screen.</translation></message>
+    <message><source>각 페이지에서 F1을 누르면 해당 화면의 빠른 도움말이 열립니다.</source><translation>Press F1 on any page to open quick help for that screen.</translation></message>
+    <message><source>상세 설명은 도움말 페이지의 항목별 문서를 확인합니다.</source><translation>For detailed explanations, see the per-topic documentation on the Help page.</translation></message>
+    <message><source>팝오버 바깥을 클릭하면 도움말이 닫힙니다.</source><translation>Click outside the popover to close the help.</translation></message>
+
+    <!-- ── 기타 ── -->
+    <message><source>분석 대기 중...</source><translation>Waiting for analysis...</translation></message>
+    <message><source>이 장치가 인가된 장치인지 확인 후 예외 처리를 진행하거나 차단 정책을 유지하세요.</source><translation>Verify whether this device is authorized; either add an exception or keep the block policy.</translation></message>
 
 </context>
 <context>

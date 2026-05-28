@@ -137,7 +137,7 @@ namespace
     bool confirmPolicyChange(QWidget* parent, const QString& deviceName, bool allow)
     {
         const QString name = deviceName.trimmed().isEmpty()
-            ? QStringLiteral("선택한 장치")
+            ? trMW("선택한 장치")
             : deviceName.trimmed();
 
         QDialog dlg(parent);
@@ -197,11 +197,11 @@ namespace
 
         auto* titleCol = new QVBoxLayout;
         titleCol->setSpacing(3);
-        auto* title = new QLabel(allow ? QStringLiteral("장치 허용 확인")
-                                       : QStringLiteral("장치 차단 확인"));
+        auto* title = new QLabel(allow ? trMW("장치 허용 확인")
+                                       : trMW("장치 차단 확인"));
         title->setObjectName("confirmTitle");
-        auto* subtitle = new QLabel(allow ? QStringLiteral("신뢰 목록에 등록하기 전에 한 번 더 확인합니다.")
-                                          : QStringLiteral("차단 정책을 적용하기 전에 한 번 더 확인합니다."));
+        auto* subtitle = new QLabel(allow ? trMW("신뢰 목록에 등록하기 전에 한 번 더 확인합니다.")
+                                          : trMW("차단 정책을 적용하기 전에 한 번 더 확인합니다."));
         subtitle->setObjectName("confirmSubtitle");
         titleCol->addWidget(title);
         titleCol->addWidget(subtitle);
@@ -220,19 +220,19 @@ namespace
         root->addWidget(deviceLabel);
 
         auto* body = new QLabel(allow
-            ? QStringLiteral("허용된 장치는 이후 연결 시 키보드 후킹과 입력 차단이 적용되지 않습니다.\n신뢰할 수 있는 장치인지 확인한 뒤 진행하세요.")
-            : QStringLiteral("차단된 장치는 블랙리스트에 등록되며 이후 연결 시 입력 차단 상태가 적용됩니다.\n현재 사용 중인 정상 장치가 아닌지 확인한 뒤 진행하세요."));
+            ? trMW("허용된 장치는 이후 연결 시 키보드 후킹과 입력 차단이 적용되지 않습니다.\n신뢰할 수 있는 장치인지 확인한 뒤 진행하세요.")
+            : trMW("차단된 장치는 블랙리스트에 등록되며 이후 연결 시 입력 차단 상태가 적용됩니다.\n현재 사용 중인 정상 장치가 아닌지 확인한 뒤 진행하세요."));
         body->setObjectName("confirmBody");
         body->setWordWrap(true);
         root->addWidget(body);
 
         auto* buttons = new QHBoxLayout;
         buttons->addStretch();
-        auto* cancelBtn = new QPushButton(QStringLiteral("취소"));
+        auto* cancelBtn = new QPushButton(trMW("취소"));
         cancelBtn->setObjectName("confirmCancel");
         cancelBtn->setCursor(Qt::PointingHandCursor);
-        auto* actionBtn = new QPushButton(allow ? QStringLiteral("허용")
-                                                : QStringLiteral("차단"));
+        auto* actionBtn = new QPushButton(allow ? trMW("허용")
+                                                : trMW("차단"));
         actionBtn->setObjectName("confirmAction");
         actionBtn->setCursor(Qt::PointingHandCursor);
         buttons->addWidget(cancelBtn);
@@ -255,7 +255,7 @@ namespace
     {
         if (item.vid == 0 && item.pid == 0) {
             Logger::Add(L"[Qt] " + source + L" re-enable skipped: missing VID/PID");
-            return QStringLiteral("허용 목록에 저장했습니다. VID/PID 정보가 없어 장치 재활성화는 건너뛰었습니다.");
+            return trMW("허용 목록에 저장했습니다. VID/PID 정보가 없어 장치 재활성화는 건너뛰었습니다.");
         }
 
         std::wstring enableDetail;
@@ -266,12 +266,12 @@ namespace
 
         switch (enableResult) {
         case DeviceBlocker::EnableResult::Enabled:
-            return QStringLiteral("허용 목록에 저장하고 장치 재활성화를 요청했습니다.");
+            return trMW("허용 목록에 저장하고 장치 재활성화를 요청했습니다.");
         case DeviceBlocker::EnableResult::NotFound:
-            return QStringLiteral("허용 목록에 저장했습니다. 현재 재활성화할 장치를 찾지 못했습니다.");
+            return trMW("허용 목록에 저장했습니다. 현재 재활성화할 장치를 찾지 못했습니다.");
         case DeviceBlocker::EnableResult::Failed:
         default:
-            return QStringLiteral("허용 목록에 저장했지만 장치 재활성화 요청은 실패했습니다.");
+            return trMW("허용 목록에 저장했지만 장치 재활성화 요청은 실패했습니다.");
         }
     }
 
@@ -279,7 +279,7 @@ namespace
     {
         if (item.devicePath.empty()) {
             Logger::Add(L"[Qt] " + source + L" block skipped: missing device path");
-            return QStringLiteral("차단 목록에 저장했습니다. 장치 경로가 없어 현재 연결 차단은 건너뛰었습니다.");
+            return trMW("차단 목록에 저장했습니다. 장치 경로가 없어 현재 연결 차단은 건너뛰었습니다.");
         }
 
         std::wstring blockDetail;
@@ -290,14 +290,14 @@ namespace
 
         switch (blockResult) {
         case DeviceBlocker::BlockResult::Disabled:
-            return QStringLiteral("차단 목록에 저장하고 현재 장치를 비활성화했습니다.");
+            return trMW("차단 목록에 저장하고 현재 장치를 비활성화했습니다.");
         case DeviceBlocker::BlockResult::Ejected:
-            return QStringLiteral("차단 목록에 저장하고 현재 장치 제거를 요청했습니다.");
+            return trMW("차단 목록에 저장하고 현재 장치 제거를 요청했습니다.");
         case DeviceBlocker::BlockResult::NotFound:
-            return QStringLiteral("차단 목록에 저장했지만 현재 장치 노드를 찾지 못했습니다.");
+            return trMW("차단 목록에 저장했지만 현재 장치 노드를 찾지 못했습니다.");
         case DeviceBlocker::BlockResult::Failed:
         default:
-            return QStringLiteral("차단 목록에 저장했지만 현재 장치 차단 요청은 실패했습니다. 관리자 권한으로 실행했는지 확인하세요.");
+            return trMW("차단 목록에 저장했지만 현재 장치 차단 요청은 실패했습니다. 관리자 권한으로 실행했는지 확인하세요.");
         }
     }
 
@@ -330,63 +330,63 @@ namespace
         switch (page) {
         case 0:
             return {
-                QStringLiteral("대시보드 도움말"),
-                QStringLiteral("현재 보호 상태, 최근 이벤트, 연결 장치와 운영 정책을 한 화면에서 확인합니다."),
+                trMW("대시보드 도움말"),
+                trMW("현재 보호 상태, 최근 이벤트, 연결 장치와 운영 정책을 한 화면에서 확인합니다."),
                 {
-                    QStringLiteral("상단 카드는 허용/차단/승인 대기/보안 이벤트 수를 요약합니다."),
-                    QStringLiteral("보호 상태 개요는 주요 보안 모듈의 동작 여부를 보여줍니다."),
-                    QStringLiteral("운영 정책 요약에서 미등록 장치 처리 방식과 분석 임계값을 확인합니다.")
+                    trMW("상단 카드는 허용/차단/승인 대기/보안 이벤트 수를 요약합니다."),
+                    trMW("보호 상태 개요는 주요 보안 모듈의 동작 여부를 보여줍니다."),
+                    trMW("운영 정책 요약에서 미등록 장치 처리 방식과 분석 임계값을 확인합니다.")
                 }
             };
         case 1:
             return {
-                QStringLiteral("USB 목록 도움말"),
-                QStringLiteral("탐지된 HID 장치를 확인하고 허용 또는 차단 정책을 적용합니다."),
+                trMW("USB 목록 도움말"),
+                trMW("탐지된 HID 장치를 확인하고 허용 또는 차단 정책을 적용합니다."),
                 {
-                    QStringLiteral("장치를 선택하면 오른쪽 상세 정보에서 VID/PID와 정책 상태를 확인합니다."),
-                    QStringLiteral("신뢰 가능한 장치는 허용 목록에 등록합니다."),
-                    QStringLiteral("의심 장치는 차단 목록에 등록하고 필요하면 장치 연결을 종료합니다.")
+                    trMW("장치를 선택하면 오른쪽 상세 정보에서 VID/PID와 정책 상태를 확인합니다."),
+                    trMW("신뢰 가능한 장치는 허용 목록에 등록합니다."),
+                    trMW("의심 장치는 차단 목록에 등록하고 필요하면 장치 연결을 종료합니다.")
                 }
             };
         case 2:
             return {
-                QStringLiteral("로그 도움말"),
-                QStringLiteral("장치 탐지, 정책 변경, 차단 이벤트 기록을 확인합니다."),
+                trMW("로그 도움말"),
+                trMW("장치 탐지, 정책 변경, 차단 이벤트 기록을 확인합니다."),
                 {
-                    QStringLiteral("검색과 필터로 필요한 이벤트만 좁혀봅니다."),
-                    QStringLiteral("차단 또는 허용 이벤트는 정책 적용 여부를 확인하는 기준이 됩니다."),
-                    QStringLiteral("실제 테스트 후 이벤트가 없으면 장치가 HID로 정상 인식됐는지 먼저 확인합니다.")
+                    trMW("검색과 필터로 필요한 이벤트만 좁혀봅니다."),
+                    trMW("차단 또는 허용 이벤트는 정책 적용 여부를 확인하는 기준이 됩니다."),
+                    trMW("실제 테스트 후 이벤트가 없으면 장치가 HID로 정상 인식됐는지 먼저 확인합니다.")
                 }
             };
         case 3:
             return {
-                QStringLiteral("행위 분석 도움말"),
-                QStringLiteral("입력 패턴, 명령 실행, URL, 단축키 조합을 종합해 위험도를 분석합니다."),
+                trMW("행위 분석 도움말"),
+                trMW("입력 패턴, 명령 실행, URL, 단축키 조합을 종합해 위험도를 분석합니다."),
                 {
-                    QStringLiteral("탐지 기준별 위험도는 각 알고리즘 점수를 0-10 범위로 표시합니다."),
-                    QStringLiteral("입력 속도 그래프는 자동 입력으로 의심되는 패턴을 확인하는 용도입니다."),
-                    QStringLiteral("위험 점수가 임계값을 넘으면 차단 권장 상태로 판단합니다.")
+                    trMW("탐지 기준별 위험도는 각 알고리즘 점수를 0-10 범위로 표시합니다."),
+                    trMW("입력 속도 그래프는 자동 입력으로 의심되는 패턴을 확인하는 용도입니다."),
+                    trMW("위험 점수가 임계값을 넘으면 차단 권장 상태로 판단합니다.")
                 }
             };
         case 4:
             return {
-                QStringLiteral("설정 도움말"),
-                QStringLiteral("미등록 장치 처리 방식과 행위 분석 임계값 같은 운영 정책을 조정합니다."),
+                trMW("설정 도움말"),
+                trMW("미등록 장치 처리 방식과 행위 분석 임계값 같은 운영 정책을 조정합니다."),
                 {
-                    QStringLiteral("자동 차단은 테스트 전 관리자 권한 실행이 필요합니다."),
-                    QStringLiteral("임계값을 낮추면 민감하게 탐지하고, 높이면 오탐 가능성이 줄어듭니다."),
-                    QStringLiteral("저장 후 대시보드 정책 요약에 반영되는지 확인합니다.")
+                    trMW("자동 차단은 테스트 전 관리자 권한 실행이 필요합니다."),
+                    trMW("임계값을 낮추면 민감하게 탐지하고, 높이면 오탐 가능성이 줄어듭니다."),
+                    trMW("저장 후 대시보드 정책 요약에 반영되는지 확인합니다.")
                 }
             };
         case 5:
         default:
             return {
-                QStringLiteral("도움말"),
-                QStringLiteral("현재 화면의 주요 사용 흐름을 안내합니다."),
+                trMW("도움말"),
+                trMW("현재 화면의 주요 사용 흐름을 안내합니다."),
                 {
-                    QStringLiteral("각 페이지에서 F1을 누르면 해당 화면의 빠른 도움말이 열립니다."),
-                    QStringLiteral("상세 설명은 도움말 페이지의 항목별 문서를 확인합니다."),
-                    QStringLiteral("팝오버 바깥을 클릭하면 도움말이 닫힙니다.")
+                    trMW("각 페이지에서 F1을 누르면 해당 화면의 빠른 도움말이 열립니다."),
+                    trMW("상세 설명은 도움말 페이지의 항목별 문서를 확인합니다."),
+                    trMW("팝오버 바깥을 클릭하면 도움말이 닫힙니다.")
                 }
             };
         }
@@ -659,19 +659,19 @@ namespace
         QStringList reasons;
         if (snapshot.typing.classification == TypingAnalyzer::TYPING_AUTOMATED
             || snapshot.typingScore >= 6.0) {
-            reasons << QStringLiteral("자동 입력으로 의심되는 빠르고 균일한 키 입력이 감지되었습니다.");
+            reasons << trMW("자동 입력으로 의심되는 빠르고 균일한 키 입력이 감지되었습니다.");
         }
         if (!snapshot.threat.commands.empty() || snapshot.threat.session_score >= 3.0) {
-            reasons << QStringLiteral("실행/명령 입력 패턴이 감지되었습니다.");
+            reasons << trMW("실행/명령 입력 패턴이 감지되었습니다.");
         }
         if (!snapshot.hotkey.matches.empty() || snapshot.hotkey.final_score >= 3.0) {
-            reasons << QStringLiteral("위험 단축키 조합이 포함되어 있습니다.");
+            reasons << trMW("위험 단축키 조합이 포함되어 있습니다.");
         }
         if (!snapshot.urls.items.empty() && snapshot.urlScore > 0.0) {
-            reasons << QStringLiteral("의심 URL 또는 실행 파일 URL 패턴이 포함되어 있습니다.");
+            reasons << trMW("의심 URL 또는 실행 파일 URL 패턴이 포함되어 있습니다.");
         }
         if (reasons.isEmpty()) {
-            reasons << QStringLiteral("여러 입력 신호가 조합되어 위험 점수가 상승했습니다.");
+            reasons << trMW("여러 입력 신호가 조합되어 위험 점수가 상승했습니다.");
         }
         return reasons;
     }
@@ -968,10 +968,10 @@ namespace
         return cellBackground();
     }
 
-    QSize policyBadgeSize(const QString& text)
+    QSize policyBadgeSize(const QString& /*text*/)
     {
-        const bool compact = text == QStringLiteral("허용") || text == QStringLiteral("차단");
-        return compact ? QSize(48, 26) : QSize(76, 26);
+        // 허용/차단/승인 대기/기록/확인 필요 모두 동일한 너비로 통일
+        return QSize(76, 26);
     }
 
     QString themedLabelStyle(const char* color, int size = 14)
@@ -1422,7 +1422,7 @@ namespace
             if (scores_.isEmpty()) {
                 p.setPen(UiTheme::color(UiTheme::tokens().ChartEmpty));
                 p.setFont(QFont("Inter", 10));
-                p.drawText(rect(), Qt::AlignCenter, QStringLiteral("분석 대기 중..."));
+                p.drawText(rect(), Qt::AlignCenter, trMW("분석 대기 중..."));
                 return;
             }
 
@@ -1687,7 +1687,6 @@ namespace
 
                 addDevRow(trMW("장치 이름"),  deviceName, "dlg_device_name");
                 addDevRow(trMW("탐지 인터페이스"),  "HID");
-                addDevRow(trMW("VID / PID"),  vidPid, "dlg_vid_pid");
                 addDevRow(trMW("탐지 경로"),  "HID Interface");
                 addDevRow(trMW("첫 감지 시간"), detectedAt);
 
@@ -2550,7 +2549,8 @@ void MainWindow::closeEvent(QCloseEvent* event)
     event->ignore();
     hide();
     if (trayIcon_)
-        trayIcon_->showMessage("Abang-All", "백그라운드에서 계속 모니터링 중입니다.",
+        trayIcon_->showMessage(QStringLiteral("Abang-All"),
+                               tr("백그라운드에서 계속 모니터링 중입니다."),
                                QSystemTrayIcon::Information, notificationDurationMs());
 }
 
@@ -3067,13 +3067,10 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         addInfoRow(tr("유형"), usbDetTypeV_);
     }
 
-    // VID / PID
-    {
-        usbDetVidV_ = new QLabel("—");
-        usbDetVidV_->setObjectName("usbDetailVidBadge");
-        usbDetVidV_->setFont(QFont("Consolas", 12));
-        addInfoRow(tr("VID / PID"), usbDetVidV_);
-    }
+    // VID / PID 행은 사용자 요청으로 제거 (실제 사용성 떨어짐)
+    // usbDetVidV_는 다른 곳에서 참조되므로 안전한 더미로 유지
+    usbDetVidV_ = new QLabel("—");
+    usbDetVidV_->hide();
 
     // 마지막 연결
     {
@@ -3865,7 +3862,7 @@ QWidget* MainWindow::createLogPage()
             aHdr->addStretch();
             al->addLayout(aHdr);
             auto* aDesc = new QLabel(
-                "이 장치가 인가된 장치인지 확인 후 예외 처리를 진행하거나 차단 정책을 유지하세요."
+                tr("이 장치가 인가된 장치인지 확인 후 예외 처리를 진행하거나 차단 정책을 유지하세요.")
             );
             aDesc->setObjectName("detailActionDesc");
             aDesc->setFont(pretendardFont(FontRole::Regular));
@@ -3878,17 +3875,7 @@ QWidget* MainWindow::createLogPage()
         bodyL->addStretch();
 
         {
-            auto* btnArea = new QFrame;
-            btnArea->setObjectName("detailButtonArea");
-            auto* bl = new QHBoxLayout(btnArea);
-            bl->setContentsMargins(0, 16, 0, 16);
-            bl->setSpacing(8);
-            auto* infoBtn = new QPushButton(tr("장치 정보 조회"));
-            infoBtn->setObjectName("secondaryButton");
-            infoBtn->setFont(pretendardFont(FontRole::Medium));
-            infoBtn->setFixedHeight(36);
-            bl->addWidget(infoBtn, 1);
-            bodyL->addWidget(btnArea);
+            // "장치 정보 조회" 버튼은 사용자 요청으로 제거됨
         }
 
         dcl->addWidget(bodyW, 1);
@@ -5390,8 +5377,8 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                         if (notifyOnRiskEnabled() && trayIcon_) {
                                             showRiskTrayMessage(
                                                 trayIcon_,
-                                                "Abang-All",
-                                                QString("차단된 장치가 연결되었습니다.\n%1").arg(fromWString(item.name)),
+                                                QStringLiteral("Abang-All"),
+                                                tr("차단된 장치가 연결되었습니다.\n%1").arg(fromWString(item.name)),
                                                 QSystemTrayIcon::Warning);
                                         }
                                         if (!KeyboardHook::IsActive()) KeyboardHook::Install();
@@ -5405,8 +5392,8 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                         if (notifyOnRiskEnabled() && trayIcon_) {
                                             showRiskTrayMessage(
                                                 trayIcon_,
-                                                "Abang-All",
-                                                QString("승인 대기 장치가 연결되었습니다.\n%1").arg(fromWString(item.name)),
+                                                QStringLiteral("Abang-All"),
+                                                tr("승인 대기 장치가 연결되었습니다.\n%1").arg(fromWString(item.name)),
                                                 QSystemTrayIcon::Warning);
                                         }
                                         lastPromptFingerprint_ = item.fingerprint;
