@@ -2382,6 +2382,7 @@ void MainWindow::applyTheme(UiTheme::ThemeMode mode)
     repolish(this);
     refreshNavState();
     if (trayWidget_) {
+        trayWidget_->applyTheme();
         refreshTrayWidget();
     }
 }
