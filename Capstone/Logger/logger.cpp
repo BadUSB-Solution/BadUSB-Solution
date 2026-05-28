@@ -1,6 +1,7 @@
 // 앱 상에 로그 띄우는 부분
 
 #include "logger.h"
+#include "json_log.h"
 #include <vector>
 #include <mutex>
 
@@ -25,6 +26,8 @@ namespace Logger
             g_logs.push_back(s);
             if (g_logs.size() > 500) g_logs.erase(g_logs.begin());
         }
+        // Mirror to disk-backed JSON log so retention can prune it.
+        JsonLog::Add(L"Logger", L"EVENT", s);
         if (g_notifyWnd && g_notifyMsg)
             PostMessage(g_notifyWnd, g_notifyMsg, 0, 0);
     }

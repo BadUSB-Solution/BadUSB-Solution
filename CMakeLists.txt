@@ -10,6 +10,7 @@ option(BUILD_QT_UI "Build the Qt Widgets user interface" OFF)
 
 add_library(CapstoneCore STATIC
     Capstone/Logger/logger.cpp
+    Capstone/Logger/json_log.cpp
     Capstone/Policy/policy.cpp
     Capstone/Policy/settings.cpp
     Capstone/Storage/app_paths.cpp

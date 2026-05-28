@@ -127,10 +127,10 @@ TrayWidget::TrayWidget(QWidget* parent)
     headerL->addStretch();
 
     auto* monitoringBadge = makeLabel(tr("●  모니터링 ON"),
-        "QLabel { background: #E8FFF3; color: #0B8F52; font-size: 12px;"
-        " font-weight: 800; padding: 0; border-radius: 10px;"
+        "QLabel { background: #E8FFF3; color: #0B8F52; font-size: 11px;"
+        " font-weight: 600; padding: 0 10px; border-radius: 12px;"
         " border: 1px solid #A7E8C8; }");
-    monitoringBadge->setFixedSize(98, 30);
+    monitoringBadge->setFixedHeight(24);
     monitoringBadge->setAlignment(Qt::AlignCenter);
     headerL->addWidget(monitoringBadge);
     headerL->addSpacing(6);
@@ -168,14 +168,14 @@ TrayWidget::TrayWidget(QWidget* parent)
     usbL->addLayout(usbText);
     usbL->addStretch();
 
-    auto* realtimeBtn = new QPushButton(tr("실시간"));
-    realtimeBtn->setFixedSize(68, 28);
+    auto* realtimeBtn = new QPushButton(tr("열기"));
+    realtimeBtn->setFixedSize(72, 30);
     realtimeBtn->setCursor(Qt::PointingHandCursor);
     realtimeBtn->setStyleSheet(QString(
-        "QPushButton { color: %1; background: #FFFFFF; border: 1px solid #8AB8FF;"
-        " border-radius: 9px; font-size: 13px; font-weight: 800; }"
-        "QPushButton:hover { background: #EAF2FF; }")
-        .arg(UiTheme::PrimaryHover));
+        "QPushButton { color: #FFFFFF; background: %1; border: none;"
+        " border-radius: 9px; font-size: 12px; font-weight: 700; }"
+        "QPushButton:hover { background: %2; }")
+        .arg(UiTheme::PrimaryHover, UiTheme::Primary));
     usbL->addWidget(realtimeBtn);
     contentL->addWidget(usbCard);
 
@@ -208,20 +208,10 @@ TrayWidget::TrayWidget(QWidget* parent)
     threatL->addLayout(threatText);
     threatL->addStretch();
 
-    auto* mascot = new QLabel;
-    mascot->setFixedSize(62, 62);
-    mascot->setStyleSheet("QLabel { background: transparent; border: none; }");
-    mascot->setPixmap(QPixmap(":/icons/mascot_ver3.png").scaled(
-        62, 62, Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    mascot->setAttribute(Qt::WA_TransparentForMouseEvents);
-    auto* opacity = new QGraphicsOpacityEffect(mascot);
-    opacity->setOpacity(0.32);
-    mascot->setGraphicsEffect(opacity);
-
     statusBadge_ = new QPushButton(tr("주의"));
-    statusBadge_->setFixedSize(68, 28);
-    statusBadge_->setCursor(Qt::PointingHandCursor);
-    threatL->addWidget(mascot, 0, Qt::AlignVCenter);
+    statusBadge_->setFixedSize(72, 30);
+    statusBadge_->setCursor(Qt::ArrowCursor);
+    statusBadge_->setFocusPolicy(Qt::NoFocus);  // status indicator; visual only
     threatL->addWidget(statusBadge_, 0, Qt::AlignVCenter);
 
     contentL->addWidget(threatCard);

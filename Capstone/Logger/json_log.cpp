@@ -1,6 +1,7 @@
 #include "json_log.h"
 
 #include <windows.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -191,6 +192,38 @@ namespace
     }
 }
 
+namespace
+{
+    // Parse "YYYY-MM-DD HH:mm:ss" → epoch seconds (local time). Returns 0 on failure.
+    long long ParseEntryEpoch(const std::string& t)
+    {
+        if (t.size() < 19) return 0;
+        SYSTEMTIME st{};
+        st.wYear   = (WORD)std::strtoul(t.substr(0, 4).c_str(),  nullptr, 10);
+        st.wMonth  = (WORD)std::strtoul(t.substr(5, 2).c_str(),  nullptr, 10);
+        st.wDay    = (WORD)std::strtoul(t.substr(8, 2).c_str(),  nullptr, 10);
+        st.wHour   = (WORD)std::strtoul(t.substr(11, 2).c_str(), nullptr, 10);
+        st.wMinute = (WORD)std::strtoul(t.substr(14, 2).c_str(), nullptr, 10);
+        st.wSecond = (WORD)std::strtoul(t.substr(17, 2).c_str(), nullptr, 10);
+        FILETIME ft{};
+        if (!SystemTimeToFileTime(&st, &ft)) return 0;
+        ULARGE_INTEGER u; u.LowPart = ft.dwLowDateTime; u.HighPart = ft.dwHighDateTime;
+        // FILETIME is 100-ns ticks since 1601-01-01 → convert to epoch seconds (1970)
+        constexpr long long EPOCH_DIFF = 11644473600LL;
+        return (long long)(u.QuadPart / 10000000ULL) - EPOCH_DIFF;
+    }
+
+    long long NowEpoch()
+    {
+        SYSTEMTIME st; GetLocalTime(&st);
+        FILETIME ft{};
+        SystemTimeToFileTime(&st, &ft);
+        ULARGE_INTEGER u; u.LowPart = ft.dwLowDateTime; u.HighPart = ft.dwHighDateTime;
+        constexpr long long EPOCH_DIFF = 11644473600LL;
+        return (long long)(u.QuadPart / 10000000ULL) - EPOCH_DIFF;
+    }
+}
+
 namespace JsonLog
 {
     void Add(const std::wstring& device,
@@ -215,5 +248,25 @@ namespace JsonLog
         g_entries.push_back(std::move(e));
         if (g_entries.size() > 500) g_entries.erase(g_entries.begin());
         WriteFile();
+    }
+
+    void Prune(int retentionDays)
+    {
+        if (retentionDays <= 0) return; // keep forever
+        std::lock_guard<std::mutex> lk(g_mu);
+        if (!g_loaded) {
+            g_loaded = true;
+            LoadExisting();
+        }
+        const long long cutoff = NowEpoch() - (long long)retentionDays * 86400LL;
+        const size_t before = g_entries.size();
+        g_entries.erase(
+            std::remove_if(g_entries.begin(), g_entries.end(),
+                [cutoff](const Entry& e) {
+                    const long long t = ParseEntryEpoch(e.time);
+                    return t > 0 && t < cutoff;
+                }),
+            g_entries.end());
+        if (g_entries.size() != before) WriteFile();
     }
 }

@@ -6,8 +6,14 @@
 #include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
+#include <QAction>
 #include <QApplication>
+#include <QFile>
+#include <QFileDialog>
 #include <QMenu>
+#include <QMessageBox>
+#include <QStringConverter>
+#include <QTextStream>
 #include <QRegularExpression>
 #include <QDateTime>
 #include <QDialog>
@@ -64,6 +70,7 @@
 #include "key_decoder.h"
 #include "keyboard_hook.h"
 #include "logger.h"
+#include "json_log.h"
 #include "policy.h"
 #include "settings.h"
 #include "device_blocker.h"
@@ -99,6 +106,13 @@ static QVector<QPair<double, bool>> g_inputSpeedTrend;
 
 namespace
 {
+    // Translation helper for use inside this anonymous namespace.
+    // tr() requires a Q_OBJECT class context; this routes through the
+    // "MainWindow" translation context so strings share that .ts catalog.
+    inline QString trMW(const char* s) {
+        return QCoreApplication::translate("MainWindow", s);
+    }
+
     enum class FontRole { Regular, Medium, SemiBold, Bold };
 
     QFont pretendardFont(FontRole role);
@@ -476,7 +490,7 @@ namespace
     int notificationDurationMs()
     {
         QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
-        return std::clamp(uiSettings.value(QStringLiteral("ui/notificationDurationSec"), 5).toInt(), 1, 60) * 1000;
+        return std::clamp(uiSettings.value(QStringLiteral("ui/notificationDurationSec"), 3).toInt(), 1, 60) * 1000;
     }
 
     void showRiskTrayMessage(QSystemTrayIcon* trayIcon, const QString& title,
@@ -697,7 +711,7 @@ namespace
     {
         const auto keys = KeyboardHook::GetBufferedKeys();
         if (keys.empty())
-            return "입력 대기 중...\n미등록 HID 장치에서 키 입력이 감지되면 이 영역에 실시간으로 표시됩니다.";
+            return trMW("입력 대기 중...\n미등록 HID 장치에서 키 입력이 감지되면 이 영역에 실시간으로 표시됩니다.");
 
         QStringList lines;
         const int start = std::max<int>(0, static_cast<int>(keys.size()) - 200);
@@ -810,7 +824,7 @@ namespace
     {
         const auto keys = KeyboardHook::GetBufferedKeys();
         if (keys.empty())
-            return "입력 대기 중...\n16진수 형식으로 표시됩니다.";
+            return trMW("입력 대기 중...\n16진수 형식으로 표시됩니다.");
 
         QStringList lines;
         const int start = std::max<int>(0, static_cast<int>(keys.size()) - 200);
@@ -973,10 +987,13 @@ namespace
         const bool isAllow = text == QStringLiteral("허용");
         const bool isBlock = text == QStringLiteral("차단");
 
-        badge->setText(text);
+        const QString display = isAllow ? trMW("허용")
+                              : isBlock ? trMW("차단")
+                              : trMW("승인 대기");
+        badge->setText(display);
         badge->setObjectName(isAllow ? "successBadge" : (isBlock ? "dangerBadge" : "warningBadge"));
         badge->setAlignment(Qt::AlignCenter);
-        badge->setFixedSize(policyBadgeSize(text));
+        badge->setFixedSize(policyBadgeSize(display));
         badge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
         badge->style()->unpolish(badge);
         badge->style()->polish(badge);
@@ -999,9 +1016,10 @@ namespace
         l->setSpacing(6);
         auto* dot = new QFrame;
         dot->setObjectName("usbStatusDot");
-        dot->setProperty("connected", status == "연결됨");
+        const bool connected = (status == "연결됨");
+        dot->setProperty("connected", connected);
         dot->setFixedSize(8, 8);
-        auto* txt = new QLabel(status);
+        auto* txt = new QLabel(connected ? trMW("연결됨") : trMW("연결 안됨"));
         txt->setObjectName("usbStatusText");
         txt->setAttribute(Qt::WA_TransparentForMouseEvents);
         txt->setFont(pretendardFont(FontRole::Regular));
@@ -1198,7 +1216,7 @@ namespace
                 QFont emptyFont = pretendardFont(FontRole::Medium);
                 emptyFont.setPointSize(10);
                 p.setFont(emptyFont);
-                p.drawText(lm, tm, cw, ch, Qt::AlignCenter, "입력 대기 중");
+                p.drawText(lm, tm, cw, ch, Qt::AlignCenter, trMW("입력 대기 중"));
                 return;
             }
 
@@ -1332,10 +1350,10 @@ namespace
         void setScores(double command, double url, double typing, double hotkey)
         {
             scores_ = {
-                {QStringLiteral("명령어"), std::clamp(command, 0.0, 10.0), QColor("#2563C7")},
+                {trMW("명령어"), std::clamp(command, 0.0, 10.0), QColor("#2563C7")},
                 {QStringLiteral("URL"), std::clamp(url, 0.0, 10.0), QColor("#7C3AED")},
-                {QStringLiteral("입력 속도"), std::clamp(typing, 0.0, 10.0), QColor("#0891B2")},
-                {QStringLiteral("핫키"), std::clamp(hotkey, 0.0, 10.0), QColor("#DB2777")},
+                {trMW("입력 속도"), std::clamp(typing, 0.0, 10.0), QColor("#0891B2")},
+                {trMW("핫키"), std::clamp(hotkey, 0.0, 10.0), QColor("#DB2777")},
             };
             update();
         }
@@ -1449,15 +1467,15 @@ namespace
         const bool hasDevice = device.fingerprint != 0;
         const QString deviceName = hasDevice
             ? fromWString(device.name.empty() ? L"Unknown USB Device" : device.name)
-            : QStringLiteral("장치 확인 중...");
+            : trMW("장치 확인 중...");
         const QString vidPid = hasDevice
             ? QString("0x%1 / 0x%2").arg(hex4(device.vid), hex4(device.pid))
-            : QStringLiteral("분석 중...");
+            : trMW("분석 중...");
         const QString detectedAt = nowTimestamp();
 
         auto* dlg = new QDialog(parent, Qt::Dialog | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
-        dlg->setWindowTitle("장치 위험도 모니터링");
+        dlg->setWindowTitle(trMW("장치 위험도 모니터링"));
         // Non-modal: WindowStaysOnTopHint keeps it visible.
         // setModal(true) was blocking all input to the main window even when
         // the dialog was opened manually without a suspected device.
@@ -1539,7 +1557,7 @@ namespace
         hdrL->setContentsMargins(24, 0, 16, 0);
         hdrL->setSpacing(10);
         hdrL->addWidget(iconLabel(":/icons/brand-mark.png", 20));
-        auto* title = new QLabel("장치 위험도 모니터링");
+        auto* title = new QLabel(trMW("장치 위험도 모니터링"));
         title->setFont(pretendardFont(FontRole::SemiBold));
         title->setStyleSheet(QString("font-size: 16px; color: %1;").arg(UiTheme::tokens().Text));
         title->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -1596,7 +1614,7 @@ namespace
                                   .arg(UiTheme::tokens().White, UiTheme::tokens().Border));
                 auto* chl = new QHBoxLayout(ch);
                 chl->setContentsMargins(16, 0, 16, 0);
-                auto* chTitle = new QLabel("연결된 장치 정보");
+                auto* chTitle = new QLabel(trMW("연결된 장치 정보"));
                 chTitle->setFont(pretendardFont(FontRole::SemiBold));
                 chTitle->setStyleSheet(QString("font-size: 13px; color: %1; background: transparent; border: none;")
                                        .arg(UiTheme::tokens().TextMid));
@@ -1631,11 +1649,11 @@ namespace
                     return v;
                 };
 
-                addDevRow("장치 이름",  deviceName, "dlg_device_name");
-                addDevRow("탐지 인터페이스",  "HID");
-                addDevRow("VID / PID",  vidPid, "dlg_vid_pid");
-                addDevRow("탐지 경로",  "HID Interface");
-                addDevRow("첫 감지 시간", detectedAt);
+                addDevRow(trMW("장치 이름"),  deviceName, "dlg_device_name");
+                addDevRow(trMW("탐지 인터페이스"),  "HID");
+                addDevRow(trMW("VID / PID"),  vidPid, "dlg_vid_pid");
+                addDevRow(trMW("탐지 경로"),  "HID Interface");
+                addDevRow(trMW("첫 감지 시간"), detectedAt);
 
                 // 상태 badge row
                 auto* stRow = new QFrame;
@@ -1643,11 +1661,11 @@ namespace
                 auto* stL = new QHBoxLayout(stRow);
                 stL->setContentsMargins(0, 8, 0, 0);
                 stL->setSpacing(0);
-                auto* stKey = new QLabel("상태");
+                auto* stKey = new QLabel(trMW("상태"));
                 stKey->setFont(pretendardFont(FontRole::Regular));
                 stKey->setStyleSheet(QString("color: %1; font-size: 13px;").arg(UiTheme::tokens().Subtext));
                 stKey->setFixedWidth(100);
-                auto* stBadge = new QLabel("자동 차단됨");
+                auto* stBadge = new QLabel(trMW("자동 차단됨"));
                 statusBadge = stBadge;
                 stBadge->setObjectName("blockBadge");
                 stBadge->setFont(pretendardFont(FontRole::SemiBold));
@@ -1676,7 +1694,7 @@ namespace
                                   .arg(UiTheme::tokens().White, UiTheme::tokens().Border));
                 auto* chl = new QHBoxLayout(ch);
                 chl->setContentsMargins(16, 0, 16, 0);
-                auto* chTitle = new QLabel("승인/차단 안내");
+                auto* chTitle = new QLabel(trMW("승인/차단 안내"));
                 chTitle->setFont(pretendardFont(FontRole::SemiBold));
                 chTitle->setStyleSheet(QString("font-size: 13px; color: %1; background: transparent; border: none;")
                                        .arg(UiTheme::tokens().TextMid));
@@ -1710,10 +1728,10 @@ namespace
                     cbl->addLayout(row);
                 };
 
-                addGuideRow(":/icons/status-allowed.svg", UiTheme::tokens().Primary, "허용",
-                            "이 장치를 신뢰할 수 있는 장치로 등록하고 연결을 허용합니다.");
-                addGuideRow(":/icons/status-blocked.svg", UiTheme::tokens().DangerAction, "차단",
-                            "이 장치를 차단하고 연결을 즉시 종료합니다.");
+                addGuideRow(":/icons/status-allowed.svg", UiTheme::tokens().Primary, trMW("허용"),
+                            trMW("이 장치를 신뢰할 수 있는 장치로 등록하고 연결을 허용합니다."));
+                addGuideRow(":/icons/status-blocked.svg", UiTheme::tokens().DangerAction, trMW("차단"),
+                            trMW("이 장치를 차단하고 연결을 즉시 종료합니다."));
 
                 cbl->addStretch();
 
@@ -1742,7 +1760,7 @@ namespace
                                       .arg(UiTheme::tokens().White, UiTheme::tokens().Border));
             auto* scanHeaderL = new QHBoxLayout(scanHeader);
             scanHeaderL->setContentsMargins(16, 0, 16, 0);
-            auto* scanHeaderTitle = new QLabel("검사 상태");
+            auto* scanHeaderTitle = new QLabel(trMW("검사 상태"));
             scanHeaderTitle->setFont(pretendardFont(FontRole::SemiBold));
             scanHeaderTitle->setStyleSheet(QString("font-size: 13px; color: %1; background: transparent; border: none;")
                                            .arg(UiTheme::tokens().Text));
@@ -1765,7 +1783,7 @@ namespace
             scanTexts->setSpacing(10);
             scanTexts->addStretch();
 
-            scanBadge = new QLabel("검사중");
+            scanBadge = new QLabel(trMW("검사중"));
             scanBadge->setFont(pretendardFont(FontRole::SemiBold));
             scanBadge->setFixedHeight(30);
             scanBadge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
@@ -1774,14 +1792,14 @@ namespace
                                      .arg(UiTheme::tokens().Primary));
             scanTexts->addWidget(scanBadge, 0, Qt::AlignLeft);
 
-            scanTitle = new QLabel("의심 장치를 검사하고 있습니다.");
+            scanTitle = new QLabel(trMW("의심 장치를 검사하고 있습니다."));
             scanTitle->setFont(pretendardFont(FontRole::Bold));
             scanTitle->setTextFormat(Qt::RichText);
             scanTitle->setStyleSheet(QString("font-size: 22px; color: %1; background: transparent; border: none;")
                                      .arg(UiTheme::tokens().Text));
             scanTexts->addWidget(scanTitle);
 
-            scanDescription = new QLabel("입력 패턴과 장치 정보를 분석하여 안전 여부를 확인하는 중입니다.");
+            scanDescription = new QLabel(trMW("입력 패턴과 장치 정보를 분석하여 안전 여부를 확인하는 중입니다."));
             scanDescription->setFont(pretendardFont(FontRole::Regular));
             scanDescription->setStyleSheet(QString("font-size: 12px; color: %1; background: transparent; border: none;")
                                            .arg(UiTheme::tokens().Subtext));
@@ -1814,11 +1832,11 @@ namespace
                 scanTexts->addWidget(row);
             };
 
-            makeScanRow("⌕", "입력 패턴 분석 중");
-            makeScanRow(">_", "명령/실행 패턴 확인 중");
-            makeScanRow("◎", "URL 및 위험 조합 확인 중");
+            makeScanRow("⌕", trMW("입력 패턴 분석 중"));
+            makeScanRow(">_", trMW("명령/실행 패턴 확인 중"));
+            makeScanRow("◎", trMW("URL 및 위험 조합 확인 중"));
 
-            auto* scanNote = new QLabel("마지막 입력 후 3초 동안 추가 입력이 없으면 검사 결과를 안내합니다.");
+            auto* scanNote = new QLabel(trMW("마지막 입력 후 3초 동안 추가 입력이 없으면 검사 결과를 안내합니다."));
             scanNote->setFont(pretendardFont(FontRole::Regular));
             scanNote->setStyleSheet(QString("font-size: 12px; color: %1; background: transparent; border: none;")
                                     .arg(UiTheme::tokens().Subtext));
@@ -1844,7 +1862,7 @@ namespace
                               .arg(UiTheme::tokens().Surface, UiTheme::tokens().Border));
             auto* chl = new QHBoxLayout(ch);
             chl->setContentsMargins(16, 0, 12, 0);
-            auto* chTitle = new QLabel("입력 버퍼 (읽기 전용)");
+            auto* chTitle = new QLabel(trMW("입력 버퍼 (읽기 전용)"));
             chTitle->setFont(pretendardFont(FontRole::SemiBold));
             chTitle->setStyleSheet(QString("font-size: 13px; color: %1; background: transparent; border: none;")
                                    .arg(UiTheme::tokens().TextMid));
@@ -1864,9 +1882,9 @@ namespace
                       UiTheme::tokens().Text));
                 return btn;
             };
-            auto* copyBtn = makeBufferHeaderBtn("복사");
-            auto* normalizeBtn = makeBufferHeaderBtn("정규화");
-            auto* clearBtn = makeBufferHeaderBtn("지우기");
+            auto* copyBtn = makeBufferHeaderBtn(trMW("복사"));
+            auto* normalizeBtn = makeBufferHeaderBtn(trMW("정규화"));
+            auto* clearBtn = makeBufferHeaderBtn(trMW("지우기"));
             chl->addWidget(copyBtn);
             chl->addWidget(normalizeBtn);
             chl->addWidget(clearBtn);
@@ -1956,16 +1974,16 @@ namespace
                 if (isDanger) {
                     const auto& st = UiTheme::tokens();
                     setMascot(":/icons/detect_bad.png");
-                    scanBadge->setText("검사 완료");
+                    scanBadge->setText(trMW("검사 완료"));
                     setBadgeStyle(scanBadge, st.DangerAction);
-                    scanTitle->setText(QString("검사 결과 <span style='color:%1;'>위험</span>").arg(st.DangerAction));
+                    scanTitle->setText(trMW("검사 결과 <span style='color:%1;'>위험</span>").arg(st.DangerAction));
                     scanTitle->setStyleSheet(QString("font-size: 22px; color: %1; background: transparent; border: none;").arg(st.DangerAction));
-                    scanDescription->setText("이 장치에서 위험한 입력 패턴이 감지되어 차단을 권장합니다.");
-                    setStatusBadge(statusBadge, "자동 차단됨", st.DangerAction);
+                    scanDescription->setText(trMW("이 장치에서 위험한 입력 패턴이 감지되어 차단을 권장합니다."));
+                    setStatusBadge(statusBadge, trMW("자동 차단됨"), st.DangerAction);
 
                     QStringList reasons = blockReasonLines(snapshot);
                     while (reasons.size() < 3)
-                        reasons << "위험 입력 조합이 감지되었습니다.";
+                        reasons << trMW("위험 입력 조합이 감지되었습니다.");
                     for (int i = 0; i < scanRowLabels.size() && i < 3; ++i)
                         scanRowLabels[i]->setText(reasons[i]);
                     setDots("●●●", st.DangerAction, false);
@@ -1975,16 +1993,16 @@ namespace
                 if (isSafe) {
                     const auto& st = UiTheme::tokens();
                     setMascot(":/icons/detect_good.png");
-                    scanBadge->setText("검사 완료");
+                    scanBadge->setText(trMW("검사 완료"));
                     setBadgeStyle(scanBadge, st.Primary);
-                    scanTitle->setText(QString("검사 결과 <span style='color:%1;'>안전</span>").arg(st.Primary));
+                    scanTitle->setText(trMW("검사 결과 <span style='color:%1;'>안전</span>").arg(st.Primary));
                     scanTitle->setStyleSheet(QString("font-size: 22px; color: %1; background: transparent; border: none;").arg(st.Text));
-                    scanDescription->setText("이 장치는 현재까지 확인된 위험 패턴이 없어 안전한 장치로 판단되었습니다.");
-                    setStatusBadge(statusBadge, "안전", st.Primary);
+                    scanDescription->setText(trMW("이 장치는 현재까지 확인된 위험 패턴이 없어 안전한 장치로 판단되었습니다."));
+                    setStatusBadge(statusBadge, trMW("안전"), st.Primary);
                     const QStringList safeRows = {
-                        "비정상 입력 패턴 없음",
-                        "명령/실행 패턴 미검출",
-                        "위험 URL 및 조합 미검출"
+                        trMW("비정상 입력 패턴 없음"),
+                        trMW("명령/실행 패턴 미검출"),
+                        trMW("위험 URL 및 조합 미검출")
                     };
                     for (int i = 0; i < scanRowLabels.size() && i < safeRows.size(); ++i)
                         scanRowLabels[i]->setText(safeRows[i]);
@@ -1994,16 +2012,16 @@ namespace
 
                 const auto& st = UiTheme::tokens();
                 setMascot(":/icons/detecting.png");
-                scanBadge->setText("검사중");
+                scanBadge->setText(trMW("검사중"));
                 setBadgeStyle(scanBadge, st.Primary);
-                scanTitle->setText("의심 장치를 검사하고 있습니다.");
+                scanTitle->setText(trMW("의심 장치를 검사하고 있습니다."));
                 scanTitle->setStyleSheet(QString("font-size: 22px; color: %1; background: transparent; border: none;").arg(st.Text));
-                scanDescription->setText("입력이 멈춘 뒤 3초 동안 패턴을 종합해 안전 여부를 확인합니다.");
-                setStatusBadge(statusBadge, "검사중", st.PrimaryHover);
+                scanDescription->setText(trMW("입력이 멈춘 뒤 3초 동안 패턴을 종합해 안전 여부를 확인합니다."));
+                setStatusBadge(statusBadge, trMW("검사중"), st.PrimaryHover);
                 const QStringList scanningRows = {
-                    "입력 패턴 분석 중",
-                    "명령/실행 패턴 확인 중",
-                    "URL 및 위험 조합 확인 중"
+                    trMW("입력 패턴 분석 중"),
+                    trMW("명령/실행 패턴 확인 중"),
+                    trMW("URL 및 위험 조합 확인 중")
                 };
                 for (int i = 0; i < scanRowLabels.size() && i < scanningRows.size(); ++i)
                     scanRowLabels[i]->setText(scanningRows[i]);
@@ -2033,7 +2051,7 @@ namespace
             QObject::connect(normalizeBtn, &QPushButton::clicked, dlg,
                 [normalizedMode, normalizeBtn, updateBufferText] {
                     *normalizedMode = !*normalizedMode;
-                    normalizeBtn->setText(*normalizedMode ? "원본 보기" : "정규화");
+                    normalizeBtn->setText(*normalizedMode ? trMW("원본 보기") : trMW("정규화"));
                     updateBufferText();
                 });
 
@@ -2072,8 +2090,8 @@ namespace
             return btn;
         };
 
-        auto* analyticsBtn = mkFooterBtn("행위 분석 보기");
-        bufferToggleBtn = mkFooterBtn("입력 버퍼 보기");
+        auto* analyticsBtn = mkFooterBtn(trMW("행위 분석 보기"));
+        bufferToggleBtn = mkFooterBtn(trMW("입력 버퍼 보기"));
         fl->addWidget(analyticsBtn);
         fl->addWidget(bufferToggleBtn);
         fl->addStretch();
@@ -2090,7 +2108,7 @@ namespace
                     return;
                 const bool showBuffer = monitorStack->currentIndex() == 0;
                 monitorStack->setCurrentIndex(showBuffer ? 1 : 0);
-                bufferToggleBtn->setText(showBuffer ? "검사 상태 보기" : "입력 버퍼 보기");
+                bufferToggleBtn->setText(showBuffer ? trMW("검사 상태 보기") : trMW("입력 버퍼 보기"));
                 if (showBuffer && updateBufferText)
                     updateBufferText();
             });
@@ -2123,8 +2141,8 @@ namespace
             return container;
         };
 
-        auto* allowBtn = mkActionBtn("허용", "이 장치 신뢰 등록", UiTheme::tokens().Primary, UiTheme::tokens().PrimaryHover, 140);
-        auto* denyBtn  = mkActionBtn("차단", "즉시 연결 종료",    UiTheme::tokens().DangerAction, UiTheme::tokens().DangerHover, 120);
+        auto* allowBtn = mkActionBtn(trMW("허용"), trMW("이 장치 신뢰 등록"), UiTheme::tokens().Primary, UiTheme::tokens().PrimaryHover, 140);
+        auto* denyBtn  = mkActionBtn(trMW("차단"), trMW("즉시 연결 종료"),    UiTheme::tokens().DangerAction, UiTheme::tokens().DangerHover, 120);
 
         class ClickFilter : public QObject {
             QDialog* dlg_;
@@ -2197,6 +2215,13 @@ MainWindow::MainWindow(QWidget* parent)
     setMinimumSize(1180, 760);
     setWindowTitle("Abang-All");
     applyThemeFromSettings();
+
+    // Apply log retention setting at startup (prune old entries from disk log).
+    {
+        QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+        const int retentionDays = uiSettings.value(QStringLiteral("ui/logRetentionDays"), 30).toInt();
+        JsonLog::Prune(retentionDays);
+    }
 
     auto* root = new QWidget;
     root->setObjectName("centralRoot");
@@ -2684,7 +2709,7 @@ QWidget* MainWindow::createDashboardPage()
                 lineL->addWidget(iconLabel(":/icons/status-shield-blue.svg", 16));
                 lineL->addWidget(label(protRows[ri]));
                 lineL->addStretch();
-                auto* onBadge = label("ON", "protectionOnBadge");
+                auto* onBadge = label(tr("ON"), "protectionOnBadge");
                 onBadge->setAlignment(Qt::AlignCenter);
                 lineL->addWidget(onBadge);
                 protLayout->addWidget(lineW);
@@ -2850,7 +2875,16 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         titleLbl->setObjectName("pageTitle");
         headerRow->addWidget(titleLbl);
         headerRow->addStretch();
-        headerRow->addWidget(makeSearchBox(tr("장치명 또는 VID/PID 검색"), 256));
+
+        auto* searchBox = makeSearchBox(tr("장치명 또는 VID/PID 검색"), 256);
+        if (auto* input = searchBox->findChild<QLineEdit*>("searchInput")) {
+            input->setText(usbSearchText_);
+            connect(input, &QLineEdit::textChanged, this, [this](const QString& t) {
+                usbSearchText_ = t;
+                applyUsbListFilter();
+            });
+        }
+        headerRow->addWidget(searchBox);
         headerRow->addSpacing(8);
 
         auto* filterBtn = new QPushButton("  " + tr("필터"));
@@ -2858,6 +2892,25 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         filterBtn->setFont(pretendardFont(FontRole::Medium));
         filterBtn->setIcon(QIcon(":/icons/action-filter.svg"));
         filterBtn->setIconSize(QSize(16, 16));
+        {
+            auto* menu = new QMenu(filterBtn);
+            struct Opt { const char* key; QString label; };
+            const QList<Opt> opts = {
+                {"",        tr("전체")},
+                {"허용",     tr("허용")},
+                {"차단",     tr("차단")},
+                {"승인 대기", tr("승인 대기")},
+            };
+            for (const auto& o : opts) {
+                QAction* act = menu->addAction(o.label);
+                const QString key = QString::fromUtf8(o.key);
+                connect(act, &QAction::triggered, this, [this, key] {
+                    usbPolicyFilter_ = key;
+                    applyUsbListFilter();
+                });
+            }
+            filterBtn->setMenu(menu);
+        }
         headerRow->addWidget(filterBtn);
 
         auto* refreshBtn = new QPushButton;
@@ -2974,7 +3027,7 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
 
     // 적용 정책
     {
-        usbDetPolicyLbl_ = new QLabel("승인 대기");
+        usbDetPolicyLbl_ = new QLabel(tr("승인 대기"));
         usbDetPolicyLbl_->setFont(pretendardFont(FontRole::SemiBold));
         applyCompactPolicyBadge(usbDetPolicyLbl_, "승인 대기");
         addInfoRow(tr("적용 정책"), usbDetPolicyLbl_);
@@ -3262,12 +3315,31 @@ void MainWindow::refreshUsbTable()
         usbTable_->setCellWidget(r, 2, makeUsbTextCell(row.vidpid,  UiTheme::tokens().Subtext, QFont("Consolas", 12), 10));
         usbTable_->setCellWidget(r, 3, makeUsbStatusCell(translateStatus(row.status)));
         usbTable_->setCellWidget(r, 4, makeBadgeCell(translatePolicy(row.policy), policyBadge(row.policy)));
-        usbTable_->setCellWidget(r, 5, makeUsbTextCell(row.lastSeen, UiTheme::tokens().Subtext, pretendardFont(FontRole::Regular), 10));
+        const QString lastSeenDisplay = (row.lastSeen == "방금 전") ? tr("방금 전") : row.lastSeen;
+        usbTable_->setCellWidget(r, 5, makeUsbTextCell(lastSeenDisplay, UiTheme::tokens().Subtext, pretendardFont(FontRole::Regular), 10));
     }
 
     if (usbSelectedRow_ >= usbRows_.size()) usbSelectedRow_ = 0;
     applyUsbDetailPanel(usbSelectedRow_);
+    applyUsbListFilter();
     usbListStale_ = false;
+}
+
+void MainWindow::applyUsbListFilter()
+{
+    if (!usbTable_) return;
+    const QString needle = usbSearchText_.trimmed().toLower();
+    for (int r = 0; r < usbRows_.size(); ++r) {
+        const auto& row = usbRows_[r];
+        bool match = true;
+        if (!needle.isEmpty()) {
+            match = row.name.toLower().contains(needle)
+                 || row.vidpid.toLower().contains(needle);
+        }
+        if (match && !usbPolicyFilter_.isEmpty())
+            match = (row.policy == usbPolicyFilter_);
+        usbTable_->setRowHidden(r, !match);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -3286,13 +3358,20 @@ void MainWindow::applyUsbDetailPanel(int row)
     usbDetStatusDot_->style()->unpolish(usbDetStatusDot_);
     usbDetStatusDot_->style()->polish(usbDetStatusDot_);
     usbDetStatusDot_->update();
-    usbDetStatusLbl_->setText(r.status);
+    usbDetStatusLbl_->setText(connected ? tr("연결됨") : tr("연결 안됨"));
 
     applyCompactPolicyBadge(usbDetPolicyLbl_, r.policy);
 
-    usbDetTypeV_->setText(r.type);
+    const QString typeDisplay = (r.type == "입력 장치") ? tr("입력 장치")
+                              : (r.type == "키보드") ? tr("키보드")
+                              : (r.type == "저장 장치") ? tr("저장 장치")
+                              : (r.type == "네트워크") ? tr("네트워크")
+                              : (r.type == "기타") ? tr("기타")
+                              : r.type;
+    usbDetTypeV_->setText(typeDisplay);
     usbDetVidV_->setText(r.vidpid.left(4) + " : " + r.vidpid.mid(5));
-    usbDetLastV_->setText(r.lastSeen);
+    const QString lastDisplay = (r.lastSeen == "방금 전") ? tr("방금 전") : r.lastSeen;
+    usbDetLastV_->setText(lastDisplay);
 
     const bool hasDevice = r.fingerprint != 0;
     if (usbAllowBtn_) {
@@ -3428,7 +3507,16 @@ QWidget* MainWindow::createLogPage()
         auto* headerRow = new QHBoxLayout;
         headerRow->addWidget(label(tr("로그"), "pageTitle"));
         headerRow->addStretch();
-        headerRow->addWidget(makeSearchBox(tr("이벤트, 장치명 등 검색"), 256));
+
+        auto* searchBox = makeSearchBox(tr("이벤트, 장치명 등 검색"), 256);
+        if (auto* input = searchBox->findChild<QLineEdit*>("searchInput")) {
+            input->setText(logSearchText_);
+            connect(input, &QLineEdit::textChanged, this, [this](const QString& t) {
+                logSearchText_ = t;
+                applyLogFilter();
+            });
+        }
+        headerRow->addWidget(searchBox);
         headerRow->addSpacing(8);
 
         auto mkBtn = [&](const QString& text, const QString& icon) {
@@ -3439,12 +3527,34 @@ QWidget* MainWindow::createLogPage()
             btn->setIconSize(QSize(16, 16));
             return btn;
         };
-        headerRow->addWidget(mkBtn(tr("기간 선택"),   ":/icons/status-clock.svg"));
-        headerRow->addWidget(mkBtn(tr("이벤트 필터"), ":/icons/action-filter.svg"));
+
+        auto* evtFilterBtn = mkBtn(tr("이벤트 필터"), ":/icons/action-filter.svg");
+        {
+            auto* menu = new QMenu(evtFilterBtn);
+            struct Opt { const char* key; QString label; };
+            const QList<Opt> opts = {
+                {"",        tr("전체")},
+                {"block",   tr("차단")},
+                {"allow",   tr("허용")},
+                {"warning", tr("확인 필요")},
+                {"info",    tr("기록")},
+            };
+            for (const auto& o : opts) {
+                QAction* act = menu->addAction(o.label);
+                const QString key = QString::fromUtf8(o.key);
+                connect(act, &QAction::triggered, this, [this, key] {
+                    logEventFilter_ = key;
+                    applyLogFilter();
+                });
+            }
+            evtFilterBtn->setMenu(menu);
+        }
+        headerRow->addWidget(evtFilterBtn);
 
         auto* exportBtn = new QPushButton(tr("내보내기 (CSV)"));
         exportBtn->setObjectName("primaryButton");
         exportBtn->setFont(pretendardFont(FontRole::Medium));
+        connect(exportBtn, &QPushButton::clicked, this, &MainWindow::exportLogToCsv);
         headerRow->addWidget(exportBtn);
         layout->addLayout(headerRow);
     }
@@ -3751,16 +3861,11 @@ QWidget* MainWindow::createLogPage()
             auto* bl = new QHBoxLayout(btnArea);
             bl->setContentsMargins(0, 16, 0, 16);
             bl->setSpacing(8);
-            auto* infoBtn = new QPushButton("장치 정보 조회");
+            auto* infoBtn = new QPushButton(tr("장치 정보 조회"));
             infoBtn->setObjectName("secondaryButton");
             infoBtn->setFont(pretendardFont(FontRole::Medium));
             infoBtn->setFixedHeight(36);
             bl->addWidget(infoBtn, 1);
-            auto* regBtn = new QPushButton("예외 규칙 등록");
-            regBtn->setObjectName("primaryButton");
-            regBtn->setFont(pretendardFont(FontRole::Medium));
-            regBtn->setFixedHeight(36);
-            bl->addWidget(regBtn, 1);
             bodyL->addWidget(btnArea);
         }
 
@@ -3769,10 +3874,10 @@ QWidget* MainWindow::createLogPage()
 
         // Wire up row click → update detail panel
         const QMap<QString,QString> descMap = {
-            {"blockBadge",   "등록되지 않은 장치의 연결이 차단되었습니다."},
-            {"warningBadge", "비정상적인 행위가 탐지되어 경고 알림이 발송되었습니다."},
-            {"successBadge", "허용된 장치가 정상적으로 연결되었습니다."},
-            {"neutralBadge", "시스템 이벤트가 기록되었습니다."},
+            {"blockBadge",   tr("등록되지 않은 장치의 연결이 차단되었습니다.")},
+            {"warningBadge", tr("비정상적인 행위가 탐지되어 경고 알림이 발송되었습니다.")},
+            {"successBadge", tr("허용된 장치가 정상적으로 연결되었습니다.")},
+            {"neutralBadge", tr("시스템 이벤트가 기록되었습니다.")},
         };
 
         // Same pattern as USB table: NoSelection + cellClicked.
@@ -3798,7 +3903,7 @@ QWidget* MainWindow::createLogPage()
                 detEvTitle->setText(event);
                 detEvTime->setText(time);
                 detDevBadge->setText(device == "-" ? "N/A" : device);
-                detDesc->setText(descMap.value(badge, "이벤트가 기록되었습니다."));
+                detDesc->setText(descMap.value(badge, tr("이벤트가 기록되었습니다.")));
 
                 detResultBadge->setText(result);
                 detResultBadge->setObjectName(badge.toUtf8().constData());
@@ -3821,6 +3926,7 @@ QWidget* MainWindow::createLogPage()
     }
 
     layout->addLayout(contentRow, 1);
+    applyLogFilter();
     return page;
 }
 
@@ -3844,7 +3950,7 @@ QWidget* MainWindow::createAnalyticsPage()
         titleBox->addWidget(label(tr("키보드 입력 행위를 분석하여 비정상적 또는 악성 활동을 탐지합니다."), "pageSubtitle"));
         headerRow->addLayout(titleBox);
         headerRow->addStretch();
-        headerRow->addWidget(label(tr("마지막 업데이트: 2026-04-23 14:22:33"), "mutedText"));
+        headerRow->addWidget(label(tr("마지막 업데이트: ") + nowTimestamp(), "mutedText"));
         layout->addLayout(headerRow);
     }
 
@@ -4038,7 +4144,7 @@ QWidget* MainWindow::createAnalyticsPage()
 
         // 세션 정보
         addSection(tr("세션 정보"));
-        addRow(tr("장치 유형"),  "Keyboard (HID)");
+        addRow(tr("장치 유형"),  tr("키보드 (HID)"));
         sessionStartValue = addRow(tr("시작 시각"), analyticsSessionStart.toString("yyyy-MM-dd HH:mm:ss"));
         durationValue = addRow(tr("지속 시간"), "00:00:00");
         bL->addWidget(makeDivider());
@@ -4168,12 +4274,8 @@ QWidget* MainWindow::createSettingsPage()
     QCheckBox* cbAutostart = nullptr;
     QCheckBox* cbShowMain = nullptr;
     QButtonGroup* themeGroup = nullptr;
-    QRadioButton* rbApproval = nullptr;
-    QRadioButton* rbAutoBlock = nullptr;
-    QRadioButton* rbAutoAllow = nullptr;
     QCheckBox* cbNotif = nullptr;
     QCheckBox* cbSound = nullptr;
-    QComboBox* comboNotifPos = nullptr;
     QComboBox* comboNotifDuration = nullptr;
     QComboBox* comboLogRetention = nullptr;
 
@@ -4189,8 +4291,6 @@ QWidget* MainWindow::createSettingsPage()
         resetBtn = new QPushButton(tr("되돌리기"));
         resetBtn->setObjectName("secondaryButton");
         resetBtn->setFont(pretendardFont(FontRole::SemiBold));
-        headerRow->addWidget(saveBtn);
-        headerRow->addWidget(resetBtn);
         layout->addLayout(headerRow);
     }
 
@@ -4241,7 +4341,6 @@ QWidget* MainWindow::createSettingsPage()
     struct TabInfo { QString name; QString icon; };
     const QList<TabInfo> tabInfos = {
         {tr("일반"), ":/icons/action-filter.svg"},
-        {tr("장치 정책"), ":/icons/ui-lock.svg"},
         {tr("알림 및 로그"), ":/icons/ui-bell.svg"},
     };
 
@@ -4344,30 +4443,6 @@ QWidget* MainWindow::createSettingsPage()
         auto* wl = new QVBoxLayout(w);
         wl->setContentsMargins(24, 24, 24, 24);
         wl->setSpacing(12);
-        addSection(wl, tr("장치 정책"));
-        wl->addWidget(label(tr("새 미등록 장치 연결 시:"), "settingsFormLabel"));
-
-        auto* policyGroup = new QButtonGroup(w);
-        policyGroup->setExclusive(true);
-        rbApproval = new QRadioButton(tr("승인 대기"));
-        rbAutoBlock = new QRadioButton(tr("자동 차단"));
-        rbAutoAllow = new QRadioButton(tr("자동 허용"));
-        for (auto* radio : { rbApproval, rbAutoBlock, rbAutoAllow }) {
-            radio->setObjectName("settingsRadio");
-            radio->setFont(pretendardFont(FontRole::Medium));
-            policyGroup->addButton(radio);
-            wl->addWidget(radio);
-        }
-
-        wl->addStretch();
-        tabStack->addWidget(w);
-    }
-
-    {
-        auto* w = new QWidget;
-        auto* wl = new QVBoxLayout(w);
-        wl->setContentsMargins(24, 24, 24, 24);
-        wl->setSpacing(12);
         addSection(wl, tr("알림"));
 
         cbNotif = new QCheckBox(tr("위험 감지 시 알림 표시"));
@@ -4379,11 +4454,6 @@ QWidget* MainWindow::createSettingsPage()
         cbSound->setObjectName("settingsCheck");
         cbSound->setFont(pretendardFont(FontRole::Medium));
         wl->addWidget(cbSound);
-
-        comboNotifPos = new QComboBox;
-        comboNotifPos->addItems({ tr("우측 하단"), tr("우측 상단") });
-        comboNotifPos->setFixedWidth(180);
-        addControlRow(wl, tr("알림 위치"), comboNotifPos);
 
         comboNotifDuration = new QComboBox;
         comboNotifDuration->addItems({ tr("3초"), tr("5초"), tr("10초") });
@@ -4412,57 +4482,15 @@ QWidget* MainWindow::createSettingsPage()
     scL->addWidget(tabStack, 1);
     contentRow->addWidget(settingsCard, 1);
 
-    {
-        auto* sidebar = new QWidget;
-        sidebar->setFixedWidth(340);
-        auto* sidebarL = new QVBoxLayout(sidebar);
-        sidebarL->setContentsMargins(0, 0, 0, 0);
-        sidebarL->setSpacing(16);
-
-        auto* body = new QWidget;
-        auto* bl = new QVBoxLayout(body);
-        bl->setContentsMargins(16, 8, 16, 16);
-        bl->setSpacing(0);
-        struct PolicyRow { QString lbl, val, badge; };
-        const QList<PolicyRow> rows = {
-            {tr("활성 정책"), tr("기본 보안 프리셋"), ""},
-            {tr("미등록 장치"), tr("승인 대기"), "warningBadge"},
-            {tr("행위 분석"), tr("가동 중"), "successBadge"},
-        };
-        for (int i = 0; i < rows.size(); ++i) {
-            const auto& r = rows[i];
-            auto* rowWidget = new QWidget;
-            rowWidget->setObjectName("policySummaryRow");
-            rowWidget->setFixedHeight(42);
-            auto* line = new QHBoxLayout(rowWidget);
-            line->setContentsMargins(0, 0, 0, 0);
-            auto* lbl = label(r.lbl);
-            lbl->setObjectName("policySummaryLabel");
-            lbl->setFont(pretendardFont(FontRole::Regular));
-            line->addWidget(lbl);
-            line->addStretch();
-            if (!r.badge.isEmpty()) {
-                auto* badge = new QLabel(r.val);
-                badge->setObjectName(r.badge == "warningBadge" ? "settingsWarningBadge" : "settingsSuccessBadge");
-                badge->setAlignment(Qt::AlignCenter);
-                badge->setFont(pretendardFont(FontRole::SemiBold));
-                badge->setFixedSize(64, 26);
-                line->addWidget(badge);
-            } else {
-                auto* valLbl = label(r.val);
-                valLbl->setObjectName("policySummaryValue");
-                valLbl->setFont(pretendardFont(FontRole::Regular));
-                line->addWidget(valLbl);
-            }
-            bl->addWidget(rowWidget);
-            if (i < rows.size() - 1) bl->addWidget(makeDivider());
-        }
-        sidebarL->addWidget(createCard(tr("적용된 정책 요약"), body));
-        sidebarL->addStretch();
-        contentRow->addWidget(sidebar);
-    }
-
     layout->addLayout(contentRow, 1);
+
+    {
+        auto* footerRow = new QHBoxLayout;
+        footerRow->addStretch();
+        footerRow->addWidget(saveBtn);
+        footerRow->addWidget(resetBtn);
+        layout->addLayout(footerRow);
+    }
 
     auto loadSettingsToUi = [=] {
         Policy::LoadSettings();
@@ -4479,13 +4507,6 @@ QWidget* MainWindow::createSettingsPage()
         if (!langGroup->checkedButton() && !langGroup->buttons().isEmpty())
             langGroup->buttons().front()->setChecked(true);
 
-        if (settings.unknownDeviceAction == Policy::UnknownDeviceAction::AutoBlock)
-            rbAutoBlock->setChecked(true);
-        else if (settings.unknownDeviceAction == Policy::UnknownDeviceAction::AutoAllow)
-            rbAutoAllow->setChecked(true);
-        else
-            rbApproval->setChecked(true);
-
         const QString themeKey = uiSettings.value(QStringLiteral("ui/themeMode"), QStringLiteral("system")).toString();
         for (QAbstractButton* button : themeGroup->buttons()) {
             button->setChecked(button->property("themeKey").toString() == themeKey);
@@ -4493,12 +4514,11 @@ QWidget* MainWindow::createSettingsPage()
         if (!themeGroup->checkedButton() && !themeGroup->buttons().isEmpty())
             themeGroup->buttons().front()->setChecked(true);
 
-        comboNotifPos->setCurrentText(uiSettings.value(QStringLiteral("ui/notificationPosition"), QStringLiteral("우측 하단")).toString());
         {
             const QList<int> durationValues = {3, 5, 10};
-            const int notifSec = uiSettings.value(QStringLiteral("ui/notificationDurationSec"), 5).toInt();
+            const int notifSec = uiSettings.value(QStringLiteral("ui/notificationDurationSec"), 3).toInt();
             const int dIdx = durationValues.indexOf(notifSec);
-            comboNotifDuration->setCurrentIndex(dIdx >= 0 ? dIdx : 1); // 기본 5초
+            comboNotifDuration->setCurrentIndex(dIdx >= 0 ? dIdx : 0); // 기본 3초
         }
         {
             const int retentionDays = uiSettings.value(QStringLiteral("ui/logRetentionDays"), 30).toInt();
@@ -4522,16 +4542,10 @@ QWidget* MainWindow::createSettingsPage()
         Policy::Settings settings = Policy::GetSettings();
         settings.autoStart = cbAutostart->isChecked();
         settings.notifyOnRisk = cbNotif->isChecked();
-        if (rbAutoBlock->isChecked()) {
-            settings.unknownDeviceAction = Policy::UnknownDeviceAction::AutoBlock;
-            unknownDeviceAction_ = 1;
-        } else if (rbAutoAllow->isChecked()) {
-            settings.unknownDeviceAction = Policy::UnknownDeviceAction::AutoAllow;
-            unknownDeviceAction_ = 2;
-        } else {
-            settings.unknownDeviceAction = Policy::UnknownDeviceAction::Approval;
-            unknownDeviceAction_ = 0;
-        }
+        // Device policy is fixed to Approval (analyse-then-prompt). Auto-block /
+        // auto-allow were removed because they bypass behaviour analysis, which
+        // is the core value of this product.
+        settings.unknownDeviceAction = Policy::UnknownDeviceAction::Approval;
         Policy::SetSettings(settings);
 #ifdef Q_OS_WIN
         setWindowsAutoStart(settings.autoStart);
@@ -4548,21 +4562,24 @@ QWidget* MainWindow::createSettingsPage()
         if (newLang != prevLang) {
             QMessageBox::information(this,
                 tr("설정이 저장되었습니다."),
-                tr("재시작 후 언어가 변경됩니다."));
+                tr("이 프로그램은 백그라운드에서 계속 실행됩니다.\n트레이 아이콘에서 \"종료\"를 선택해 완전히 종료한 뒤 다시 실행하면 언어가 변경됩니다."));
         }
-        uiSettings.setValue(QStringLiteral("ui/notificationPosition"), comboNotifPos->currentText());
         {
             const QList<int> durationValues = {3, 5, 10};
             const int durIdx = comboNotifDuration->currentIndex();
             uiSettings.setValue(QStringLiteral("ui/notificationDurationSec"),
-                (durIdx >= 0 && durIdx < durationValues.size()) ? durationValues[durIdx] : 5);
+                (durIdx >= 0 && durIdx < durationValues.size()) ? durationValues[durIdx] : 3);
         }
         {
             const QList<int> retentionValues = {7, 30, 90, 0};
             const int retIdx = comboLogRetention->currentIndex();
-            uiSettings.setValue(QStringLiteral("ui/logRetentionDays"),
-                (retIdx >= 0 && retIdx < retentionValues.size()) ? retentionValues[retIdx] : 30);
+            const int newRetention = (retIdx >= 0 && retIdx < retentionValues.size()) ? retentionValues[retIdx] : 30;
+            uiSettings.setValue(QStringLiteral("ui/logRetentionDays"), newRetention);
+            JsonLog::Prune(newRetention);
         }
+        // Dashboard policy summary reads logRetentionDays at construction time.
+        // Mark stale so the next switch to dashboard rebuilds it with the new value.
+        dashboardStale_ = true;
         if (themeGroup->checkedButton()) {
             const QString key = themeGroup->checkedButton()->property("themeKey").toString();
             uiSettings.setValue(QStringLiteral("ui/themeMode"), key.isEmpty() ? QStringLiteral("system") : key);
@@ -4863,7 +4880,7 @@ QWidget* MainWindow::createPolicySummaryPage()
     const QString _retLabel = _retDays <= 0 ? tr("영구 보관") : tr("%1일").arg(_retDays);
 
     const QList<QStringList> rows = {
-        {tr("미등록 장치 동작"), tr("차단 및 알림"),   "policyDangerText"},
+        {tr("미등록 장치 동작"), tr("분석 후 승인"),   "policyValueText"},
         {tr("행위 분석 임계값"), "8.0 / 10",           "policyValueText"},
         {tr("로그 보관 기간"),   _retLabel,               "policyValueText"},
         {tr("실시간 모니터링"),  tr("사용 중"),         "policySuccessText"},
@@ -4896,6 +4913,8 @@ QWidget* MainWindow::createPolicySummaryPage()
     editButton->setFont(pretendardFont(FontRole::SemiBold));
     editButton->setIcon(QIcon(":/icons/ui-lock.svg"));
     editButton->setIconSize(QSize(16, 16));
+    editButton->setCursor(Qt::PointingHandCursor);
+    connect(editButton, &QPushButton::clicked, this, [this] { switchPage(4); });
     layout->addWidget(editButton);
     return page;
 }
@@ -5192,7 +5211,75 @@ void MainWindow::appendNewLogRows()
         logTable_->setRowCount(insertRow);
 
     lastLogLineCount_ = total;
+    applyLogFilter();
     logTable_->scrollToBottom();
+}
+
+void MainWindow::applyLogFilter()
+{
+    if (!logTable_) return;
+    const QString needle = logSearchText_.trimmed().toLower();
+    const QString evtKey = logEventFilter_;
+    for (int r = 0; r < logTable_->rowCount(); ++r) {
+        QWidget* w = logTable_->cellWidget(r, 0);
+        if (!w) { logTable_->setRowHidden(r, false); continue; }
+        const QString event  = w->property("log_event").toString();
+        const QString device = w->property("log_device").toString();
+        const QString badge  = w->property("log_badge").toString();
+        bool match = true;
+        if (!needle.isEmpty())
+            match = event.toLower().contains(needle) || device.toLower().contains(needle);
+        if (match && !evtKey.isEmpty()) {
+            if      (evtKey == "block")   match = (badge == "blockBadge");
+            else if (evtKey == "allow")   match = (badge == "successBadge");
+            else if (evtKey == "warning") match = (badge == "warningBadge");
+            else if (evtKey == "info")    match = (badge == "neutralBadge");
+        }
+        logTable_->setRowHidden(r, !match);
+    }
+}
+
+void MainWindow::exportLogToCsv()
+{
+    if (!logTable_) return;
+    const QString defaultName = QStringLiteral("abang_all_log_") +
+        QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + QStringLiteral(".csv");
+    const QString path = QFileDialog::getSaveFileName(this,
+        tr("내보내기 (CSV)"),
+        QDir(QDir::homePath()).filePath(defaultName),
+        QStringLiteral("CSV (*.csv)"));
+    if (path.isEmpty()) return;
+
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        QMessageBox::warning(this, tr("내보내기 (CSV)"), tr("파일을 저장하지 못했습니다."));
+        return;
+    }
+    auto csvEscape = [](QString s) {
+        s.replace('"', "\"\"");
+        if (s.contains(',') || s.contains('"') || s.contains('\n'))
+            s = '"' + s + '"';
+        return s;
+    };
+    QTextStream out(&f);
+    out.setEncoding(QStringConverter::Utf8);
+    // UTF-8 BOM for Excel compatibility
+    f.write("\xEF\xBB\xBF");
+    out << tr("시간") << ',' << tr("이벤트") << ',' << tr("장치") << ',' << tr("처리 결과") << '\n';
+    int exported = 0;
+    for (int r = 0; r < logTable_->rowCount(); ++r) {
+        if (logTable_->isRowHidden(r)) continue;
+        QWidget* w = logTable_->cellWidget(r, 0);
+        if (!w) continue;
+        const QString time   = w->property("log_time").toString();
+        const QString event  = w->property("log_event").toString();
+        const QString device = w->property("log_device").toString();
+        const QString result = w->property("log_result").toString();
+        out << csvEscape(time) << ',' << csvEscape(event) << ',' << csvEscape(device) << ',' << csvEscape(result) << '\n';
+        ++exported;
+    }
+    QMessageBox::information(this, tr("내보내기 (CSV)"),
+        tr("%1개 항목을 저장했습니다.").arg(exported));
 }
 
 bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)
@@ -5219,7 +5306,7 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                         // 2) Show input buffer dialog immediately (before fingerprinting)
                         //    so the user sees captured keystrokes with no delay.
                         //    Device info shows "장치 확인 중..." until fingerprinting completes.
-                        if (!g_activeBufferDlg && unknownDeviceAction_ == 0) {
+                        if (!g_activeBufferDlg) {
                             showBufferMonitorDialog(nullptr, UsbItem{}, [this] {
                                 enforceBlockedDeviceHook();
                                 refreshLiveDataPages();
@@ -5283,40 +5370,19 @@ bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr
                                         if (!KeyboardHook::IsActive()) KeyboardHook::Install();
                                         blockedDeviceHookActive_ = true;
                                     } else {
-                                        // Unknown device — dialog is already open; just update info.
+                                        // Unknown device — analyse-then-prompt is the only mode.
+                                        // The buffer monitor dialog is already open from step 2;
+                                        // just push the real device info in.
                                         Logger::Add(L"[Qt] Unknown HID device: " + item.name);
-                                        if (unknownDeviceAction_ == 1) {
-                                            // Auto-block
-                                            Policy::AddBlacklist(item);
-                                            blockCurrentDevice(item, L"Auto-block setting");
-                                            Logger::Add(L"[Qt] Auto-blocked (설정): " + item.name);
-                                            if (notifyOnRiskEnabled() && trayIcon_) {
-                                                showRiskTrayMessage(
-                                                    trayIcon_,
-                                                    "Abang-All",
-                                                    QString("위험 장치가 자동 차단되었습니다.\n%1").arg(fromWString(item.name)),
-                                                    QSystemTrayIcon::Critical);
-                                            }
-                                            if (g_activeBufferDlg) g_activeBufferDlg->close();
-                                            if (!KeyboardHook::IsActive()) KeyboardHook::Install();
-                                            blockedDeviceHookActive_ = true;
-                                        } else if (unknownDeviceAction_ == 2) {
-                                            // Auto-allow
-                                            Policy::AddWhitelist(item);
-                                            Logger::Add(L"[Qt] Auto-allowed (설정): " + item.name);
-                                            if (g_activeBufferDlg) g_activeBufferDlg->close();
-                                            enforceBlockedDeviceHook();
-                                        } else {
-                                            updateDlgInfo();
-                                            if (notifyOnRiskEnabled() && trayIcon_) {
-                                                showRiskTrayMessage(
-                                                    trayIcon_,
-                                                    "Abang-All",
-                                                    QString("승인 대기 장치가 연결되었습니다.\n%1").arg(fromWString(item.name)),
-                                                    QSystemTrayIcon::Warning);
-                                            }
-                                            lastPromptFingerprint_ = item.fingerprint;
+                                        updateDlgInfo();
+                                        if (notifyOnRiskEnabled() && trayIcon_) {
+                                            showRiskTrayMessage(
+                                                trayIcon_,
+                                                "Abang-All",
+                                                QString("승인 대기 장치가 연결되었습니다.\n%1").arg(fromWString(item.name)),
+                                                QSystemTrayIcon::Warning);
                                         }
+                                        lastPromptFingerprint_ = item.fingerprint;
                                     }
                                 } else {
                                     enforceBlockedDeviceHook();

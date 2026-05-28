@@ -59,6 +59,9 @@ private:
     void refreshLiveDataPages();
     void appendNewLogRows();
     void refreshUsbTable();
+    void applyUsbListFilter();
+    void applyLogFilter();
+    void exportLogToCsv();
     void applyUsbDetailPanel(int row);
     void showUsbActionFeedback(const QString& message, const QString& color = "#62748E");
     void applyTheme(UiTheme::ThemeMode mode);
@@ -108,4 +111,12 @@ private:
 
     // Settings page — language segment group (ko / en)
     QButtonGroup* langGroup = nullptr;
+
+    // USB list filter state (empty/all means no filter)
+    QString usbSearchText_;
+    QString usbPolicyFilter_;  // "", "허용", "차단", "승인 대기"
+
+    // Log filter state
+    QString logSearchText_;
+    QString logEventFilter_;   // "", "block", "allow", "warning", "info"
 };
