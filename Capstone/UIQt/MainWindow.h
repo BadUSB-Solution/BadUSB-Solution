@@ -47,6 +47,7 @@ private:
     QWidget* createDashboardUsbListPage();
     QWidget* createLogPage();
     QWidget* createAnalyticsPage();
+    void showContactSupportDialog();
     QWidget* createSettingsPage();
     QWidget* createHelpPage();
     QWidget* createPolicySummaryPage();

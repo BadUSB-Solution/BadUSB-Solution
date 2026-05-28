@@ -415,6 +415,28 @@ Verify this is not a legitimate device currently in use before proceeding.</tran
     <message><source>분석 대기 중...</source><translation>Waiting for analysis...</translation></message>
     <message><source>이 장치가 인가된 장치인지 확인 후 예외 처리를 진행하거나 차단 정책을 유지하세요.</source><translation>Verify whether this device is authorized; either add an exception or keep the block policy.</translation></message>
 
+    <!-- ── 고객 지원 문의 다이얼로그 ── -->
+    <message><source>고객 지원 문의하기</source><translation>Contact Customer Support</translation></message>
+    <message><source>문의 / 오탐 신고</source><translation>Inquiry / False Positive Report</translation></message>
+    <message><source>아래 양식을 작성하면 기본 메일 앱이 열리며 내용이 자동으로 채워집니다.</source><translation>Fill in the form below and your default mail app will open with the message pre-filled.</translation></message>
+    <message><source>회신 받을 이메일</source><translation>Reply Email</translation></message>
+    <message><source>신고 유형</source><translation>Report Type</translation></message>
+    <message><source>오탐 신고 (안전한 장치가 차단됨)</source><translation>False Positive (a safe device was blocked)</translation></message>
+    <message><source>일반 문의</source><translation>General Inquiry</translation></message>
+    <message><source>버그 신고</source><translation>Bug Report</translation></message>
+    <message><source>내용</source><translation>Message</translation></message>
+    <message><source>상황을 자세히 적어주세요. 발생 시각, 장치명, 재현 방법 등이 도움이 됩니다.</source><translation>Describe the situation in detail. Time of occurrence, device name, and reproduction steps are helpful.</translation></message>
+    <message><source>메일 앱으로 열기</source><translation>Open in Mail App</translation></message>
+    <message><source>입력 누락</source><translation>Missing Input</translation></message>
+    <message><source>이메일과 내용을 모두 입력해주세요.</source><translation>Please enter both email and message.</translation></message>
+    <message><source>메일 앱 열기 실패</source><translation>Failed to Open Mail App</translation></message>
+    <message><source>기본 메일 앱을 열지 못했습니다. 시스템에 메일 클라이언트가 설정되어 있는지 확인해주세요.</source><translation>Could not open the default mail app. Please make sure a mail client is configured on your system.</translation></message>
+    <message><source>──── 사용자 입력 ────</source><translation>──── User Input ────</translation></message>
+    <message><source>신고 유형: </source><translation>Report Type: </translation></message>
+    <message><source>회신 이메일: </source><translation>Reply Email: </translation></message>
+    <message><source>내용:</source><translation>Message:</translation></message>
+    <message><source>──── 시스템 정보 (자동 첨부) ────</source><translation>──── System Info (auto-attached) ────</translation></message>
+
 </context>
 <context>
     <name>TrayWidget</name>
