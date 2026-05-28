@@ -2292,17 +2292,6 @@ MainWindow::MainWindow(QWidget* parent)
     topbarLayout->addWidget(addTopNavButton(tr("설정"), 4));
     topbarLayout->addStretch();
 
-    // Bell notification icon
-    auto* bellContainer = new QWidget;
-    bellContainer->setFixedSize(38, 38);
-    bellContainer->setStyleSheet("background: transparent;");
-    auto* bellBtn = new QPushButton(bellContainer);
-    bellBtn->setObjectName("iconButton");
-    bellBtn->setFlat(true);
-    bellBtn->setIcon(QIcon(":/icons/ui-alert.svg"));
-    bellBtn->setIconSize(QSize(16, 16));
-    bellBtn->setGeometry(2, 2, 34, 34);
-    topbarLayout->addWidget(bellContainer);
 
     auto* userLayout = new QHBoxLayout;
     userLayout->setContentsMargins(10, 0, 14, 0);
@@ -3300,11 +3289,6 @@ void MainWindow::refreshUsbTable()
             if (t == "기타")     return tr("기타");
             return tr("알 수 없음");
         };
-        auto translateStatus = [this](const QString& s) -> QString {
-            if (s == "연결됨")   return tr("연결됨");
-            if (s == "해제됨")   return tr("연결 안됨");
-            return s;
-        };
         auto translatePolicy = [this](const QString& p) -> QString {
             if (p == "허용")     return tr("허용");
             if (p == "차단")     return tr("차단");
@@ -3313,7 +3297,8 @@ void MainWindow::refreshUsbTable()
         };
         usbTable_->setCellWidget(r, 1, makeUsbTextCell(translateType(row.type),    UiTheme::tokens().SubtextMid, pretendardFont(FontRole::Regular), 10));
         usbTable_->setCellWidget(r, 2, makeUsbTextCell(row.vidpid,  UiTheme::tokens().Subtext, QFont("Consolas", 12), 10));
-        usbTable_->setCellWidget(r, 3, makeUsbStatusCell(translateStatus(row.status)));
+        // row.status는 내부 한국어 키("연결됨"/"해제됨")로 유지 — makeUsbStatusCell이 tr()로 번역
+        usbTable_->setCellWidget(r, 3, makeUsbStatusCell(row.status));
         usbTable_->setCellWidget(r, 4, makeBadgeCell(translatePolicy(row.policy), policyBadge(row.policy)));
         const QString lastSeenDisplay = (row.lastSeen == "방금 전") ? tr("방금 전") : row.lastSeen;
         usbTable_->setCellWidget(r, 5, makeUsbTextCell(lastSeenDisplay, UiTheme::tokens().Subtext, pretendardFont(FontRole::Regular), 10));
@@ -4560,9 +4545,14 @@ QWidget* MainWindow::createSettingsPage()
             newLang = langGroup->checkedButton()->property("langKey").toString();
         uiSettings.setValue(QStringLiteral("ui/language"), newLang);
         if (newLang != prevLang) {
-            QMessageBox::information(this,
-                tr("설정이 저장되었습니다."),
-                tr("이 프로그램은 백그라운드에서 계속 실행됩니다.\n트레이 아이콘에서 \"종료\"를 선택해 완전히 종료한 뒤 다시 실행하면 언어가 변경됩니다."));
+            const bool toEnglish = (newLang == QStringLiteral("en"));
+            const QString title = toEnglish
+                ? QStringLiteral("Settings saved.")
+                : QStringLiteral("설정이 저장되었습니다.");
+            const QString body = toEnglish
+                ? QStringLiteral("This program continues running in the background.\nTo apply the language change, exit via the tray icon (\"Quit\") and restart the app.")
+                : QStringLiteral("이 프로그램은 백그라운드에서 계속 실행됩니다.\n트레이 아이콘에서 \"종료\"를 선택해 완전히 종료한 뒤 다시 실행하면 언어가 변경됩니다.");
+            QMessageBox::information(this, title, body);
         }
         {
             const QList<int> durationValues = {3, 5, 10};
