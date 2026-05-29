@@ -2404,6 +2404,16 @@ void MainWindow::applyTheme(UiTheme::ThemeMode mode)
         trayWidget_->applyTheme();
         refreshTrayWidget();
     }
+
+    // 언어 변경 안내문구가 표시 중이면 새 테마에 맞춰 강조 색 재적용
+    // (라이트: 진한 파랑 / 다크: 순백)
+    if (langNotice_ && langNotice_->isVisible()) {
+        const QString emphasis = UiTheme::isDark()
+            ? QStringLiteral("#FFFFFF")
+            : QStringLiteral("#0B3F8F");
+        langNotice_->setStyleSheet(QString("color: %1; font-size: 13px; padding: 6px 0 0 0;")
+            .arg(emphasis));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -4438,6 +4448,14 @@ QWidget* MainWindow::createSettingsPage()
             langToggleL->addWidget(button, 1);
         }
         addControlRow(wl, tr("언어"), langToggle);
+
+        // 언어 변경 안내 — 평소엔 숨겨두고, 저장 시 변경됐을 때만 강조 색으로 표시
+        langNotice_ = new QLabel;
+        langNotice_->setWordWrap(true);
+        langNotice_->setFont(pretendardFont(FontRole::SemiBold));
+        langNotice_->hide();
+        wl->addWidget(langNotice_);
+
         wl->addStretch();
         tabStack->addWidget(w);
     }
@@ -4575,15 +4593,24 @@ QWidget* MainWindow::createSettingsPage()
         if (langGroup->checkedButton())
             newLang = langGroup->checkedButton()->property("langKey").toString();
         uiSettings.setValue(QStringLiteral("ui/language"), newLang);
-        if (newLang != prevLang) {
-            const bool toEnglish = (newLang == QStringLiteral("en"));
-            const QString title = toEnglish
-                ? QStringLiteral("Settings saved.")
-                : QStringLiteral("설정이 저장되었습니다.");
-            const QString body = toEnglish
-                ? QStringLiteral("This program continues running in the background.\nTo apply the language change, exit via the tray icon (\"Quit\") and restart the app.")
-                : QStringLiteral("이 프로그램은 백그라운드에서 계속 실행됩니다.\n트레이 아이콘에서 \"종료\"를 선택해 완전히 종료한 뒤 다시 실행하면 언어가 변경됩니다.");
-            QMessageBox::information(this, title, body);
+        if (langNotice_) {
+            if (newLang != prevLang) {
+                // 새 언어로 안내문 표시 (tr() 안 거치고 직접 분기 — 현재 로드된 번역기는 이전 언어)
+                const bool toEnglish = (newLang == QStringLiteral("en"));
+                const QString noticeText = toEnglish
+                    ? QStringLiteral("Language changes apply only after a full quit via the tray icon and relaunch of the app.")
+                    : QStringLiteral("언어 변경 사항은 트레이 아이콘에서 \"종료\" 후 앱을 다시 실행해야 적용됩니다.");
+                // 라이트: 진한 파랑, 다크: 순백
+                const QString emphasis = UiTheme::isDark()
+                    ? QStringLiteral("#FFFFFF")
+                    : QStringLiteral("#0B3F8F");
+                langNotice_->setText(noticeText);
+                langNotice_->setStyleSheet(QString("color: %1; font-size: 13px; padding: 6px 0 0 0;")
+                    .arg(emphasis));
+                langNotice_->show();
+            } else {
+                langNotice_->hide();
+            }
         }
         // Dashboard policy summary reads logRetentionDays at construction time.
         // Mark stale so the next switch to dashboard rebuilds it with the new value.
@@ -4593,9 +4620,42 @@ QWidget* MainWindow::createSettingsPage()
             uiSettings.setValue(QStringLiteral("ui/themeMode"), key.isEmpty() ? QStringLiteral("system") : key);
             applyTheme(UiTheme::themeModeFromKey(key));
         }
+
+        // ── 저장 버튼 시각 피드백 — "저장됨 ✓" 텍스트 + 비활성 1.4초 후 복구 ──
+        {
+            const QString savedKo = QStringLiteral(" 저장됨 ✓");
+            const QString savedEn = QStringLiteral(" Saved ✓");
+            const QString currentLang = uiSettings.value(QStringLiteral("ui/language"), QStringLiteral("ko")).toString();
+            const QString feedbackText = (currentLang == QStringLiteral("en")) ? savedEn : savedKo;
+            const QString origText = saveBtn->text();
+            QPushButton* btn = saveBtn;
+            btn->setText(feedbackText);
+            btn->setEnabled(false);
+            QTimer::singleShot(1400, btn, [btn, origText]() {
+                btn->setText(origText);
+                btn->setEnabled(true);
+            });
+        }
     });
 
-    connect(resetBtn, &QPushButton::clicked, this, loadSettingsToUi);
+    connect(resetBtn, &QPushButton::clicked, this, [this, loadSettingsToUi, btn = resetBtn]() {
+        loadSettingsToUi();
+        // 되돌리기 버튼 피드백 — 텍스트 일시 변경
+        QSettings uiS(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+        const QString lang = uiS.value(QStringLiteral("ui/language"), QStringLiteral("ko")).toString();
+        const QString fb = (lang == QStringLiteral("en"))
+            ? QStringLiteral("Reverted")
+            : QStringLiteral("되돌렸습니다");
+        const QString origText = btn->text();
+        btn->setText(fb);
+        btn->setEnabled(false);
+        QTimer::singleShot(1100, btn, [btn, origText]() {
+            btn->setText(origText);
+            btn->setEnabled(true);
+        });
+        // 되돌리기 후 안내 라벨도 숨김
+        if (langNotice_) langNotice_->hide();
+    });
     loadSettingsToUi();
 
     return page;

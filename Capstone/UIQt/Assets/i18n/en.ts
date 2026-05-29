@@ -134,6 +134,7 @@
     <message><source>다크</source><translation>Dark</translation></message>
     <message><source>언어</source><translation>Language</translation></message>
     <message><source>한국어</source><translation>한국어</translation></message>
+    <message><source>언어 변경 사항은 트레이 아이콘에서 "종료" 후 앱을 다시 실행해야 적용됩니다.</source><translation>Language changes apply only after a full quit via the tray icon and relaunch of the app.</translation></message>
     <message><source>새 미등록 장치 연결 시:</source><translation>When an unregistered device connects:</translation></message>
     <message><source>자동 차단</source><translation>Auto block</translation></message>
     <message><source>자동 허용</source><translation>Auto allow</translation></message>

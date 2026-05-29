@@ -112,6 +112,8 @@ private:
 
     // Settings page — language segment group (ko / en)
     QButtonGroup* langGroup = nullptr;
+    // 언어 변경 안내 라벨 — 저장 직후 변경된 경우에만 보이고, 다음 언어로 강조 표시
+    QLabel* langNotice_ = nullptr;
 
     // USB list filter state (empty/all means no filter)
     QString usbSearchText_;
