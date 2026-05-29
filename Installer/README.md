@@ -1,14 +1,17 @@
 # AbangAll Installer
 
-Inno Setup 기반 인스톨러.
+Inno Setup 기반 인스톨러. Qt 6 기반 UI 앱(`CapstoneQtApp.exe`)을 패키징한다.
 
 ## 사전 요구사항
 
 - **Inno Setup 6+** 설치 (https://jrsoftware.org/isdl.php)
+- **CMake 3.21+** (PATH에 등록)
 - **Visual Studio 2022 Build Tools** (MSBuild + v143 toolset)
-- **Capstone (Release|x64)** 빌드 산출물:
-  - `..\Capstone\x64\Release\Capstone.exe`
-  - `..\Capstone\x64\Release\matchingDB.db`
+- **Qt 6** (CMake가 찾을 수 있어야 함 — `Qt6_DIR` 환경변수 또는 PATH 설정)
+- **CMake Qt UI 빌드 산출물** (`build_setup.ps1`이 자동 빌드):
+  - `..\build-qt\Release\CapstoneQtApp.exe`
+  - `..\build-qt\Release\matchingDB.db`
+  - `..\build-qt\Release\Qt6*.dll` 및 플러그인 디렉터리 (windeployqt가 자동 배치)
 
 ## 빌드 방법
 

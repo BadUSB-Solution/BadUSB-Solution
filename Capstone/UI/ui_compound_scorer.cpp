@@ -53,7 +53,6 @@ namespace {
             hk.final_score
         );
 
-        // Emit risk score line (logs always English)
         Logger::Msg::ScoreFinal(verdict.final_score, static_cast<int>(verdict.level));
 
         SetWindowTextW(g_hVerdict, CompoundScorer::FormatVerdict(verdict).c_str());

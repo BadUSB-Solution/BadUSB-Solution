@@ -4,6 +4,7 @@
 //   - 시작 시 기존 log.json 있으면 LoadExisting 으로 메모리에 적재.
 
 #include "logger.h"
+#include "json_log.h"
 #include "obfuscate.h"
 #include "app_paths.h"
 
@@ -202,6 +203,8 @@ namespace Logger
             if (g_entries.size() > 500) g_entries.erase(g_entries.begin());
             WriteFile();
         }
+        // Mirror to disk-backed JSON log so retention can prune it.
+        JsonLog::Add(L"Logger", L"EVENT", s);
         if (g_notifyWnd && g_notifyMsg)
             PostMessage(g_notifyWnd, g_notifyMsg, 0, 0);
     }

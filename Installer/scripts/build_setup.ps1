@@ -1,7 +1,8 @@
 # ============================================================================
 #  AbangAll Installer 빌드 스크립트
 # ----------------------------------------------------------------------------
-#  1. Capstone (Release|x64) 를 MSBuild 로 빌드
+#  1. Qt UI (CapstoneQtApp.exe) 를 CMake 로 Release 빌드
+#     - windeployqt 가 CMake 빌드 단계에서 자동 실행되어 Qt DLL/플러그인까지 동봉됨
 #  2. ISCC.exe 로 setup.iss 컴파일
 #  3. 산출물: Installer\output\AbangAll-Installer.exe
 #
@@ -13,16 +14,19 @@ $ErrorActionPreference = 'Stop'
 
 # ─── 경로 ─────────────────────────────────────────────────────────────────
 $repoRoot     = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$capstoneProj = Join-Path $repoRoot 'Capstone\Capstone.vcxproj'
+$buildDir     = Join-Path $repoRoot 'build-qt'
 $issFile      = Join-Path $repoRoot 'Installer\setup.iss'
 $outputDir    = Join-Path $repoRoot 'Installer\output'
-$exePath      = Join-Path $repoRoot 'Capstone\x64\Release\Capstone.exe'
-$dbPath       = Join-Path $repoRoot 'Capstone\x64\Release\matchingDB.db'
+$exePath      = Join-Path $buildDir 'Release\CapstoneQtApp.exe'
+$dbPath       = Join-Path $buildDir 'Release\matchingDB.db'
 
-# ─── MSBuild 자동 탐색 ───────────────────────────────────────────────────
-$msbuild = Get-ChildItem -Path 'C:\Program Files*\Microsoft Visual Studio\*\*\MSBuild\Current\Bin\MSBuild.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $msbuild) {
-    Write-Error 'MSBuild not found. Install Visual Studio 2022 Build Tools or later.'
+# ─── CMake 자동 탐색 ─────────────────────────────────────────────────────
+$cmake = Get-Command cmake -ErrorAction SilentlyContinue
+if (-not $cmake) {
+    $cmake = Get-ChildItem -Path 'C:\Program Files\CMake\bin\cmake.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+}
+if (-not $cmake) {
+    Write-Error 'CMake not found. Install CMake or add it to PATH.'
     exit 1
 }
 
@@ -33,18 +37,26 @@ if (-not $iscc) {
     exit 1
 }
 
-Write-Output "MSBuild: $($msbuild.FullName)"
+$cmakePath = if ($cmake.Source) { $cmake.Source } else { $cmake.FullName }
+Write-Output "CMake:   $cmakePath"
 Write-Output "ISCC:    $($iscc.FullName)"
 Write-Output ""
 
-# ─── 1) Capstone 빌드 ────────────────────────────────────────────────────
-Write-Output '=== [1/2] Building Capstone (Release|x64) ==='
-& $msbuild.FullName $capstoneProj /p:Configuration=Release /p:Platform=x64 /v:minimal /m
-if ($LASTEXITCODE -ne 0) { Write-Error 'Capstone build failed'; exit 1 }
+# ─── 1) Qt UI 빌드 (CMake Release) ───────────────────────────────────────
+Write-Output '=== [1/2] Building Qt UI (CMake Release) ==='
+# 빌드 디렉터리가 없으면 configure 부터
+if (-not (Test-Path (Join-Path $buildDir 'CMakeCache.txt'))) {
+    & cmake -S $repoRoot -B $buildDir
+    if ($LASTEXITCODE -ne 0) { Write-Error 'CMake configure failed'; exit 1 }
+}
+& cmake --build $buildDir --config Release
+if ($LASTEXITCODE -ne 0) { Write-Error 'Qt UI build failed'; exit 1 }
 
 # 산출물 확인
 if (-not (Test-Path $exePath)) { Write-Error "exe not found: $exePath"; exit 1 }
-if (-not (Test-Path $dbPath))  { Write-Error "matchingDB.db not found: $dbPath"; exit 1 }
+if (-not (Test-Path $dbPath))  {
+    Write-Warning "matchingDB.db not found at $dbPath — installer may fail. Run Capstone build once to seed it."
+}
 
 Write-Output ""
 Write-Output '=== [2/2] Building Installer (Inno Setup) ==='

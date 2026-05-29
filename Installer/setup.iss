@@ -17,8 +17,10 @@
 #define AppVersion     "1.0.0"
 #define AppPublisher   "AbangAll Team"
 #define AppExeName     "AbangAll.exe"
-#define SourceExePath  "..\Capstone\x64\Release\Capstone.exe"
-#define SourceDbPath   "..\Capstone\x64\Release\matchingDB.db"
+; Qt UI 빌드 산출물 디렉터리 (CMake가 windeployqt까지 자동 처리해서 모든 Qt 의존성 동봉됨)
+#define SourceDir      "..\build-qt\Release"
+#define SourceExePath  SourceDir + "\CapstoneQtApp.exe"
+#define SourceDbPath   SourceDir + "\matchingDB.db"
 
 [Setup]
 AppId={{B3A8F7C2-4A1E-4B5F-9B2A-7D1E5F8C3D4E}
@@ -100,13 +102,36 @@ Name: "desktopicon"; \
     Flags: unchecked
 
 [Files]
-; 본체 — Capstone.exe 를 AbangAll.exe 로 리네임해서 배포
+; ── 본체 — CapstoneQtApp.exe 를 AbangAll.exe 로 리네임해서 배포
 Source: "{#SourceExePath}"; DestDir: "{app}"; DestName: "{#AppExeName}"; Flags: ignoreversion
-; 시그니처 DB
+
+; ── 시그니처 DB
 Source: "{#SourceDbPath}"; DestDir: "{app}"; Flags: ignoreversion
 ; HID 스캔 PowerShell 스크립트 — 인스톨러 EXE 안에 묶고, {tmp} 에 일시 추출
 ;   본체 hid_fingerprint.cpp 와 동일 로직 (ContainerId 통합 + 부모 chain 이름 탐색)
 Source: "scripts\hid_scan.ps1"; Flags: dontcopy
+
+; ── Qt6 핵심 DLL (windeployqt가 build-qt/Release에 자동 배치)
+Source: "{#SourceDir}\Qt6Core.dll";       DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\Qt6Gui.dll";        DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\Qt6Widgets.dll";    DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\Qt6Network.dll";    DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\Qt6Svg.dll";        DestDir: "{app}"; Flags: ignoreversion
+
+; ── 시스템 의존 DLL
+Source: "{#SourceDir}\D3Dcompiler_47.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\opengl32sw.dll";     DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\icuuc.dll";          DestDir: "{app}"; Flags: ignoreversion
+
+; ── Qt 플러그인 디렉터리들 (Windows 플랫폼 플러그인은 필수)
+Source: "{#SourceDir}\platforms\*";          DestDir: "{app}\platforms";          Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\styles\*";             DestDir: "{app}\styles";             Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\imageformats\*";       DestDir: "{app}\imageformats";       Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\iconengines\*";        DestDir: "{app}\iconengines";        Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\networkinformation\*"; DestDir: "{app}\networkinformation"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\tls\*";                DestDir: "{app}\tls";                Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\generic\*";            DestDir: "{app}\generic";            Flags: ignoreversion recursesubdirs createallsubdirs skipifsourcedoesntexist
+Source: "{#SourceDir}\translations\*";       DestDir: "{app}\translations";       Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 ; 시작 메뉴 단축키

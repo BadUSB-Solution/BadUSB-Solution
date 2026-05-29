@@ -1,0 +1,43 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file alias="action-approve.svg">icons/action-approve.svg</file>
+        <file alias="action-close.svg">icons/action-close.svg</file>
+        <file alias="action-deny.svg">icons/action-deny.svg</file>
+        <file alias="action-filter.svg">icons/action-filter.svg</file>
+        <file alias="action-refresh.svg">icons/action-refresh.svg</file>
+        <file alias="action-search.svg">icons/action-search.svg</file>
+        <file alias="brand-mark.png">icons/brand-mark.png</file>
+        <file alias="brand-shield.svg">icons/brand-shield.svg</file>
+        <file alias="detecting.png">../../../docs/detecting.png</file>
+        <file alias="detect_good.png">../../../docs/detect_good.png</file>
+        <file alias="detect_bad.png">../../../docs/detect_bad.png</file>
+        <file alias="mascot_ver3.png">icons/mascot_ver3.png</file>
+        <file alias="mascot_darkVer.png">../../../docs/mascot_darkVer.png</file>
+        <file alias="device-keyboard.svg">icons/device-keyboard.svg</file>
+        <file alias="device-network.svg">icons/device-network.svg</file>
+        <file alias="device-storage.svg">icons/device-storage.svg</file>
+        <file alias="device-unknown.svg">icons/device-unknown.svg</file>
+        <file alias="nav-analytics.svg">icons/nav-analytics.svg</file>
+        <file alias="nav-collapse.svg">icons/nav-collapse.svg</file>
+        <file alias="nav-dashboard.svg">icons/nav-dashboard.svg</file>
+        <file alias="nav-help.svg">icons/nav-help.svg</file>
+        <file alias="nav-log.svg">icons/nav-log.svg</file>
+        <file alias="nav-settings.svg">icons/nav-settings.svg</file>
+        <file alias="nav-usb.svg">icons/nav-usb.svg</file>
+        <file alias="status-allowed.svg">icons/status-allowed.svg</file>
+        <file alias="status-shield-blue.svg">icons/status-shield-blue.svg</file>
+        <file alias="status-shield-grey.svg">icons/status-shield-grey.svg</file>
+        <file alias="status-shield-green.svg">icons/status-shield-green.svg</file>
+        <file alias="check-white.svg">icons/check-white.svg</file>
+        <file alias="status-blocked.svg">icons/status-blocked.svg</file>
+        <file alias="status-clock.svg">icons/status-clock.svg</file>
+        <file alias="status-info.svg">icons/status-info.svg</file>
+        <file alias="status-warning.svg">icons/status-warning.svg</file>
+        <file alias="ui-alert.svg">icons/ui-alert.svg</file>
+        <file alias="ui-bell.svg">icons/ui-bell.svg</file>
+        <file alias="ui-lock.svg">icons/ui-lock.svg</file>
+        <file alias="ui-lock-white.svg">icons/ui-lock-white.svg</file>
+        <file alias="ui-save.svg">icons/ui-save.svg</file>
+        <file alias="ui-user.svg">icons/ui-user.svg</file>
+    </qresource>
+</RCC>
