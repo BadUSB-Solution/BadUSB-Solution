@@ -1,12 +1,19 @@
-// 사용자 환경설정 settings.json — flat key/value (bool + string).
+// 사용자 환경설정 settings.json — flat key/value (bool + int + string).
 // 저장 형식:
 //   {
 //       "autoStart": false,
 //       "minimizeToTray": true,
+//       "showMainOnStartup": true,
 //       "unknownDeviceAction": "approval",
 //       "behaviorMonitoring": true,
-//       "notifyOnRisk": true
+//       "notifyOnRisk": true,
+//       "notificationSound": true,
+//       "notificationDurationSec": 3,
+//       "logRetentionDays": 30
 //   }
+//
+// 테마/언어는 Qt QSettings(레지스트리)에 그대로 유지. 그 외 UI 설정은
+// 여기에 모아 한 파일에서 관리한다.
 
 #include "settings.h"
 #include "app_paths.h"
@@ -84,6 +91,22 @@ namespace
         return false;
     }
 
+    // 정수만 — 부호 허용, 진수 변환은 std::stoi 위임.
+    bool ReadInt(const std::string& s, size_t& p, int& out)
+    {
+        SkipWs(s, p);
+        const size_t start = p;
+        if (p < s.size() && (s[p] == '-' || s[p] == '+')) p++;
+        while (p < s.size() && s[p] >= '0' && s[p] <= '9') p++;
+        if (p == start) return false;
+        try {
+            out = std::stoi(s.substr(start, p - start));
+        } catch (...) {
+            return false;
+        }
+        return true;
+    }
+
     // 값 스킵 (알 수 없는 키 만났을 때): 다음 콤마나 } 까지 단순 진행.
     void SkipValue(const std::string& s, size_t& p)
     {
@@ -120,10 +143,14 @@ namespace
             if (p >= s.size() || s[p] != ':') return false;
             p++;
 
-            if      (key == static_cast<const char*>(AY_OBFUSCATE("autoStart")))           ReadBool(s, p, out.autoStart);
-            else if (key == static_cast<const char*>(AY_OBFUSCATE("minimizeToTray")))      ReadBool(s, p, out.minimizeToTray);
-            else if (key == static_cast<const char*>(AY_OBFUSCATE("behaviorMonitoring")))  ReadBool(s, p, out.behaviorMonitoring);
-            else if (key == static_cast<const char*>(AY_OBFUSCATE("notifyOnRisk")))        ReadBool(s, p, out.notifyOnRisk);
+            if      (key == static_cast<const char*>(AY_OBFUSCATE("autoStart")))               ReadBool(s, p, out.autoStart);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("minimizeToTray")))          ReadBool(s, p, out.minimizeToTray);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("showMainOnStartup")))       ReadBool(s, p, out.showMainOnStartup);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("behaviorMonitoring")))      ReadBool(s, p, out.behaviorMonitoring);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("notifyOnRisk")))            ReadBool(s, p, out.notifyOnRisk);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("notificationSound")))       ReadBool(s, p, out.notificationSound);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("notificationDurationSec"))) ReadInt(s, p, out.notificationDurationSec);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("logRetentionDays")))        ReadInt(s, p, out.logRetentionDays);
             else if (key == static_cast<const char*>(AY_OBFUSCATE("unknownDeviceAction"))) {
                 std::string v;
                 if (ReadString(s, p, v)) out.unknownDeviceAction = ActionFromString(v);
@@ -145,11 +172,15 @@ namespace
 
         std::ostringstream ss;
         ss << "{\n";
-        ss << "    " << AY_OBFUSCATE("\"autoStart\": ")           << B(s.autoStart)                      << ",\n";
-        ss << "    " << AY_OBFUSCATE("\"minimizeToTray\": ")      << B(s.minimizeToTray)                 << ",\n";
-        ss << "    " << AY_OBFUSCATE("\"unknownDeviceAction\": \"") << ActionToString(s.unknownDeviceAction) << "\",\n";
-        ss << "    " << AY_OBFUSCATE("\"behaviorMonitoring\": ")  << B(s.behaviorMonitoring)             << ",\n";
-        ss << "    " << AY_OBFUSCATE("\"notifyOnRisk\": ")        << B(s.notifyOnRisk)                   << "\n";
+        ss << "    " << AY_OBFUSCATE("\"autoStart\": ")                << B(s.autoStart)                          << ",\n";
+        ss << "    " << AY_OBFUSCATE("\"minimizeToTray\": ")           << B(s.minimizeToTray)                     << ",\n";
+        ss << "    " << AY_OBFUSCATE("\"showMainOnStartup\": ")        << B(s.showMainOnStartup)                  << ",\n";
+        ss << "    " << AY_OBFUSCATE("\"unknownDeviceAction\": \"")    << ActionToString(s.unknownDeviceAction)   << "\",\n";
+        ss << "    " << AY_OBFUSCATE("\"behaviorMonitoring\": ")       << B(s.behaviorMonitoring)                 << ",\n";
+        ss << "    " << AY_OBFUSCATE("\"notifyOnRisk\": ")             << B(s.notifyOnRisk)                       << ",\n";
+        ss << "    " << AY_OBFUSCATE("\"notificationSound\": ")        << B(s.notificationSound)                  << ",\n";
+        ss << "    " << AY_OBFUSCATE("\"notificationDurationSec\": ")  << s.notificationDurationSec               << ",\n";
+        ss << "    " << AY_OBFUSCATE("\"logRetentionDays\": ")         << s.logRetentionDays                      << "\n";
         ss << "}\n";
         return ss.str();
     }

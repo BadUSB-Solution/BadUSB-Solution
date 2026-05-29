@@ -14,18 +14,27 @@ namespace Policy
 
     // 사용자 환경설정.
     // 호출 패턴: GetSettings() 로 스냅샷 받아 수정 → SetSettings() 로 적용.
+    //
+    // 테마/언어는 Qt QSettings(레지스트리)에 그대로 두고, 그 외 UI 설정은
+    // 이 구조체에 모아 settings.json 한 곳에서 관리한다.
     struct Settings
     {
         // ── 일반 환경설정 ──
-        bool autoStart       = false;  // Windows 시작 시 자동 실행
-        bool minimizeToTray  = true;   // 창을 닫을 때 시스템 트레이로 최소화
+        bool autoStart          = false;  // Windows 시작 시 자동 실행
+        bool minimizeToTray     = true;   // 창을 닫을 때 시스템 트레이로 최소화
+        bool showMainOnStartup  = true;   // 시작 시 메인 창 표시 (false 면 트레이만)
 
         // ── 위험 탐지 정책 ──
         UnknownDeviceAction unknownDeviceAction = UnknownDeviceAction::Approval;
         bool behaviorMonitoring = true; // 행위 기반 모니터링 활성화
 
-        // ── 알림 및 리포트 ──
-        bool notifyOnRisk = true;       // 위험 장치 연결 시 우측 하단 팝업 알림
+        // ── 알림 ──
+        bool notifyOnRisk           = true;  // 위험 장치 연결 시 우측 하단 팝업 알림
+        bool notificationSound      = true;  // 알림 표시 시 시스템 비프음
+        int  notificationDurationSec = 3;    // 알림 표시 시간 (3 / 5 / 10)
+
+        // ── 로그 ──
+        int  logRetentionDays       = 30;    // 7 / 30 / 90 / 0(=영구)
     };
 
     // 파일 → 메모리. 파일 없으면 기본값으로 초기화 + 즉시 1회 저장.
