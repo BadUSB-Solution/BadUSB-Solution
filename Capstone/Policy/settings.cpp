@@ -3,7 +3,6 @@
 //   {
 //       "autoStart": false,
 //       "showMainOnStartup": true,
-//       "unknownDeviceAction": "approval",
 //       "notifyOnRisk": true,
 //       "notificationSound": true,
 //       "notificationDurationSec": 3,
@@ -172,7 +171,6 @@ namespace
         ss << "{\n";
         ss << "    " << AY_OBFUSCATE("\"autoStart\": ")                << B(s.autoStart)                          << ",\n";
         ss << "    " << AY_OBFUSCATE("\"showMainOnStartup\": ")        << B(s.showMainOnStartup)                  << ",\n";
-        ss << "    " << AY_OBFUSCATE("\"unknownDeviceAction\": \"")    << ActionToString(s.unknownDeviceAction)   << "\",\n";
         ss << "    " << AY_OBFUSCATE("\"notifyOnRisk\": ")             << B(s.notifyOnRisk)                       << ",\n";
         ss << "    " << AY_OBFUSCATE("\"notificationSound\": ")        << B(s.notificationSound)                  << ",\n";
         ss << "    " << AY_OBFUSCATE("\"notificationDurationSec\": ")  << s.notificationDurationSec               << ",\n";
