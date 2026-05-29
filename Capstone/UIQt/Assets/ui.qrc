@@ -36,6 +36,7 @@
         <file alias="ui-alert.svg">icons/ui-alert.svg</file>
         <file alias="ui-bell.svg">icons/ui-bell.svg</file>
         <file alias="ui-lock.svg">icons/ui-lock.svg</file>
+        <file alias="ui-lock-white.svg">icons/ui-lock-white.svg</file>
         <file alias="ui-save.svg">icons/ui-save.svg</file>
         <file alias="ui-user.svg">icons/ui-user.svg</file>
     </qresource>

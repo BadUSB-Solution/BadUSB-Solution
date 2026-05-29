@@ -478,9 +478,10 @@ namespace UiTheme
                 background: %SurfaceAlt%; color: %TextMuted%; border: 1px solid %Border%;
             }
             QPushButton#bufferButton {
-                min-height: 40px; padding: 0 18px; border-radius: 8px;
+                min-height: 40px; padding: 0 18px 0 12px; border-radius: 8px;
                 background: %Primary%;
                 color: #FFFFFF; border: none; font-size: 14px; font-weight: 600;
+                text-align: left;
             }
             QPushButton#bufferButton:hover { background: %PrimaryHover%; }
 

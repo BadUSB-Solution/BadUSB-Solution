@@ -2617,7 +2617,7 @@ QWidget* MainWindow::createDashboardPage()
         auto* bufferButton = new QPushButton(tr("장치 위험도 모니터링 열기"));
         bufferButton->setObjectName("bufferButton");
         bufferButton->setFont(pretendardFont(FontRole::SemiBold));
-        bufferButton->setIcon(QIcon(":/icons/ui-lock.svg"));
+        bufferButton->setIcon(QIcon(":/icons/ui-lock-white.svg"));
         bufferButton->setIconSize(QSize(16, 16));
         connect(bufferButton, &QPushButton::clicked, page, [this] {
             // nullptr parent: the dialog is a fully independent OS window,
