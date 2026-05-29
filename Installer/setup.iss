@@ -77,7 +77,7 @@ korean.UninstallAppDataPrompt=AbangAll 관련 파일(정책 / 설정 / 로그)�
 korean.UninstallAppDataKeep=아니오를 선택하면 다음 설치 시 기존 정책이 그대로 유지됩니다.
 korean.HidScanCaption=기존 USB 장치 검사
 korean.HidScanDescription=현재 연결된 USB/HID 장치를 검사합니다. 허용할 장치를 선택하세요. 체크하지 않은 장치는 차단됩니다.
-korean.HidScanInProgress=장치 검사 중...
+korean.HidScanInProgress=현재 연결된 HID 장치를 검색하는 중입니다. (수 초에서 수 분이 소요될 수 있습니다.)
 korean.HidScanNoDevices=검색된 HID 장치가 없습니다.
 
 ; ─── English ───────────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ Source: "{#SourceDir}\Qt6Svg.dll";        DestDir: "{app}"; Flags: ignoreversion
 ; ── 시스템 의존 DLL
 Source: "{#SourceDir}\D3Dcompiler_47.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\opengl32sw.dll";     DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceDir}\icuuc.dll";          DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceDir}\icuuc.dll";          DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 ; ── Qt 플러그인 디렉터리들 (Windows 플랫폼 플러그인은 필수)
 Source: "{#SourceDir}\platforms\*";          DestDir: "{app}\platforms";          Flags: ignoreversion recursesubdirs createallsubdirs
