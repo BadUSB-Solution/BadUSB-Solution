@@ -72,7 +72,6 @@
 #include "key_decoder.h"
 #include "keyboard_hook.h"
 #include "logger.h"
-#include "json_log.h"
 #include "policy.h"
 #include "settings.h"
 #include "device_blocker.h"
@@ -2252,11 +2251,7 @@ MainWindow::MainWindow(QWidget* parent)
     setWindowTitle("Abang-All");
     applyThemeFromSettings();
 
-    // Apply log retention setting at startup (prune old entries from disk log).
-    {
-        Policy::LoadSettings();
-        JsonLog::Prune(Policy::GetSettings().logRetentionDays);
-    }
+    Policy::LoadSettings();
 
     auto* root = new QWidget;
     root->setObjectName("centralRoot");
@@ -4573,8 +4568,6 @@ QWidget* MainWindow::createSettingsPage()
 #ifdef Q_OS_WIN
         setWindowsAutoStart(settings.autoStart);
 #endif
-        JsonLog::Prune(newRetention);
-
         // 테마/언어만 QSettings(레지스트리) 사용.
         QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
         const QString prevLang = uiSettings.value(QStringLiteral("ui/language"), QStringLiteral("ko")).toString();
