@@ -12,6 +12,7 @@
 
 #include "MainWindow.h"
 #include "Theme.h"
+#include "settings.h"
 
 namespace
 {
@@ -115,8 +116,8 @@ int main(int argc, char* argv[])
     // ────────────────────────────────────────────────────────────────
 
     MainWindow window;
-    QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
-    if (uiSettings.value(QStringLiteral("ui/showMainOnStartup"), true).toBool())
+    Policy::LoadSettings();
+    if (Policy::GetSettings().showMainOnStartup)
         window.show();
 
     // 두 번째 실행 신호 수신 → 메인 창 표시 + 포커스

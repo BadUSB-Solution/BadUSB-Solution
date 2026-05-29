@@ -485,14 +485,14 @@ namespace
 
     bool notificationSoundEnabled()
     {
-        QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
-        return uiSettings.value(QStringLiteral("ui/notificationSound"), true).toBool();
+        Policy::LoadSettings();
+        return Policy::GetSettings().notificationSound;
     }
 
     int notificationDurationMs()
     {
-        QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
-        return std::clamp(uiSettings.value(QStringLiteral("ui/notificationDurationSec"), 3).toInt(), 1, 60) * 1000;
+        Policy::LoadSettings();
+        return std::clamp(Policy::GetSettings().notificationDurationSec, 1, 60) * 1000;
     }
 
     void showRiskTrayMessage(QSystemTrayIcon* trayIcon, const QString& title,
@@ -2254,9 +2254,8 @@ MainWindow::MainWindow(QWidget* parent)
 
     // Apply log retention setting at startup (prune old entries from disk log).
     {
-        QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
-        const int retentionDays = uiSettings.value(QStringLiteral("ui/logRetentionDays"), 30).toInt();
-        JsonLog::Prune(retentionDays);
+        Policy::LoadSettings();
+        JsonLog::Prune(Policy::GetSettings().logRetentionDays);
     }
 
     auto* root = new QWidget;
@@ -4505,11 +4504,12 @@ QWidget* MainWindow::createSettingsPage()
     auto loadSettingsToUi = [=] {
         Policy::LoadSettings();
         const Policy::Settings settings = Policy::GetSettings();
+        // 테마/언어만 QSettings(레지스트리) 사용. 나머지는 settings.json.
         QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
         cbAutostart->setChecked(settings.autoStart);
-        cbShowMain->setChecked(uiSettings.value(QStringLiteral("ui/showMainOnStartup"), true).toBool());
+        cbShowMain->setChecked(settings.showMainOnStartup);
         cbNotif->setChecked(settings.notifyOnRisk);
-        cbSound->setChecked(uiSettings.value(QStringLiteral("ui/notificationSound"), true).toBool());
+        cbSound->setChecked(settings.notificationSound);
         const QString currentLang = uiSettings.value(QStringLiteral("ui/language"), QStringLiteral("ko")).toString();
         for (QAbstractButton* button : langGroup->buttons()) {
             button->setChecked(button->property("langKey").toString() == currentLang);
@@ -4526,14 +4526,12 @@ QWidget* MainWindow::createSettingsPage()
 
         {
             const QList<int> durationValues = {3, 5, 10};
-            const int notifSec = uiSettings.value(QStringLiteral("ui/notificationDurationSec"), 3).toInt();
-            const int dIdx = durationValues.indexOf(notifSec);
+            const int dIdx = durationValues.indexOf(settings.notificationDurationSec);
             comboNotifDuration->setCurrentIndex(dIdx >= 0 ? dIdx : 0); // 기본 3초
         }
         {
-            const int retentionDays = uiSettings.value(QStringLiteral("ui/logRetentionDays"), 30).toInt();
             const QList<int> retentionValues = {7, 30, 90, 0};  // 0 = 영구 보관
-            const int retIdx = retentionValues.indexOf(retentionDays);
+            const int retIdx = retentionValues.indexOf(settings.logRetentionDays);
             comboLogRetention->setCurrentIndex(retIdx >= 0 ? retIdx : 1); // 기본 30일
         }
     };
@@ -4551,7 +4549,22 @@ QWidget* MainWindow::createSettingsPage()
         Policy::LoadSettings();
         Policy::Settings settings = Policy::GetSettings();
         settings.autoStart = cbAutostart->isChecked();
+        settings.showMainOnStartup = cbShowMain->isChecked();
         settings.notifyOnRisk = cbNotif->isChecked();
+        settings.notificationSound = cbSound->isChecked();
+        {
+            const QList<int> durationValues = {3, 5, 10};
+            const int durIdx = comboNotifDuration->currentIndex();
+            settings.notificationDurationSec =
+                (durIdx >= 0 && durIdx < durationValues.size()) ? durationValues[durIdx] : 3;
+        }
+        int newRetention = 30;
+        {
+            const QList<int> retentionValues = {7, 30, 90, 0};
+            const int retIdx = comboLogRetention->currentIndex();
+            newRetention = (retIdx >= 0 && retIdx < retentionValues.size()) ? retentionValues[retIdx] : 30;
+            settings.logRetentionDays = newRetention;
+        }
         // Device policy is fixed to Approval (analyse-then-prompt). Auto-block /
         // auto-allow were removed because they bypass behaviour analysis, which
         // is the core value of this product.
@@ -4560,10 +4573,10 @@ QWidget* MainWindow::createSettingsPage()
 #ifdef Q_OS_WIN
         setWindowsAutoStart(settings.autoStart);
 #endif
+        JsonLog::Prune(newRetention);
 
+        // 테마/언어만 QSettings(레지스트리) 사용.
         QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
-        uiSettings.setValue(QStringLiteral("ui/showMainOnStartup"), cbShowMain->isChecked());
-        uiSettings.setValue(QStringLiteral("ui/notificationSound"), cbSound->isChecked());
         const QString prevLang = uiSettings.value(QStringLiteral("ui/language"), QStringLiteral("ko")).toString();
         QString newLang = QStringLiteral("ko");
         if (langGroup->checkedButton())
@@ -4578,19 +4591,6 @@ QWidget* MainWindow::createSettingsPage()
                 ? QStringLiteral("This program continues running in the background.\nTo apply the language change, exit via the tray icon (\"Quit\") and restart the app.")
                 : QStringLiteral("이 프로그램은 백그라운드에서 계속 실행됩니다.\n트레이 아이콘에서 \"종료\"를 선택해 완전히 종료한 뒤 다시 실행하면 언어가 변경됩니다.");
             QMessageBox::information(this, title, body);
-        }
-        {
-            const QList<int> durationValues = {3, 5, 10};
-            const int durIdx = comboNotifDuration->currentIndex();
-            uiSettings.setValue(QStringLiteral("ui/notificationDurationSec"),
-                (durIdx >= 0 && durIdx < durationValues.size()) ? durationValues[durIdx] : 3);
-        }
-        {
-            const QList<int> retentionValues = {7, 30, 90, 0};
-            const int retIdx = comboLogRetention->currentIndex();
-            const int newRetention = (retIdx >= 0 && retIdx < retentionValues.size()) ? retentionValues[retIdx] : 30;
-            uiSettings.setValue(QStringLiteral("ui/logRetentionDays"), newRetention);
-            JsonLog::Prune(newRetention);
         }
         // Dashboard policy summary reads logRetentionDays at construction time.
         // Mark stale so the next switch to dashboard rebuilds it with the new value.
@@ -4996,9 +4996,9 @@ QWidget* MainWindow::createPolicySummaryPage()
     contentLayout->setContentsMargins(4, 0, 4, 0);
     contentLayout->setSpacing(0);
 
-    // QSettings에서 로그 보관 기간 읽기
-    QSettings _policyUiS(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
-    const int _retDays = _policyUiS.value(QStringLiteral("ui/logRetentionDays"), 30).toInt();
+    // settings.json 에서 로그 보관 기간 읽기
+    Policy::LoadSettings();
+    const int _retDays = Policy::GetSettings().logRetentionDays;
     const QString _retLabel = _retDays <= 0 ? tr("영구 보관") : tr("%1일").arg(_retDays);
 
     const QList<QStringList> rows = {
