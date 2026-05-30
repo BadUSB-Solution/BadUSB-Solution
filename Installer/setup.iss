@@ -176,6 +176,7 @@ var
   // CustomPage + UI 요소
   HidScanPage:     TWizardPage;
   HidScanStatus:   TNewStaticText;
+  HidScanProgress: TNewProgressBar;   // 스캔 중 marquee(불확정) 로딩 애니메이션
   HidDeviceList:   TNewCheckListBox;
 
   // 검색된 장치 목록 (HidScanPage 가 활성화될 때 채워짐).
@@ -333,13 +334,25 @@ begin
   HidScanStatus.Width  := HidScanPage.SurfaceWidth;
   HidScanStatus.Caption := ExpandConstant('{cm:HidScanInProgress}');
 
+  // 스캔 중 로딩 애니메이션 — marquee(불확정) 진행바.
+  //   Exec(... ewWaitUntilTerminated ...) 가 대기 중에도 메시지 루프를 펌프하므로
+  //   PowerShell 스캔이 끝날 때까지 이 진행바가 자동으로 좌우로 흐른다.
+  HidScanProgress := TNewProgressBar.Create(HidScanPage);
+  HidScanProgress.Parent  := HidScanPage.Surface;
+  HidScanProgress.Left    := 0;
+  HidScanProgress.Top     := ScaleY(24);
+  HidScanProgress.Width   := HidScanPage.SurfaceWidth;
+  HidScanProgress.Height  := ScaleY(16);
+  HidScanProgress.Style   := npbstMarquee;
+  HidScanProgress.Visible := False;  // 스캔 시작 시 보이게.
+
   // 디바이스 체크 리스트 (스캔 후 채움).
   HidDeviceList := TNewCheckListBox.Create(HidScanPage);
   HidDeviceList.Parent  := HidScanPage.Surface;
   HidDeviceList.Left    := 0;
-  HidDeviceList.Top     := ScaleY(24);
+  HidDeviceList.Top     := ScaleY(48);
   HidDeviceList.Width   := HidScanPage.SurfaceWidth;
-  HidDeviceList.Height  := HidScanPage.SurfaceHeight - ScaleY(24);
+  HidDeviceList.Height  := HidScanPage.SurfaceHeight - ScaleY(48);
   HidDeviceList.Visible := False;  // 스캔 끝나면 보이게.
 
   g_Scanned := False;
@@ -354,7 +367,20 @@ begin
   if (CurPageID = HidScanPage.ID) and (not g_Scanned) then
   begin
     g_Scanned := True;
+
+    // 로딩 시작 — "검색 중" 라벨 + marquee 진행바 표시.
+    //   EnumerateHidDevices() 는 동기 실행이지만 Exec 가 메시지를 펌프하므로
+    //   진행바가 스캔 종료 전까지 계속 애니메이션된다.
+    HidScanStatus.Caption  := ExpandConstant('{cm:HidScanInProgress}');
+    HidScanStatus.Visible  := True;
+    HidScanProgress.Visible := True;
+    HidScanProgress.Show;
+    WizardForm.Refresh;  // 스캔 차단 전에 라벨/진행바를 즉시 그려둔다.
+
     EnumerateHidDevices();
+
+    // 스캔 종료 — 진행바 숨김.
+    HidScanProgress.Visible := False;
 
     if GetArrayLength(g_Devices) = 0 then
     begin

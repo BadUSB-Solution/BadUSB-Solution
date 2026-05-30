@@ -48,31 +48,54 @@ namespace
 
     std::wstring BuildPathFallbackIdentity(const std::wstring& devicePath)
     {
+        // ContainerId 도, 부모 chain 의 USB\VID_... 도 못 잡은 경우의
+        // 마지막 fallback. 의도: "같은 디바이스 = 같은 fingerprint" 보장.
+        //
+        // 원시 devicePath 는 disable/enable 사이클마다 변하는 instance
+        // suffix (port hash, sequence number 등) 를 끝에 달고 있다.
+        // 이걸 그대로 hash 하면 같은 디바이스가 매번 다른 fingerprint
+        // 를 받는다. 그래서 VID/PID 패턴 (vid_xxxx&pid_xxxx) 까지만
+        // 남기고 그 뒤를 통째로 잘라낸다.
+        //
+        //   "usb\vid_046d&pid_c34b\6&3365fbaf&0&7"  → "usb\vid_046d&pid_c34b"
+        //   "hid#vid_046d&pid_c34b&mi_00#..."       → "hid#vid_046d&pid_c34b"
+        //   "bthenum\{guid}_vid&xxxx_pid&yyyy\..."  → 매칭 안 됨, 원본 유지
+        //                                              (BT 는 path 자체가 안정적)
         std::wstring key = ToLowerCopy(devicePath);
 
-        auto stripHexToken = [&key](const std::wstring& token, size_t hexCount) {
-            const size_t pos = key.find(token);
-            if (pos == std::wstring::npos) {
-                return;
+        // vid_XXXX&pid_XXXX 패턴 위치 탐색 후 그 뒤 자르기.
+        const size_t vidPos = key.find(L"vid_");
+        if (vidPos == std::wstring::npos) {
+            return key;  // BT 등 — 원본 사용
+        }
+
+        // vid_XXXX 까지 검증
+        const size_t vidHexEnd = vidPos + 4;  // "vid_" 길이
+        if (vidHexEnd + 4 > key.size()) {
+            return key;
+        }
+        for (size_t i = 0; i < 4; i++) {
+            if (!iswxdigit(key[vidHexEnd + i])) {
+                return key;
             }
+        }
 
-            const size_t valuePos = pos + token.size();
-            if (valuePos + hexCount > key.size()) {
-                return;
+        // &pid_XXXX 가 바로 뒤에 있어야
+        const size_t pidTokPos = vidHexEnd + 4;
+        const std::wstring pidTok = L"&pid_";
+        if (pidTokPos + pidTok.size() + 4 > key.size()
+            || key.compare(pidTokPos, pidTok.size(), pidTok) != 0) {
+            return key;
+        }
+        const size_t pidHexStart = pidTokPos + pidTok.size();
+        for (size_t i = 0; i < 4; i++) {
+            if (!iswxdigit(key[pidHexStart + i])) {
+                return key;
             }
+        }
 
-            for (size_t i = 0; i < hexCount; i++) {
-                if (!iswxdigit(key[valuePos + i])) {
-                    return;
-                }
-            }
-
-            key.erase(pos, token.size() + hexCount);
-        };
-
-        // 인터페이스 번호/컬렉션 번호 토큰 제거
-        stripHexToken(L"&mi_", 2);
-        stripHexToken(L"&col", 2);
+        // 여기까지 왔으면 vid_XXXX&pid_XXXX 패턴 확정. 그 끝까지만 남김.
+        key.resize(pidHexStart + 4);
         return key;
     }
 
@@ -88,15 +111,23 @@ namespace
 
     uint64_t BuildFingerprint(bool hasVidPid, uint16_t vid, uint16_t pid, const std::wstring& identityKey)
     {
-        const uint64_t identityHash = ComputeFnv1a64(identityKey);
+        // ── 정책: VID/PID 만으로 fingerprint 를 결정 ──────────────────
+        // 이전엔 (VID<<48) ^ (PID<<32) ^ (identityHash & 0xFFFFFFFF) 였는데
+        // identityHash 는 결국 ContainerId 또는 InstanceId 기반인데, 두 값
+        // 모두 USB 2.0 + iSerial 미보고 디바이스에 한해 Windows 가 enumeration
+        // 마다 새로 발급한다. 같은 디바이스가 매 사이클마다 다른 fingerprint
+        // 를 받아 whitelist/blacklist 가 망가지는 사례가 관측됐다.
+        //
+        // 정밀도를 VID/PID 수준으로 낮추면 같은 모델 디바이스 2개를 구분
+        // 못 하는 단점이 있지만, BadUSB 가 어차피 VID/PID 위조가 자명하므로
+        // 더 큰 정밀도는 의미 없다. 입력 패턴/명령 분석 (hook 단) 으로 보강.
+        //
+        // BT 등 VID/PID 가 없는 디바이스만 path 기반 hash 를 유지한다.
         if (!hasVidPid) {
-            return identityHash;
+            return ComputeFnv1a64(identityKey);
         }
-
-        const uint64_t vidPidPrefix =
-            (static_cast<uint64_t>(vid) << 48) ^
-            (static_cast<uint64_t>(pid) << 32);
-        return vidPidPrefix ^ (identityHash & 0xFFFFFFFFULL);
+        return (static_cast<uint64_t>(vid) << 48)
+             | (static_cast<uint64_t>(pid) << 32);
     }
 
     // 일반 HID 인터페이스 라벨 판별
@@ -310,11 +341,44 @@ namespace
     std::wstring ResolveDeviceIdentityKey(HDEVINFO deviceInfoSet, SP_DEVINFO_DATA& devInfo)
     {
         GUID containerId{};
+
+        // ── 진짜 PnP DEVINST 변환 ────────────────────────────────────
+        // ResolveDeviceFromInterfacePath 가 만든 HDEVINFO 는 빈 set 에
+        // SetupDiOpenDeviceInterfaceW 로 interface 만 register 한 임시
+        // 컨텍스트라, devInfo.DevInst 가 진짜 PnP DEVINST 와 다를 수
+        // 있다. 그러면 SetupDiGetDevicePropertyW(ContainerId) 와
+        // CM_Get_DevNode_PropertyW 둘 다 실패하고 InstanceId fallback
+        // 으로 떨어지는데, InstanceId 는 disable/enable 사이클마다
+        // suffix 가 변해서 같은 디바이스가 다른 fingerprint 를 받는
+        // 버그를 유발한다.
+        //
+        // SetupDiGetDeviceInstanceIdW → CM_Locate_DevNodeW 로 진짜
+        // PnP DEVINST 를 얻은 뒤 ContainerId 를 조회해야 안정적이다.
+        // ────────────────────────────────────────────────────────────
+        DEVINST resolvedStart = devInfo.DevInst;
+        {
+            wchar_t instIdBuf[MAX_DEVICE_ID_LEN]{};
+            if (SetupDiGetDeviceInstanceIdW(deviceInfoSet, &devInfo,
+                                            instIdBuf, MAX_DEVICE_ID_LEN, nullptr)) {
+                DEVINST located = 0;
+                if (CM_Locate_DevNodeW(&located, instIdBuf, CM_LOCATE_DEVNODE_NORMAL) == CR_SUCCESS) {
+                    resolvedStart = located;
+                }
+            }
+        }
+
+        // 진짜 DEVINST 로 ContainerId 직접 시도.
+        if (ReadDevNodeGuidProperty(resolvedStart, DEVPKEY_Device_ContainerId, containerId)) {
+            return L"cid:" + ToLowerCopy(GuidToString(containerId));
+        }
+
+        // SetupDi 경로로도 한 번 더 (혹시 위가 안 잡혔을 때 안전망).
         if (ReadDeviceGuidProperty(deviceInfoSet, devInfo, DEVPKEY_Device_ContainerId, containerId)) {
             return L"cid:" + ToLowerCopy(GuidToString(containerId));
         }
 
-        DEVINST current = devInfo.DevInst;
+        // ── 부모 chain 8단계까지 ContainerId 탐색 ────────────────────
+        DEVINST current = resolvedStart;
         std::wstring firstInstanceId;
         std::wstring hidInstanceId;
 

@@ -60,21 +60,26 @@ function ComputeFnv1a64 {
 #         이름은 $ProductId / $VendorId 로. main loop 의 변수도 동일.
 function BuildFingerprint {
     param([bool]$HasVidPid, [uint16]$VendorId, [uint16]$ProductId, [string]$IdentityKey)
-    $identityHash = ComputeFnv1a64 -Value $IdentityKey
-    if (-not $HasVidPid) { return $identityHash }
+    # 본체와 동일: VID/PID 만으로 fingerprint 결정. identityHash 는 사용 안 함.
+    # BT 등 VID/PID 없는 디바이스만 path 기반 hash 유지.
+    if (-not $HasVidPid) {
+        return ComputeFnv1a64 -Value $IdentityKey
+    }
     $vidShift = [uint64]$VendorId * [uint64]281474976710656   # << 48
     $pidShift = [uint64]$ProductId * [uint64]4294967296       # << 32
-    return ($vidShift -bxor $pidShift) -bxor ($identityHash -band [uint64]4294967295)
+    return $vidShift -bor $pidShift
 }
 
 # ─── BuildPathFallbackIdentity ────────────────────────────────────────────
-#   - 본체와 동일하게 &MI_xx, &COLxx 토큰 제거 후 lower-case.
+#   - 본체 hid_fingerprint.cpp 와 동일: vid_XXXX&pid_XXXX 패턴까지만 남기고
+#     그 뒤 instance/port suffix 를 통째로 잘라낸다. disable/enable 사이클
+#     마다 변하는 suffix 가 fingerprint 에 영향 주지 않게 보장.
 function BuildPathFallbackIdentity {
     param([string]$DevicePath)
     $key = $DevicePath.ToLower()
-    $key = $key -replace '&mi_[0-9a-f]{2}', ''
-    $key = $key -replace '&col[0-9a-f]{2}', ''
-    return $key
+    $m = [regex]::Match($key, 'vid_[0-9a-f]{4}&pid_[0-9a-f]{4}')
+    if ($m.Success) { return $key.Substring(0, $m.Index + $m.Length) }
+    return $key   # BT 등 vid_/pid_ 형식이 아닌 path 는 원본 유지
 }
 
 # ─── ResolveDeviceIdentityKey ─────────────────────────────────────────────
