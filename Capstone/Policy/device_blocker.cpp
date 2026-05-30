@@ -9,6 +9,7 @@
 
 #include "device_finder.h"
 #include "logger.h"
+#include "obfuscate.h"
 
 #pragma comment(lib, "Cfgmgr32.lib")
 #pragma comment(lib, "Setupapi.lib")
@@ -308,6 +309,20 @@ namespace DeviceBlocker
 
         std::wstring disableDetail;
         // VID/PID가 붙은 실제 장치 노드부터 disable한다.
+        //
+        // ── Hub 보호 ──────────────────────────────────────────────────
+        // CollectBlockCandidates 는 시작 노드부터 부모 chain 8단계까지 모두
+        // 모으는데, 거기에는 **부모 USB Hub** 도 포함된다 (Hub 도 표준상
+        // VID/PID 가 있어 IsVidPidNode 통과). 정상 디바이스 disable 이
+        // 실패했을 때 fallthrough 로 다음 candidate (= Hub) 까지 disable
+        // 시도하면, V-USB / 비표준 펌웨어 디바이스 (Digispark 등) 차단 시
+        // **부모 Hub 가 통째로 disable** 되어 그 Hub 에 매달린 다른 포트가
+        // 전부 죽는다. 한 번 일어나면 ConfigFlags=0x20 + Problem 22 가
+        // 레지스트리에 남아 솔루션을 꺼도 Hub 가 계속 비활성.
+        //
+        // → 첫 후보 (= 가장 가까운 USB devnode, priority 0) 만 시도하고,
+        //   실패해도 escalate 하지 않는다.
+        // ────────────────────────────────────────────────────────────────
         for (const auto& candidate : candidates) {
             if (!DeviceFinder::IsVidPidNode(candidate.instanceId)) {
                 continue;
@@ -321,10 +336,16 @@ namespace DeviceBlocker
                 return BlockResult::Disabled;
             }
 
-            if (!disableDetail.empty()) {
-                disableDetail += L"; ";
-            }
-            disableDetail += candidate.instanceId + L" => " + candidateDetail;
+            // 거부 사유를 log.json 에 즉시 기록 — V-USB / libusb-win32 같은
+            // 비표준 드라이버가 PnP STOP IRP 를 거부하는 케이스에서 정확한
+            // 사유 (Win32 error 코드 + 메시지) 를 사후 진단할 수 있게 한다.
+            Logger::Add(std::wstring(AY_OBFUSCATE(L"[Block] Disable refused: "))
+                + candidate.instanceId
+                + std::wstring(AY_OBFUSCATE(L" — "))
+                + candidateDetail);
+
+            disableDetail = candidate.instanceId + L" => " + candidateDetail;
+            break;  // ★ Hub escalate 금지
         }
 
         // VID/PID 부모를 못 찾은 특수 케이스에서는 최초 HID 노드라도 disable해 본다.
@@ -337,6 +358,7 @@ namespace DeviceBlocker
 
         std::wstring ejectDetail;
         // disable이 실패하면 같은 후보들에 대해 eject를 시도한다.
+        // 위 disable 루프와 동일한 Hub 보호 논리로 첫 후보 실패 시 escalate 금지.
         for (const auto& candidate : candidates) {
             if (!DeviceFinder::IsVidPidNode(candidate.instanceId)) {
                 continue;
@@ -350,10 +372,14 @@ namespace DeviceBlocker
                 return BlockResult::Ejected;
             }
 
-            if (!ejectDetail.empty()) {
-                ejectDetail += L"; ";
-            }
-            ejectDetail += candidate.instanceId + L" => " + candidateDetail;
+            // Eject 거부 사유 logging — veto driver/process 정보 포함될 수 있음.
+            Logger::Add(std::wstring(AY_OBFUSCATE(L"[Block] Eject refused: "))
+                + candidate.instanceId
+                + std::wstring(AY_OBFUSCATE(L" — "))
+                + candidateDetail);
+
+            ejectDetail = candidate.instanceId + L" => " + candidateDetail;
+            break;  // ★ Hub escalate 금지
         }
 
         DeviceFinder::DestroyResolvedDevice(resolved);
