@@ -2422,7 +2422,11 @@ void MainWindow::setupTray()
         trayWidget_->raise();
     });
     menu->addSeparator();
-    menu->addAction(tr("종료"), qApp, &QApplication::quit);
+    menu->addAction(tr("종료"), this, [this] {
+        // 진짜 종료 — closeEvent에서 트레이 알림 띄우지 않도록 플래그 설정
+        quittingFromTray_ = true;
+        qApp->quit();
+    });
     trayIcon_->setContextMenu(menu);
 
     // Left-click: toggle mini widget
@@ -2519,6 +2523,11 @@ void MainWindow::refreshTrayWidget()
 
 void MainWindow::closeEvent(QCloseEvent* event)
 {
+    // 트레이 메뉴에서 "종료" 누른 경우엔 실제 종료 허용 — 알림도 띄우지 않는다.
+    if (quittingFromTray_) {
+        event->accept();
+        return;
+    }
     // X 버튼으로 닫아도 HWND를 살려야 WM_DEVICECHANGE + 키보드 훅이 유지됨.
     // 트레이로 숨기고 이벤트를 무시해 실제 파괴를 막는다.
     event->ignore();
@@ -3785,6 +3794,7 @@ QWidget* MainWindow::createLogPage()
         auto* detResultBadge = new QLabel(logRows[0].result);
         detResultBadge->setObjectName(logRows[0].badge.toUtf8().constData());
         detResultBadge->setFont(pretendardFont(FontRole::SemiBold));
+        detResultBadge->setAlignment(Qt::AlignCenter);  // 다른 배지들과 동일하게 중앙 정렬
         detResultBadge->setFixedSize(policyBadgeSize(logRows[0].result));
         detResultBadge->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 

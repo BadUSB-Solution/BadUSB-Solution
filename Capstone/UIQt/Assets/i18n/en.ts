@@ -265,6 +265,7 @@ The language will change after you fully quit it from the tray icon ("Quit") and
     <message><source>위험 점수가 설정된 임계치(기본 8.0 / 10.0)에 도달하면 BadUSB 또는 자동화 공격으로 간주합니다.</source><translation>When the risk score reaches the configured threshold (default 8.0/10.0), it is treated as a BadUSB or automated attack.</translation></message>
     <message><source>정책에 따라 해당 장치를 차단하고 입력을 무효화합니다.</source><translation>Block this device per policy and invalidate its input.</translation></message>
     <message><source>승인 대기 장치 허용 방법</source><translation>How to allow a pending device</translation></message>
+    <message><source>새로운 USB 장치가 연결되면 기본적으로 차단 및 "승인 대기" 상태가 됩니다.</source><translation>When a new USB device is connected, it is blocked by default and set to "Pending" status.</translation></message>
     <message><source>좌측 메뉴에서 USB 목록으로 이동합니다.</source><translation>Navigate to USB List from the left menu.</translation></message>
     <message><source>상태가 [승인 대기]인 장치를 찾아 클릭합니다.</source><translation>Find and click a device with [Pending] status.</translation></message>
     <message><source>우측 장치 상세 정보 패널에서 하단의 [이 장치 허용] 버튼을 클릭합니다.</source><translation>Click the [Allow Device] button at the bottom of the device details panel on the right.</translation></message>
@@ -416,8 +417,7 @@ Verify this is not a legitimate device currently in use before proceeding.</tran
     <message><source>분석 대기 중...</source><translation>Waiting for analysis...</translation></message>
     <message><source>이 장치가 인가된 장치인지 확인 후 예외 처리를 진행하거나 차단 정책을 유지하세요.</source><translation>Verify whether this device is authorized; either add an exception or keep the block policy.</translation></message>
 
-    <!-- ── 고객 지원 문의 다이얼로그 ── -->
-    <message><source>고객 지원 문의하기</source><translation>Contact Customer Support</translation></message>
+    <!-- ── 고객 지원 문의 다이얼로그 (고객 지원 문의하기는 위에 이미 정의됨) ── -->
     <message><source>문의 / 오탐 신고</source><translation>Inquiry / False Positive Report</translation></message>
     <message><source>아래 양식을 작성하면 기본 메일 앱이 열리며 내용이 자동으로 채워집니다.</source><translation>Fill in the form below and your default mail app will open with the message pre-filled.</translation></message>
     <message><source>회신 받을 이메일</source><translation>Reply Email</translation></message>

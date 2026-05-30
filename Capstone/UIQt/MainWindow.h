@@ -91,6 +91,8 @@ private:
     TrayWidget*      trayWidget_ = nullptr;
     void setupTray();
     void refreshTrayWidget();
+    // 트레이 메뉴에서 "종료" 눌렀을 때만 true — closeEvent에서 진짜 종료 허용
+    bool quittingFromTray_ = false;
 
     // USB list persistent state
     QTableWidget* usbTable_ = nullptr;
