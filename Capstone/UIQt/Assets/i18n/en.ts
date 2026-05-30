@@ -148,6 +148,7 @@
     <message><source>알림 소리</source><translation>Alert sound</translation></message>
     <message><source>알림 켜기</source><translation>Enable notifications</translation></message>
     <message><source>위험 알림 표시</source><translation>Show risk notifications</translation></message>
+    <message><source>차단을 해제했습니다. 장치를 다시 꽂으면 분석을 시작합니다.</source><translation>Block removed. Reconnect the device to begin analysis.</translation></message>
     <message><source>알림 위치</source><translation>Alert position</translation></message>
     <message><source>우측 하단</source><translation>Bottom right</translation></message>
     <message><source>우측 상단</source><translation>Top right</translation></message>

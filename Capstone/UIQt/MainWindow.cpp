@@ -2762,11 +2762,13 @@ QWidget* MainWindow::createDashboardPage()
             if (seenName.contains(displayName)) continue;
             seenName.insert(displayName, true);
 
-            const Policy::PolicyStatus policyStatus = Policy::Evaluate(item);
-            if (policyStatus == Policy::PolicyStatus::Unknown) ++pendingCount;
-            const QString pol = policyStatus == Policy::PolicyStatus::Whitelisted ? tr("허용")
-                : policyStatus == Policy::PolicyStatus::Blacklisted ? tr("차단")
-                : tr("승인 대기");
+            // USB 목록과 동일한 정책 평가 (policyTextForItem 은 fingerprint 매칭
+            // 실패 시 VID/PID 도 확인 — 인스톨러로 등록된 장치 호환).
+            const QString polKey = policyTextForItem(item);  // 내부 키 ("허용"/"차단"/"승인 대기")
+            if (polKey == "승인 대기") ++pendingCount;
+            const QString pol = polKey == "허용" ? tr("허용")
+                              : polKey == "차단" ? tr("차단")
+                              : tr("승인 대기");
             const QString mfr = item.vid == 0 ? "-" : "HID Device";
             dashDevRows.push_back({nowTimestamp().mid(11, 5), tr("입력 장치"), mfr, displayName, pol});
         }
@@ -3321,14 +3323,41 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         auto& r = usbRows_[usbSelectedRow_];
         if (r.fingerprint == 0) return;
 
+        // 차단 → 승인 대기 전환 시 OS-disable 된 장치를 다시 enable 해야 함.
+        // (이걸 안 하면 장치는 비활성 상태로 남아 키 입력 자체가 OS로 전달되지 않음)
+        const bool wasBlocked = (r.policy == "차단");
+
         // Use the stored fingerprint directly — re-fingerprinting from paths is unreliable
         // when the device may already be disconnected.
         Policy::Remove(r.fingerprint);
         Logger::Add(L"[Qt] Policy removed: " + toWString(r.name));
 
-        // CRITICAL: if the device is still physically connected it becomes "unknown" right now,
-        // but no WM_DEVICECHANGE arrives to trigger a new hook install + approval dialog.
-        // We must handle this case inline: lock the keyboard and re-prompt.
+        if (wasBlocked && (r.vid != 0 || r.pid != 0)) {
+            std::wstring enableDetail;
+            const DeviceBlocker::EnableResult er =
+                DeviceBlocker::EnableByVidPid(r.vid, r.pid, &enableDetail);
+            Logger::Add(L"[Qt] Policy pending (was blocked) — re-enable result=" +
+                std::to_wstring(static_cast<int>(er)) + L", " + enableDetail);
+        }
+
+        // 차단 → 승인 대기로 전환되면 OS 단에선 장치가 막 enable 되는 중이라
+        // 즉시 입력을 받지 못한다. 즉, 모니터링 다이얼로그를 띄워도 키 입력이 잡히지
+        // 않아 사용자에게 혼란만 줌. → 다이얼로그 안 띄우고 안내만, 사용자가 USB를
+        // 다시 꽂으면 정상적인 미등록 장치 분석 흐름이 자동으로 진입한다.
+        if (wasBlocked) {
+            r.status = "해제됨";  // OS enable 진행 중이므로 일시적으로 disconnected로 표시
+            r.policy = "승인 대기";
+            usbTable_->setCellWidget(usbSelectedRow_, 4, makeBadgeCell(tr("승인 대기"), "warningBadge"));
+            applyUsbDetailPanel(usbSelectedRow_);
+            showUsbActionFeedback(
+                tr("차단을 해제했습니다. 장치를 다시 꽂으면 분석을 시작합니다."),
+                UiTheme::tokens().PrimaryText);
+            dashboardStale_ = true;
+            return;
+        }
+
+        // 허용 → 승인 대기 (또는 기타) 경로 — 장치가 실제로 연결돼있으면
+        // hook 설치 후 분석 다이얼로그 띄움 (기존 동작 유지)
         if (r.status == "연결됨" && r.fingerprint != 0) {
             Logger::Add(L"[Qt] Rule deleted while device connected — installing hook for safety.");
             if (!KeyboardHook::IsActive()) {
@@ -5442,47 +5471,25 @@ void MainWindow::registerHidNotifications()
 
 void MainWindow::enforceBlockedDeviceHook()
 {
-    Policy::Load();
+    // ── 설계상 의도된 동작 복귀 ──
+    // 이전엔 차단된 HID 장치가 연결돼있는 동안 KeyboardHook 을 계속 설치해
+    // "이중 방어"를 시도했으나, WH_KEYBOARD_LL 은 입력 출처를 구분하지 못해서
+    // 사용자의 정상 키보드까지 함께 차단되는 부작용이 컸다.
+    //
+    // 본 솔루션의 차단 책임은 DeviceBlocker (OS 레벨 disable)에 일임한다.
+    // 인스톨러가 작업 스케줄러 HighestAvailable 로 항상 admin 권한 실행하므로
+    // DeviceBlocker::BlockByDevicePath 는 거의 100% 성공한다.
+    // → 별도 Hook 가 없어도 차단된 장치는 OS 단에서 입력을 못 보냄.
+    //
+    // (Hook 의 본연의 역할인 "Unknown 장치 분석 시점에만 잠시 키 수집" 은
+    //  hid_approval_flow.cpp 에서 그대로 동작 — UI 와 무관)
 
-    bool hasBlockedDevice = false;
-    std::wstring blockedName;
-    const auto devicePaths = HidScan::EnumeratePresentHidDevicePaths();
-    for (const auto& path : devicePaths) {
-        if (path.empty())
-            continue;
-
-        const UsbItem item = HidFingerprint::BuildUsbItemFromPath(path);
-        if (item.fingerprint != 0 && Policy::Evaluate(item) == Policy::PolicyStatus::Blacklisted) {
-            hasBlockedDevice = true;
-            blockedName = item.name;
-            break;
-        }
+    // 안전 정리: 과거 설치된 hook 이 남아 있다면 즉시 해제 (잔존 상태 동기화)
+    if (blockedDeviceHookActive_ && KeyboardHook::IsActive()) {
+        KeyboardHook::Uninstall();
+        Logger::Add(L"[Qt] Released stale blocked-device hook (auto-install disabled).");
     }
-
-    if (hasBlockedDevice) {
-        if (!KeyboardHook::IsActive()) {
-            if (KeyboardHook::Install()) {
-                Logger::Add(L"[Qt] Keyboard hook installed for blocked HID device: " + blockedName);
-            } else {
-                Logger::Add(L"[Qt] Keyboard hook install failed for blocked HID device: " + blockedName);
-            }
-        } else if (!blockedDeviceHookActive_) {
-            Logger::Add(L"[Qt] Keyboard hook already active while blocked HID device is present.");
-        }
-        blockedDeviceHookActive_ = KeyboardHook::IsActive();
-        return;
-    }
-
-    if (blockedDeviceHookActive_) {
-        if (KeyboardHook::IsActive())
-            KeyboardHook::Uninstall();
-        blockedDeviceHookActive_ = false;
-        Logger::Add(L"[Qt] Keyboard hook released; no blocked HID devices present.");
-    } else if (!KeyboardHook::IsActive()) {
-        // The user may have closed the buffer monitor while a blocked device is
-        // still connected. Keep our cached state aligned with the actual hook.
-        blockedDeviceHookActive_ = false;
-    }
+    blockedDeviceHookActive_ = false;
 }
 
 void MainWindow::replacePage(int pageIndex, QWidget* newPage)
