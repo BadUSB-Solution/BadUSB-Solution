@@ -8,7 +8,9 @@
 #include "app_paths.h"
 
 #include <windows.h>
+#include <algorithm>
 #include <cstdio>
+#include <ctime>
 #include <fstream>
 #include <iterator>
 #include <mutex>
@@ -223,6 +225,34 @@ namespace Logger
             all += L"\r\n";
         }
         return all;
+    }
+
+    // e.time 은 "YYYY-MM-DD HH:MM:SS" 고정 폭이라 lexicographic 비교가
+    // 시간 순서와 동일. cutoff 문자열만 만들어 그보다 작은 엔트리 제거.
+    void PruneByDays(int days)
+    {
+        if (days <= 0) return;  // 영구 보관
+
+        std::time_t now = std::time(nullptr);
+        std::time_t cutoffT = now - static_cast<std::time_t>(days) * 86400;
+        std::tm tmCut{};
+        localtime_s(&tmCut, &cutoffT);
+        char cutoff[32];
+        std::snprintf(cutoff, sizeof(cutoff),
+            AY_OBFUSCATE("%04d-%02d-%02d %02d:%02d:%02d"),
+            tmCut.tm_year + 1900, tmCut.tm_mon + 1, tmCut.tm_mday,
+            tmCut.tm_hour, tmCut.tm_min, tmCut.tm_sec);
+
+        std::lock_guard<std::mutex> lk(g_mu);
+        if (!g_loaded) {
+            g_loaded = true;
+            LoadExisting();
+        }
+        auto it = std::remove_if(g_entries.begin(), g_entries.end(),
+            [&](const Entry& e) { return e.time < cutoff; });
+        if (it == g_entries.end()) return;
+        g_entries.erase(it, g_entries.end());
+        WriteFile();
     }
 
     // ─── Msg: 의미 함수들 ──────────────────────────────────────────

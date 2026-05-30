@@ -77,7 +77,6 @@ private:
     uint64_t lastPromptFingerprint_ = 0;
     bool blockedDeviceHookActive_ = false;
     int currentPage_ = 0;
-    int unknownDeviceAction_ = 0;  // 0=dialog, 1=auto-block, 2=auto-allow
     // Incremented on every DBT_DEVICEREMOVECOMPLETE so background fingerprint
     // threads that complete after a removal can detect they are stale.
     int removalSerial_ = 0;

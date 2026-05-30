@@ -117,6 +117,40 @@ int main(int argc, char* argv[])
 
     MainWindow window;
     Policy::LoadSettings();
+
+    // ── Registry 잔재 마이그레이션 (1회성) ─────────────────────────────────
+    // 이전 버전은 아래 4개 UI 설정을 QSettings(레지스트리)에 저장했다.
+    // 지금은 settings.json 한 곳으로 모았으므로, 처음 한 번만 키가 존재할
+    // 때 옮겨와서 Registry 쪽은 제거한다. 사용자 입장에서 설정이 사라지지
+    // 않게 하기 위한 호환 코드.
+    {
+        QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
+        Policy::Settings s = Policy::GetSettings();
+        bool migrated = false;
+        if (uiSettings.contains(QStringLiteral("ui/showMainOnStartup"))) {
+            s.showMainOnStartup = uiSettings.value(QStringLiteral("ui/showMainOnStartup")).toBool();
+            uiSettings.remove(QStringLiteral("ui/showMainOnStartup"));
+            migrated = true;
+        }
+        if (uiSettings.contains(QStringLiteral("ui/notificationSound"))) {
+            s.notificationSound = uiSettings.value(QStringLiteral("ui/notificationSound")).toBool();
+            uiSettings.remove(QStringLiteral("ui/notificationSound"));
+            migrated = true;
+        }
+        if (uiSettings.contains(QStringLiteral("ui/notificationDurationSec"))) {
+            s.notificationDurationSec = uiSettings.value(QStringLiteral("ui/notificationDurationSec")).toInt();
+            uiSettings.remove(QStringLiteral("ui/notificationDurationSec"));
+            migrated = true;
+        }
+        if (uiSettings.contains(QStringLiteral("ui/logRetentionDays"))) {
+            s.logRetentionDays = uiSettings.value(QStringLiteral("ui/logRetentionDays")).toInt();
+            uiSettings.remove(QStringLiteral("ui/logRetentionDays"));
+            migrated = true;
+        }
+        if (migrated) Policy::SetSettings(s);
+    }
+    // ──────────────────────────────────────────────────────────────────────
+
     if (Policy::GetSettings().showMainOnStartup)
         window.show();
 
