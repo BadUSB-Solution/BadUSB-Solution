@@ -28,6 +28,11 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     ~MainWindow() override;
 
+    // 다이얼로그/외부에서 호출하여 "백그라운드에서 계속 모니터링 중" 트레이 알림을 띄움
+    void notifyBackgroundRunning();
+    // 위험 감지 시 알림 + 소리 (설정 ON 일 때만) — 위험도 모니터링이 "위험" 판정 시 호출
+    void notifyRiskDetected(const QString& message);
+
 protected:
     bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
     void closeEvent(QCloseEvent* event) override;
@@ -48,6 +53,7 @@ private:
     QWidget* createLogPage();
     QWidget* createAnalyticsPage();
     void showContactSupportDialog();
+    void showLogRawDialog(const QString& time, const QString& device, const QString& result, const QString& event);
     QWidget* createSettingsPage();
     QWidget* createHelpPage();
     QWidget* createPolicySummaryPage();

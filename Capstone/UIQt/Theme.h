@@ -333,6 +333,7 @@ namespace UiTheme
             QFrame#successAccent { background: %Success%; border: none; }
             QFrame#warningAccent { background: %Warning%; border: none; }
             QFrame#dangerAccent { background: %Danger%; border: none; }
+            QFrame#mutedAccent { background: %SubtextMid%; border: none; }
 
             QLabel#statNumber { font-size: 24px; color: %TextDark%; }
             QLabel#mutedText { font-size: 12px; color: %TextMuted%; }
@@ -448,30 +449,35 @@ namespace UiTheme
                 font-size: 14px; font-weight: 600;
             }
             QPushButton#primaryButton:hover { background: %PrimaryHover%; }
+            QPushButton#primaryButton:pressed { background: %PrimaryHover%; padding-top: 2px; }
             QPushButton#secondaryButton {
                 min-height: 38px; padding: 0 18px; border-radius: 8px;
                 background: %InputBg%; color: %TextMid%; border: 1px solid %BorderInput%;
                 font-size: 14px; font-weight: 600;
             }
             QPushButton#secondaryButton:hover { background: %HoverSurface%; color: %Text%; }
+            QPushButton#secondaryButton:pressed { background: %SurfaceAlt%; padding-top: 2px; }
             QPushButton#usbAllowButton {
                 min-height: 36px; padding: 0 16px; border-radius: 8px;
                 background: %Primary%; color: #FFFFFF; border: none;
                 font-size: 14px; font-weight: 600;
             }
             QPushButton#usbAllowButton:hover { background: %PrimaryHover%; }
+            QPushButton#usbAllowButton:pressed { background: %PrimaryHover%; padding-top: 2px; }
             QPushButton#usbBlockButton {
                 min-height: 36px; padding: 0 16px; border-radius: 8px;
                 background: %DangerAction%; color: #FFFFFF; border: none;
                 font-size: 14px; font-weight: 600;
             }
             QPushButton#usbBlockButton:hover { background: %DangerHover%; }
+            QPushButton#usbBlockButton:pressed { background: %DangerHover%; padding-top: 2px; }
             QPushButton#usbPendingButton {
                 min-height: 36px; padding: 0 16px; border-radius: 8px;
                 background: %InputBg%; color: %TextMid%; border: 1px solid %BorderInput%;
                 font-size: 14px; font-weight: 600;
             }
             QPushButton#usbPendingButton:hover { background: %HoverSurface%; color: %Text%; }
+            QPushButton#usbPendingButton:pressed { background: %SurfaceAlt%; padding-top: 2px; }
             QPushButton#usbAllowButton:disabled,
             QPushButton#usbBlockButton:disabled,
             QPushButton#usbPendingButton:disabled {
@@ -484,6 +490,7 @@ namespace UiTheme
                 text-align: left;
             }
             QPushButton#bufferButton:hover { background: %PrimaryHover%; }
+            QPushButton#bufferButton:pressed { background: %PrimaryHover%; padding-top: 2px; }
 
             QFrame#themeToggle { background: %Surface%; border: 1px solid %Border%; border-radius: 17px; }
             QFrame#themeSegmentGroup {
@@ -584,10 +591,11 @@ namespace UiTheme
             QLabel#detailUserValue { font-size: 14px; color: %Text%; }
             QFrame#detailActionCard { background: transparent; border: none; }
             QLabel#detailActionTitle {
-                font-size: 13px; color: %Danger%; background: transparent; border: none;
+                font-size: 13px; color: %DangerHover%; background: transparent; border: none;
+                font-weight: 800;
             }
             QLabel#detailActionDesc {
-                font-size: 13px; color: %TextMid%; background: transparent; border: none;
+                font-size: 13px; color: %Text%; background: transparent; border: none;
             }
             QFrame#detailButtonArea { border-top: 1px solid %Border%; }
             QLabel#policySummaryLabel { font-size: 14px; color: %SubtextMid%; }
