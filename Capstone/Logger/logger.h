@@ -9,6 +9,12 @@ namespace Logger
     void Add(const wchar_t* s);
     std::wstring GetAll(); // CRLF 포함해서 한 번에 반환
 
+    // 로그 보관 기간을 넘긴 엔트리를 메모리/디스크에서 제거.
+    //   days <= 0 → no-op (영구 보관)
+    //   그 외     → now - days*86400 보다 오래된 엔트리 제거 후 WriteFile()
+    // Settings::logRetentionDays 와 짝.
+    void PruneByDays(int days);
+
     // ─── 의미 함수 (호출처에 문자열 노출 X) ───────────────────────
     // 모든 메시지 문자열은 logger.cpp 본문에서 AY_OBFUSCATE 로 컴파일타임 암호화.
     // 호출처는 함수 이름만 호출하므로 분석자가 호출 측에서 문자열 단서를 얻지 못함.

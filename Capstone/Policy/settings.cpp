@@ -32,26 +32,7 @@ namespace
         return g_path;
     }
 
-    // ── enum ↔ 문자열 ──
-
-    const char* ActionToString(Policy::UnknownDeviceAction a)
-    {
-        switch (a) {
-        case Policy::UnknownDeviceAction::AutoBlock: return AY_OBFUSCATE("autoBlock");
-        case Policy::UnknownDeviceAction::AutoAllow: return AY_OBFUSCATE("autoAllow");
-        case Policy::UnknownDeviceAction::Approval:
-        default:                                     return AY_OBFUSCATE("approval");
-        }
-    }
-
-    Policy::UnknownDeviceAction ActionFromString(const std::string& s)
-    {
-        if (s == static_cast<const char*>(AY_OBFUSCATE("autoBlock"))) return Policy::UnknownDeviceAction::AutoBlock;
-        if (s == static_cast<const char*>(AY_OBFUSCATE("autoAllow"))) return Policy::UnknownDeviceAction::AutoAllow;
-        return Policy::UnknownDeviceAction::Approval;
-    }
-
-    // ── 미니 JSON 파서 (flat: bool + string) ──
+    // ── 미니 JSON 파서 (flat: bool + int) ──
 
     void SkipWs(const std::string& s, size_t& p)
     {
@@ -141,20 +122,12 @@ namespace
             p++;
 
             if      (key == static_cast<const char*>(AY_OBFUSCATE("autoStart")))               ReadBool(s, p, out.autoStart);
-            else if (key == static_cast<const char*>(AY_OBFUSCATE("minimizeToTray")))          ReadBool(s, p, out.minimizeToTray);
             else if (key == static_cast<const char*>(AY_OBFUSCATE("showMainOnStartup")))       ReadBool(s, p, out.showMainOnStartup);
-            else if (key == static_cast<const char*>(AY_OBFUSCATE("behaviorMonitoring")))      ReadBool(s, p, out.behaviorMonitoring);
             else if (key == static_cast<const char*>(AY_OBFUSCATE("notifyOnRisk")))            ReadBool(s, p, out.notifyOnRisk);
             else if (key == static_cast<const char*>(AY_OBFUSCATE("notificationSound")))       ReadBool(s, p, out.notificationSound);
             else if (key == static_cast<const char*>(AY_OBFUSCATE("notificationDurationSec"))) ReadInt(s, p, out.notificationDurationSec);
             else if (key == static_cast<const char*>(AY_OBFUSCATE("logRetentionDays")))        ReadInt(s, p, out.logRetentionDays);
-            else if (key == static_cast<const char*>(AY_OBFUSCATE("unknownDeviceAction"))) {
-                std::string v;
-                if (ReadString(s, p, v)) out.unknownDeviceAction = ActionFromString(v);
-            }
-            else {
-                SkipValue(s, p);
-            }
+            else                                                                                SkipValue(s, p);
 
             SkipWs(s, p);
             if (p < s.size() && s[p] == ',') p++;

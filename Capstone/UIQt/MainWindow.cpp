@@ -478,19 +478,16 @@ namespace
 
     bool notifyOnRiskEnabled()
     {
-        Policy::LoadSettings();
         return Policy::GetSettings().notifyOnRisk;
     }
 
     bool notificationSoundEnabled()
     {
-        Policy::LoadSettings();
         return Policy::GetSettings().notificationSound;
     }
 
     int notificationDurationMs()
     {
-        Policy::LoadSettings();
         return std::clamp(Policy::GetSettings().notificationDurationSec, 1, 60) * 1000;
     }
 
@@ -554,32 +551,6 @@ namespace
         runKey.remove(appName);
     }
 #endif
-
-    int actionIndexFromSetting(Policy::UnknownDeviceAction action)
-    {
-        switch (action) {
-        case Policy::UnknownDeviceAction::AutoBlock:
-            return 1;
-        case Policy::UnknownDeviceAction::AutoAllow:
-            return 2;
-        case Policy::UnknownDeviceAction::Approval:
-        default:
-            return 0;
-        }
-    }
-
-    Policy::UnknownDeviceAction actionSettingFromIndex(int index)
-    {
-        switch (index) {
-        case 1:
-            return Policy::UnknownDeviceAction::AutoBlock;
-        case 2:
-            return Policy::UnknownDeviceAction::AutoAllow;
-        case 0:
-        default:
-            return Policy::UnknownDeviceAction::Approval;
-        }
-    }
 
     int currentBufferedKeyDownCount()
     {
@@ -2252,6 +2223,8 @@ MainWindow::MainWindow(QWidget* parent)
     applyThemeFromSettings();
 
     Policy::LoadSettings();
+    // 시작 시 로그 보관 기간 적용 — 오래된 엔트리 정리 (0 이면 영구 보관).
+    Logger::PruneByDays(Policy::GetSettings().logRetentionDays);
 
     auto* root = new QWidget;
     root->setObjectName("centralRoot");
@@ -2354,9 +2327,6 @@ MainWindow::MainWindow(QWidget* parent)
     connect(helpShortcut, &QShortcut::activated, this, [this] {
         showPageHelpPopover(this, currentPage_);
     });
-
-    Policy::LoadSettings();
-    unknownDeviceAction_ = actionIndexFromSetting(Policy::GetSettings().unknownDeviceAction);
 
 #ifdef Q_OS_WIN
     Logger::SetNotifyWindow(reinterpret_cast<HWND>(winId()), WM_APP_NEWLOG);
@@ -4560,14 +4530,13 @@ QWidget* MainWindow::createSettingsPage()
             newRetention = (retIdx >= 0 && retIdx < retentionValues.size()) ? retentionValues[retIdx] : 30;
             settings.logRetentionDays = newRetention;
         }
-        // Device policy is fixed to Approval (analyse-then-prompt). Auto-block /
-        // auto-allow were removed because they bypass behaviour analysis, which
-        // is the core value of this product.
-        settings.unknownDeviceAction = Policy::UnknownDeviceAction::Approval;
         Policy::SetSettings(settings);
 #ifdef Q_OS_WIN
         setWindowsAutoStart(settings.autoStart);
 #endif
+        // 보관 기간 변경을 즉시 반영 — 짧게 줄였으면 곧바로 오래된 엔트리 제거.
+        Logger::PruneByDays(newRetention);
+
         // 테마/언어만 QSettings(레지스트리) 사용.
         QSettings uiSettings(QStringLiteral("Abang-All"), QStringLiteral("Abang-All"));
         const QString prevLang = uiSettings.value(QStringLiteral("ui/language"), QStringLiteral("ko")).toString();
