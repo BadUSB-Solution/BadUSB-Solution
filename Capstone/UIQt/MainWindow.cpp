@@ -1227,7 +1227,7 @@ namespace
                 return;
             }
 
-            const int thresholdY = tm + ch - static_cast<int>((8.0 / maxV) * ch);
+            const int thresholdY = tm + ch - static_cast<int>((7.5 / maxV) * ch);
             p.setPen(QPen(UiTheme::color(UiTheme::tokens().ChartAxis), 1.3, Qt::DashLine));
             p.drawLine(lm, thresholdY, lm + cw, thresholdY);
 
@@ -1309,9 +1309,9 @@ namespace
                 p.drawText(0, y - 7, lm - 4, 14, Qt::AlignRight | Qt::AlignVCenter, yLbls[i]);
             }
 
-            // Threshold dashed line at 8.0
+            // Threshold dashed line at 7.5
             {
-                const int ty = tm + ch - static_cast<int>((8.0 / maxV) * ch);
+                const int ty = tm + ch - static_cast<int>((7.5 / maxV) * ch);
                 p.setPen(QPen(QColor(UiTheme::tokens().ChartThreshold), 1.5, Qt::DashLine));
                 p.drawLine(lm, ty, lm + cw, ty);
             }
@@ -1838,9 +1838,10 @@ namespace
                 scanTexts->addWidget(row);
             };
 
-            makeScanRow("⌕", trMW("입력 패턴 분석 중"));
-            makeScanRow(">_", trMW("명령/실행 패턴 확인 중"));
-            makeScanRow("◎", trMW("URL 및 위험 조합 확인 중"));
+            makeScanRow("⌕", trMW("자동 입력 패턴 검사"));
+            makeScanRow(">_", trMW("명령/실행 패턴 검사"));
+            makeScanRow("⌘", trMW("위험 단축키 조합 검사"));
+            makeScanRow("◎", trMW("의심 URL / 실행 파일 검사"));
 
             auto* scanNote = new QLabel(trMW("마지막 입력 후 3초 동안 추가 입력이 없으면 검사 결과를 안내합니다."));
             scanNote->setFont(pretendardFont(FontRole::Regular));
@@ -1937,7 +1938,7 @@ namespace
                     return;
 
                 const LiveAnalysisSnapshot snapshot = buildLiveAnalysisSnapshot();
-                constexpr double blockThreshold = 8.0;
+                constexpr double blockThreshold = 7.5;
                 const int keyCount = currentBufferedKeyDownCount();
                 if (keyCount != *lastScanKeyCount) {
                     *lastScanKeyCount = keyCount;
@@ -1964,7 +1965,7 @@ namespace
                     label->setStyleSheet(QString("QLabel { color: %1; background: transparent; border: none;"
                                                  " font-size: 13px; }").arg(color));
                 };
-                auto setDots = [&scanRowDots](const QString& text, const QString& color, bool animated) {
+                auto setAllDots = [&scanRowDots](const QString& text, const QString& color, bool animated) {
                     int filled = static_cast<int>(text.count(QChar(0x25CF)));
                     if (filled < 1) filled = 1;
                     if (filled > 6) filled = 6;
@@ -1976,47 +1977,51 @@ namespace
                             dots->setComplete(color);
                     }
                 };
-
-                if (isDanger) {
-                    const auto& st = UiTheme::tokens();
-                    setMascot(":/icons/detect_bad.png");
-                    scanBadge->setText(trMW("검사 완료"));
-                    setBadgeStyle(scanBadge, st.DangerAction);
-                    scanTitle->setText(trMW("검사 결과 <span style='color:%1;'>위험</span>").arg(st.DangerAction));
-                    scanTitle->setStyleSheet(QString("font-size: 22px; color: %1; background: transparent; border: none;").arg(st.DangerAction));
-                    scanDescription->setText(trMW("이 장치에서 위험한 입력 패턴이 감지되어 차단을 권장합니다."));
-                    setStatusBadge(statusBadge, trMW("자동 차단됨"), st.DangerAction);
-
-                    QStringList reasons = blockReasonLines(snapshot);
-                    while (reasons.size() < 3)
-                        reasons << trMW("위험 입력 조합이 감지되었습니다.");
-                    for (int i = 0; i < scanRowLabels.size() && i < 3; ++i)
-                        scanRowLabels[i]->setText(reasons[i]);
-                    setDots("●●●", st.DangerAction, false);
-                    return;
-                }
-
-                if (isSafe) {
-                    const auto& st = UiTheme::tokens();
-                    setMascot(":/icons/detect_good.png");
-                    scanBadge->setText(trMW("검사 완료"));
-                    setBadgeStyle(scanBadge, st.Primary);
-                    scanTitle->setText(trMW("검사 결과 <span style='color:%1;'>안전</span>").arg(st.Primary));
-                    scanTitle->setStyleSheet(QString("font-size: 22px; color: %1; background: transparent; border: none;").arg(st.Text));
-                    scanDescription->setText(trMW("이 장치는 현재까지 확인된 위험 패턴이 없어 안전한 장치로 판단되었습니다."));
-                    setStatusBadge(statusBadge, trMW("안전"), st.Primary);
-                    const QStringList safeRows = {
-                        trMW("비정상 입력 패턴 없음"),
-                        trMW("명령/실행 패턴 미검출"),
-                        trMW("위험 URL 및 조합 미검출")
-                    };
-                    for (int i = 0; i < scanRowLabels.size() && i < safeRows.size(); ++i)
-                        scanRowLabels[i]->setText(safeRows[i]);
-                    setDots("●●●", st.TextMuted, false);
-                    return;
-                }
-
+                // 행 단위로 자체 점수에 따라 색을 부여 (안전=파랑 / 경고=주황 / 위험=빨강)
+                auto setRowDots = [&scanRowDots](int idx, const QString& color) {
+                    if (idx < 0 || idx >= scanRowDots.size()) return;
+                    if (auto* d = scanRowDots[idx]) d->setComplete(color);
+                };
+                // 0-10 스케일 점수 → 색상 (행별 임계: 3 미만 안전 / 6 미만 경고 / 그 이상 위험)
                 const auto& st = UiTheme::tokens();
+                auto tierColor = [&st](double score) -> QString {
+                    if (score >= 6.0)  return st.DangerAction;     // 위험
+                    if (score >= 3.0)  return st.Warning;          // 경고
+                    return st.Primary;                              // 안전 (파랑)
+                };
+
+                if (isDanger || isSafe) {
+                    const bool dangerCase = isDanger;
+                    setMascot(dangerCase ? ":/icons/detect_bad.png" : ":/icons/detect_good.png");
+                    scanBadge->setText(trMW("검사 완료"));
+                    setBadgeStyle(scanBadge, dangerCase ? st.DangerAction : st.Primary);
+                    if (dangerCase) {
+                        scanTitle->setText(trMW("검사 결과 <span style='color:%1;'>위험</span>").arg(st.DangerAction));
+                        scanTitle->setStyleSheet(QString("font-size: 22px; color: %1; background: transparent; border: none;").arg(st.DangerAction));
+                        scanDescription->setText(trMW("이 장치에서 위험한 입력 패턴이 감지되어 차단을 권장합니다."));
+                        setStatusBadge(statusBadge, trMW("자동 차단됨"), st.DangerAction);
+                    } else {
+                        scanTitle->setText(trMW("검사 결과 <span style='color:%1;'>안전</span>").arg(st.Primary));
+                        scanTitle->setStyleSheet(QString("font-size: 22px; color: %1; background: transparent; border: none;").arg(st.Text));
+                        scanDescription->setText(trMW("이 장치는 현재까지 확인된 위험 패턴이 없어 안전한 장치로 판단되었습니다."));
+                        setStatusBadge(statusBadge, trMW("안전"), st.Primary);
+                    }
+                    // 4개 검사 행 — 고정 라벨 + 행별 점수 기반 색상
+                    const QStringList resultRows = {
+                        trMW("자동 입력 패턴 검사"),
+                        trMW("명령/실행 패턴 검사"),
+                        trMW("위험 단축키 조합 검사"),
+                        trMW("의심 URL / 실행 파일 검사")
+                    };
+                    for (int i = 0; i < scanRowLabels.size() && i < resultRows.size(); ++i)
+                        scanRowLabels[i]->setText(resultRows[i]);
+                    setRowDots(0, tierColor(snapshot.typingScore));
+                    setRowDots(1, tierColor(snapshot.threat.session_score));
+                    setRowDots(2, tierColor(snapshot.hotkey.final_score));
+                    setRowDots(3, tierColor(snapshot.urlScore));
+                    return;
+                }
+
                 setMascot(":/icons/detecting.png");
                 scanBadge->setText(trMW("검사중"));
                 setBadgeStyle(scanBadge, st.Primary);
@@ -2025,9 +2030,10 @@ namespace
                 scanDescription->setText(trMW("입력이 멈춘 뒤 3초 동안 패턴을 종합해 안전 여부를 확인합니다."));
                 setStatusBadge(statusBadge, trMW("검사중"), st.PrimaryHover);
                 const QStringList scanningRows = {
-                    trMW("입력 패턴 분석 중"),
-                    trMW("명령/실행 패턴 확인 중"),
-                    trMW("URL 및 위험 조합 확인 중")
+                    trMW("자동 입력 패턴 검사"),
+                    trMW("명령/실행 패턴 검사"),
+                    trMW("위험 단축키 조합 검사"),
+                    trMW("의심 URL / 실행 파일 검사")
                 };
                 for (int i = 0; i < scanRowLabels.size() && i < scanningRows.size(); ++i)
                     scanRowLabels[i]->setText(scanningRows[i]);
@@ -2036,7 +2042,7 @@ namespace
                 QString dots;
                 for (int i = 0; i < 6; ++i)
                     dots += i < activeCount ? "●" : "○";
-                setDots(dots, st.PrimaryHover, true);
+                setAllDots(dots, st.PrimaryHover, true);
             };
             updateScanStatus();
 
@@ -4161,7 +4167,7 @@ QWidget* MainWindow::createAnalyticsPage()
         hotkeyScoreValue = addRow(tr("핫키 위험도"), "0.0 / 10.0");
         threatScoreValue = addRow(tr("현재 위협 점수"), "0.0 / 10.0", true);
         levelValue = addRow(tr("판정 등급"),  "SAFE");
-        addRow(tr("설정된 임계값"),  "8.0");
+        addRow(tr("설정된 임계값"),  "7.5");
 
         bL->addStretch();
         scL->addWidget(body, 1);
@@ -4375,7 +4381,7 @@ QWidget* MainWindow::createSettingsPage()
         cbAutostart->setFont(pretendardFont(FontRole::Medium));
         wl->addWidget(cbAutostart);
 
-        cbShowMain = new QCheckBox(tr("시작 시 메인 창 표시"));
+        cbShowMain = new QCheckBox(tr("Windows 시작 시 메인 창 표시"));
         cbShowMain->setObjectName("settingsCheck");
         cbShowMain->setFont(pretendardFont(FontRole::Medium));
         wl->addWidget(cbShowMain);
@@ -4768,7 +4774,7 @@ QWidget* MainWindow::createHelpPage()
         cl->addSpacing(16);
         for (const auto& b : {
             tr("명령어, URL, 입력 속도, 핫키 패턴을 함께 분석해 종합 위험 점수를 계산합니다."),
-            tr("위험 점수가 설정된 임계치(기본 8.0 / 10.0)에 도달하면 BadUSB 또는 자동화 공격으로 간주합니다."),
+            tr("위험 점수가 설정된 임계치(기본 7.5 / 10.0)에 도달하면 BadUSB 또는 자동화 공격으로 간주합니다."),
             tr("정책에 따라 해당 장치를 차단하고 입력을 무효화합니다."),
         }) makeBullet(b, cl);
         cl->addStretch();
@@ -5035,7 +5041,7 @@ QWidget* MainWindow::createPolicySummaryPage()
 
     const QList<QStringList> rows = {
         {tr("미등록 장치 동작"), tr("분석 후 승인"),   "policyValueText"},
-        {tr("행위 분석 임계값"), "8.0 / 10",           "policyValueText"},
+        {tr("행위 분석 임계값"), "7.5 / 10",           "policyValueText"},
         {tr("로그 보관 기간"),   _retLabel,               "policyValueText"},
         {tr("실시간 모니터링"),  tr("사용 중"),         "policySuccessText"},
     };
