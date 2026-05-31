@@ -94,7 +94,10 @@ if(BUILD_QT_UI)
         Capstone/UIQt/TrayWidget.h
         Capstone/UIQt/TrayWidget.cpp
         Capstone/UIQt/Theme.h
+        Capstone/UIQt/WinNotify.h
+        Capstone/UIQt/WinNotify.cpp
         Capstone/UIQt/Assets/ui.qrc
+        Capstone/UIQt/Assets/app_icon.rc
     )
 
     target_link_libraries(CapstoneQtApp PRIVATE

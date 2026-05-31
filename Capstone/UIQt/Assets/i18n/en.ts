@@ -128,6 +128,11 @@
     <message><source>초기화</source><translation>Reset</translation></message>
     <message><source>Windows 시작 시 자동 실행</source><translation>Launch on Windows startup</translation></message>
     <message><source>시작 시 메인 창 표시</source><translation>Show main window on startup</translation></message>
+    <message><source>Windows 시작 시 메인 창 표시</source><translation>Show main window on Windows startup</translation></message>
+    <message><source>로그 원문</source><translation>Log Raw Text</translation></message>
+    <message><source>장치 정보 없음</source><translation>No device info</translation></message>
+    <message><source>복사</source><translation>Copy</translation></message>
+    <message><source>닫기</source><translation>Close</translation></message>
     <message><source>화면 테마</source><translation>Theme</translation></message>
     <message><source>시스템</source><translation>System</translation></message>
     <message><source>라이트</source><translation>Light</translation></message>
@@ -141,6 +146,9 @@
     <message><source>알림</source><translation>Notifications</translation></message>
     <message><source>위험 감지 시 알림 표시</source><translation>Show alert on threat detected</translation></message>
     <message><source>알림 소리</source><translation>Alert sound</translation></message>
+    <message><source>알림 켜기</source><translation>Enable notifications</translation></message>
+    <message><source>위험 알림 표시</source><translation>Show risk notifications</translation></message>
+    <message><source>차단을 해제했습니다. 장치를 다시 꽂으면 분석을 시작합니다.</source><translation>Block removed. Reconnect the device to begin analysis.</translation></message>
     <message><source>알림 위치</source><translation>Alert position</translation></message>
     <message><source>우측 하단</source><translation>Bottom right</translation></message>
     <message><source>우측 상단</source><translation>Top right</translation></message>
@@ -170,7 +178,17 @@ The language will change after you fully quit it from the tray icon ("Quit") and
 
     <!-- ── 공통 ── -->
     <message><source>새로고침</source><translation>Refresh</translation></message>
-    <message><source>닫기</source><translation>Close</translation></message>
+    <message><source>입력 속도/패턴에서 일부 자동화 의심 신호가 감지되었습니다.</source><translation>Some automated-typing suspicion signals were detected in the input speed/pattern.</translation></message>
+    <message><source>자동 입력 패턴 검사 — 정상</source><translation>Automated typing pattern check — Normal</translation></message>
+    <message><source>명령/실행 관련 신호가 일부 감지되었습니다.</source><translation>Some command/execution related signals were detected.</translation></message>
+    <message><source>명령/실행 패턴 검사 — 정상</source><translation>Command / execution pattern check — Normal</translation></message>
+    <message><source>주의가 필요한 단축키 조합이 감지되었습니다.</source><translation>A hotkey combination requiring attention was detected.</translation></message>
+    <message><source>위험 단축키 조합 검사 — 정상</source><translation>Dangerous hotkey combination check — Normal</translation></message>
+    <message><source>URL/실행 파일 관련 의심 신호가 일부 감지되었습니다.</source><translation>Some URL / executable suspicion signals were detected.</translation></message>
+    <message><source>의심 URL / 실행 파일 검사 — 정상</source><translation>Suspicious URL / executable check — Normal</translation></message>
+    <message><source>위험한 입력 패턴이 감지되어 차단을 권장합니다.
+%1</source><translation>Dangerous input patterns detected — blocking is recommended.
+%1</translation></message>
     <message><source>취소</source><translation>Cancel</translation></message>
     <message><source>적용</source><translation>Apply</translation></message>
     <message><source>없음</source><translation>None</translation></message>
@@ -291,6 +309,10 @@ The language will change after you fully quit it from the tray icon ("Quit") and
     <message><source>입력 패턴 분석 중</source><translation>Analyzing input patterns</translation></message>
     <message><source>명령/실행 패턴 확인 중</source><translation>Checking command / execution patterns</translation></message>
     <message><source>URL 및 위험 조합 확인 중</source><translation>Checking URLs and risky combinations</translation></message>
+    <message><source>자동 입력 패턴 검사</source><translation>Automated typing pattern check</translation></message>
+    <message><source>명령/실행 패턴 검사</source><translation>Command / execution pattern check</translation></message>
+    <message><source>위험 단축키 조합 검사</source><translation>Dangerous hotkey combination check</translation></message>
+    <message><source>의심 URL / 실행 파일 검사</source><translation>Suspicious URL / executable check</translation></message>
     <message><source>마지막 입력 후 3초 동안 추가 입력이 없으면 검사 결과를 안내합니다.</source><translation>If no additional input occurs within 3 seconds after the last keystroke, the scan result will be shown.</translation></message>
     <message><source>입력이 멈춘 뒤 3초 동안 패턴을 종합해 안전 여부를 확인합니다.</source><translation>After input stops, patterns are aggregated over 3 seconds to determine safety.</translation></message>
     <message><source>이 장치에서 위험한 입력 패턴이 감지되어 차단을 권장합니다.</source><translation>Dangerous input patterns were detected on this device; blocking is recommended.</translation></message>

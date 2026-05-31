@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
     appFont.setHintingPreference(QFont::PreferNoHinting);
     app.setFont(appFont);
     app.setStyleSheet(UiTheme::appStyle());
-    app.setWindowIcon(QIcon(":/icons/brand-mark.png"));
+    app.setWindowIcon(QIcon(":/icons/app_icon.ico"));
 
     // Keep the app alive when the main window is closed/hidden to tray
     app.setQuitOnLastWindowClosed(false);
