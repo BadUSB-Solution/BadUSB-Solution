@@ -109,6 +109,7 @@ Source: "{#SourceExePath}"; DestDir: "{app}"; DestName: "{#AppExeName}"; Flags: 
 
 ; ── 시그니처 DB
 Source: "{#SourceDbPath}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "assets\icon.ico"; DestDir: "{app}"; DestName: "app_icon.ico"; Flags: ignoreversion
 ; HID 스캔 PowerShell 스크립트 — 인스톨러 EXE 안에 묶고, {tmp} 에 일시 추출
 ;   본체 hid_fingerprint.cpp 와 동일 로직 (ContainerId 통합 + 부모 chain 이름 탐색)
 Source: "scripts\hid_scan.ps1"; Flags: dontcopy
@@ -137,11 +138,11 @@ Source: "{#SourceDir}\translations\*";       DestDir: "{app}\translations";     
 
 [Icons]
 ; 시작 메뉴 단축키
-Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"; Tasks: menuicon
-Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"; IconFilename: "{app}\{#AppExeName}"; Tasks: menuicon
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\app_icon.ico"; Tasks: menuicon
+Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"; IconFilename: "{app}\app_icon.ico"; Tasks: menuicon
 
 ; 바탕화면 단축키
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\app_icon.ico"; Tasks: desktopicon
 
 [Run]
 ; 설치 완료 후 즉시 실행 (사용자가 체크박스 선택 시)
