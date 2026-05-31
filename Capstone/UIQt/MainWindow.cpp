@@ -3,6 +3,7 @@
 #include "Theme.h"
 
 #include <QButtonGroup>
+#include <QBoxLayout>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QGuiApplication>
@@ -24,6 +25,7 @@
 #include <QFrame>
 #include <QFont>
 #include <QFontDatabase>
+#include <QGridLayout>
 #include <QHeaderView>
 #include <QHBoxLayout>
 #include <QIcon>
@@ -40,6 +42,7 @@
 #include <QPixmap>
 #include <QPushButton>
 #include <QRadioButton>
+#include <QResizeEvent>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QShortcut>
@@ -118,6 +121,43 @@ namespace
     }
 
     enum class FontRole { Regular, Medium, SemiBold, Bold };
+    enum class DashboardLayoutMode { Narrow = 0, Medium = 1, Wide = 2 };
+
+    DashboardLayoutMode dashboardLayoutModeForWidth(int width)
+    {
+        if (width >= 1320) return DashboardLayoutMode::Wide;
+        if (width >= 1100) return DashboardLayoutMode::Medium;
+        return DashboardLayoutMode::Narrow;
+    }
+
+    class ResponsiveGridLayout final : public QGridLayout
+    {
+    public:
+        using QGridLayout::addWidget;
+
+        explicit ResponsiveGridLayout(int columns)
+            : columns_((std::max)(1, columns))
+        {
+        }
+
+        void addWidget(QWidget* widget)
+        {
+            QGridLayout::addWidget(widget, itemCount_ / columns_, itemCount_ % columns_);
+            ++itemCount_;
+        }
+
+        void addWidget(QWidget* widget, int stretch)
+        {
+            const int column = itemCount_ % columns_;
+            QGridLayout::addWidget(widget, itemCount_ / columns_, column);
+            setColumnStretch(column, (std::max)(stretch, 0));
+            ++itemCount_;
+        }
+
+    private:
+        int columns_ = 1;
+        int itemCount_ = 0;
+    };
 
     QFont pretendardFont(FontRole role);
 
@@ -1525,7 +1565,9 @@ namespace
         // setModal(true) was blocking all input to the main window even when
         // the dialog was opened manually without a suspected device.
         dlg->setModal(false);
-        dlg->setFixedSize(1024, 790);
+        dlg->resize(1024, 790);
+        dlg->setMinimumSize(900, 700);
+        dlg->setSizeGripEnabled(true);
         {
             const auto& dt = UiTheme::tokens();
             dlg->setStyleSheet(QString(
@@ -2328,7 +2370,7 @@ MainWindow::MainWindow(QWidget* parent)
     // 초기 창 크기를 축소 — 반응형으로 모든 컴포넌트가 작은 화면에서도 자연스럽게 배치되도록 함.
     // 최소 크기도 함께 낮춰 사용자가 더 작은 창으로 조정 가능.
     resize(1180, 760);
-    setMinimumSize(960, 640);
+    setMinimumSize(900, 620);
     setWindowTitle("Abang-All");
     applyThemeFromSettings();
 
@@ -2664,6 +2706,29 @@ void MainWindow::closeEvent(QCloseEvent* event)
     notifyBackgroundRunning();
 }
 
+void MainWindow::resizeEvent(QResizeEvent* event)
+{
+    QMainWindow::resizeEvent(event);
+
+    const int nextMode = static_cast<int>(dashboardLayoutModeForWidth(width()));
+    if (!pages_) {
+        dashboardLayoutMode_ = nextMode;
+        return;
+    }
+
+    if (nextMode == dashboardLayoutMode_)
+        return;
+
+    dashboardLayoutMode_ = nextMode;
+    if (currentPage_ == 0) {
+        replacePage(0, createDashboardPage());
+        pages_->setCurrentIndex(0);
+        refreshNavState();
+    } else {
+        dashboardStale_ = true;
+    }
+}
+
 MainWindow::~MainWindow()
 {
 #ifdef Q_OS_WIN
@@ -2710,21 +2775,49 @@ QPushButton* MainWindow::addTopNavButton(const QString& text, int pageIndex)
 QWidget* MainWindow::createDashboardPage()
 {
     auto* page = new QWidget;
-    auto* layout = new QVBoxLayout(page);
-    layout->setContentsMargins(100, 24, 100, 32);
+    auto* pageLayout = new QVBoxLayout(page);
+    pageLayout->setContentsMargins(0, 0, 0, 0);
+    pageLayout->setSpacing(0);
+
+    auto* scrollArea = new QScrollArea;
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setStyleSheet("QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: none; }");
+    scrollArea->viewport()->setAutoFillBackground(false);
+
+    auto* content = new QWidget;
+    scrollArea->setWidget(content);
+    pageLayout->addWidget(scrollArea, 1);
+
+    const DashboardLayoutMode mode = dashboardLayoutModeForWidth(width());
+    dashboardLayoutMode_ = static_cast<int>(mode);
+    const int sideMargin = mode == DashboardLayoutMode::Wide ? 80
+                         : mode == DashboardLayoutMode::Medium ? 48
+                         : 24;
+    const int statColumns = mode == DashboardLayoutMode::Wide ? 4 : 2;
+    const int sectionColumns = mode == DashboardLayoutMode::Narrow ? 1 : 2;
+
+    auto* layout = new QVBoxLayout(content);
+    layout->setContentsMargins(sideMargin, 24, sideMargin, 32);
     layout->setSpacing(16);
 
     // Header
     {
-        auto* header = new QHBoxLayout;
+        auto* header = new QBoxLayout(mode == DashboardLayoutMode::Narrow
+            ? QBoxLayout::TopToBottom
+            : QBoxLayout::LeftToRight);
         auto* titleBox = new QVBoxLayout;
         titleBox->setSpacing(4);
         titleBox->addWidget(label(tr("대시보드"), "pageTitle"));
         titleBox->addWidget(label(tr("시스템 보안 상태 및 주요 이벤트를 모니터링합니다."), "pageSubtitle"));
         header->addLayout(titleBox);
-        header->addStretch();
+        if (mode != DashboardLayoutMode::Narrow)
+            header->addStretch();
         header->addWidget(label(tr("마지막 업데이트: ") + nowTimestamp(), "mutedText"));
-        header->addSpacing(16);
+        if (mode != DashboardLayoutMode::Narrow)
+            header->addSpacing(16);
         auto* bufferButton = new QPushButton(tr("장치 위험도 모니터링 열기"));
         bufferButton->setObjectName("bufferButton");
         bufferButton->setFont(pretendardFont(FontRole::SemiBold));
@@ -2790,18 +2883,20 @@ QWidget* MainWindow::createDashboardPage()
 
     // Stat cards
     {
-        auto* stats = new QHBoxLayout;
+        auto* stats = new ResponsiveGridLayout(statColumns);
         stats->setSpacing(16);
         stats->addWidget(createStatCard(tr("허용 장치"),   QString::number(allowedCount), tr("현재 허용된 장치"),      ":/icons/status-allowed.svg"));
         stats->addWidget(createStatCard(tr("차단 장치"),   QString::number(blockedCount), tr("현재 차단된 장치"),      ":/icons/status-blocked.svg"));
         stats->addWidget(createStatCard(tr("승인 대기"),   QString::number(pendingCount), tr("승인 대기 중인 장치"),   ":/icons/status-clock.svg"));
         stats->addWidget(createStatCard(tr("보안 이벤트"), QString::number(eventCount),   tr("로그 기록 기준"),        ":/icons/status-warning.svg"));
+        for (int c = 0; c < statColumns; ++c)
+            stats->setColumnStretch(c, 1);
         layout->addLayout(stats);
     }
 
     // Middle row: Protection + Event log
     {
-        auto* bodyRow = new QHBoxLayout;
+        auto* bodyRow = new ResponsiveGridLayout(sectionColumns);
         bodyRow->setSpacing(16);
 
         // Protection status card
@@ -2970,7 +3065,7 @@ QWidget* MainWindow::createDashboardPage()
 
     // Bottom row: device list + policy summary
     {
-        auto* bottomRow = new QHBoxLayout;
+        auto* bottomRow = new ResponsiveGridLayout(sectionColumns);
         bottomRow->setSpacing(16);
         auto* viewAllBtn = new QPushButton(tr("전체 보기 >"));
         viewAllBtn->setCursor(Qt::PointingHandCursor);
@@ -5420,7 +5515,7 @@ QWidget* MainWindow::createStatCard(const QString& title, const QString& number,
     numberRow->addWidget(label(description, "mutedText"));
     numberRow->addStretch();
     textBox->addLayout(numberRow);
-    layout->addLayout(textBox);
+    layout->addLayout(textBox, 1);
     layout->addStretch();
     return frame;
 }

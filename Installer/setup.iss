@@ -18,7 +18,9 @@
 #define AppPublisher   "AbangAll Team"
 #define AppExeName     "AbangAll.exe"
 ; Qt UI 빌드 산출물 디렉터리 (CMake가 windeployqt까지 자동 처리해서 모든 Qt 의존성 동봉됨)
+#ifndef SourceDir
 #define SourceDir      "..\build-qt\Release"
+#endif
 #define SourceExePath  SourceDir + "\CapstoneQtApp.exe"
 #define SourceDbPath   SourceDir + "\matchingDB.db"
 
@@ -135,11 +137,11 @@ Source: "{#SourceDir}\translations\*";       DestDir: "{app}\translations";     
 
 [Icons]
 ; 시작 메뉴 단축키
-Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: menuicon
-Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"; Tasks: menuicon
+Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"; Tasks: menuicon
+Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"; IconFilename: "{app}\{#AppExeName}"; Tasks: menuicon
 
 ; 바탕화면 단축키
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; IconFilename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Run]
 ; 설치 완료 후 즉시 실행 (사용자가 체크박스 선택 시)

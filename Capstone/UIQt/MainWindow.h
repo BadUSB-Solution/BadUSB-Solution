@@ -14,6 +14,7 @@ class QButtonGroup;
 class QFrame;
 class QLabel;
 class QPushButton;
+class QResizeEvent;
 class QStackedWidget;
 class QSystemTrayIcon;
 class QTableWidget;
@@ -36,6 +37,7 @@ public:
 protected:
     bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
     void closeEvent(QCloseEvent* event) override;
+    void resizeEvent(QResizeEvent* event) override;
 
 private:
     struct UsbRowData {
@@ -89,6 +91,7 @@ private:
     QTableWidget* logTable_ = nullptr;
     int lastLogLineCount_ = 0;
     bool dashboardStale_ = false;
+    int dashboardLayoutMode_ = -1;
     bool usbListStale_ = false;
     UiTheme::ThemeMode themeMode_ = UiTheme::ThemeMode::Light;
 
