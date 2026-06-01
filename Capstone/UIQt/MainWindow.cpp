@@ -5336,7 +5336,7 @@ void MainWindow::showContactSupportDialog()
     root->addWidget(note);
 
     // 발신자 이메일
-    auto* emailLbl = new QLabel(tr("회신 받을 이메일"));
+    auto* emailLbl = new QLabel(tr("회신 받을 이메일 (선택)"));
     emailLbl->setFont(pretendardFont(FontRole::Medium));
     root->addWidget(emailLbl);
     auto* emailEdit = new QLineEdit;
@@ -5353,6 +5353,15 @@ void MainWindow::showContactSupportDialog()
     typeCombo->addItem(tr("버그 신고"), QStringLiteral("bug"));
     root->addWidget(typeCombo);
 
+    auto* methodLbl = new QLabel(tr("전송 방식"));
+    methodLbl->setFont(pretendardFont(FontRole::Medium));
+    root->addWidget(methodLbl);
+    auto* methodCombo = new QComboBox;
+    methodCombo->addItem(tr("기본 메일 앱으로 열기 (Outlook 등)"), QStringLiteral("mailto"));
+    methodCombo->addItem(tr("Gmail 웹으로 열기 (Chrome/Edge)"), QStringLiteral("gmail"));
+    methodCombo->addItem(tr("Outlook 웹으로 열기 (Chrome/Edge)"), QStringLiteral("outlook_web"));
+    root->addWidget(methodCombo);
+
     // 본문
     auto* msgLbl = new QLabel(tr("내용"));
     msgLbl->setFont(pretendardFont(FontRole::Medium));
@@ -5366,7 +5375,7 @@ void MainWindow::showContactSupportDialog()
     auto* btnRow = new QHBoxLayout;
     btnRow->addStretch();
     auto* cancelBtn = new QPushButton(tr("취소"));
-    auto* sendBtn = new QPushButton(tr("메일 앱으로 열기"));
+    auto* sendBtn = new QPushButton(tr("작성 창 열기"));
     sendBtn->setObjectName("primaryButton");
     sendBtn->setDefault(true);
     btnRow->addWidget(cancelBtn);
@@ -5378,11 +5387,12 @@ void MainWindow::showContactSupportDialog()
         const QString senderEmail = emailEdit->text().trimmed();
         const QString reportType = typeCombo->currentText();
         const QString reportKey = typeCombo->currentData().toString();
+        const QString sendMethod = methodCombo->currentData().toString();
         const QString body = msgEdit->toPlainText().trimmed();
 
-        if (senderEmail.isEmpty() || body.isEmpty()) {
+        if (body.isEmpty()) {
             QMessageBox::warning(&dlg, tr("입력 누락"),
-                tr("이메일과 내용을 모두 입력해주세요."));
+                tr("문의 내용을 입력해주세요."));
             return;
         }
 
@@ -5393,7 +5403,10 @@ void MainWindow::showContactSupportDialog()
         QString bodyText;
         bodyText += tr("──── 사용자 입력 ────") + "\n";
         bodyText += tr("신고 유형: ") + reportType + "\n";
-        bodyText += tr("회신 이메일: ") + senderEmail + "\n\n";
+        if (!senderEmail.isEmpty()) {
+            bodyText += tr("회신 이메일: ") + senderEmail + "\n";
+        }
+        bodyText += "\n";
         bodyText += tr("내용:") + "\n";
         bodyText += body + "\n\n";
         bodyText += tr("──── 시스템 정보 (자동 첨부) ────") + "\n";
@@ -5401,13 +5414,28 @@ void MainWindow::showContactSupportDialog()
         bodyText += QString("App: Abang-All\n");
         bodyText += QString("Timestamp: %1\n").arg(QDateTime::currentDateTime().toString(Qt::ISODate));
 
-        QUrl mailto(QStringLiteral("mailto:tember8003@mju.ac.kr"));
+        QUrl composeUrl;
         QUrlQuery query;
-        query.addQueryItem(QStringLiteral("subject"), subject);
-        query.addQueryItem(QStringLiteral("body"), bodyText);
-        mailto.setQuery(query);
+        if (sendMethod == QStringLiteral("gmail")) {
+            composeUrl = QUrl(QStringLiteral("https://mail.google.com/mail/"));
+            query.addQueryItem(QStringLiteral("view"), QStringLiteral("cm"));
+            query.addQueryItem(QStringLiteral("fs"), QStringLiteral("1"));
+            query.addQueryItem(QStringLiteral("to"), QStringLiteral("tember8003@mju.ac.kr"));
+            query.addQueryItem(QStringLiteral("su"), subject);
+            query.addQueryItem(QStringLiteral("body"), bodyText);
+        } else if (sendMethod == QStringLiteral("outlook_web")) {
+            composeUrl = QUrl(QStringLiteral("https://outlook.office.com/mail/deeplink/compose"));
+            query.addQueryItem(QStringLiteral("to"), QStringLiteral("tember8003@mju.ac.kr"));
+            query.addQueryItem(QStringLiteral("subject"), subject);
+            query.addQueryItem(QStringLiteral("body"), bodyText);
+        } else {
+            composeUrl = QUrl(QStringLiteral("mailto:tember8003@mju.ac.kr"));
+            query.addQueryItem(QStringLiteral("subject"), subject);
+            query.addQueryItem(QStringLiteral("body"), bodyText);
+        }
+        composeUrl.setQuery(query);
 
-        if (!QDesktopServices::openUrl(mailto)) {
+        if (!QDesktopServices::openUrl(composeUrl)) {
             QMessageBox::warning(&dlg, tr("메일 앱 열기 실패"),
                 tr("기본 메일 앱을 열지 못했습니다. 시스템에 메일 클라이언트가 설정되어 있는지 확인해주세요."));
             return;
