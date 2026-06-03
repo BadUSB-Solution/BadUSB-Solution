@@ -2796,6 +2796,16 @@ void MainWindow::closeEvent(QCloseEvent* event)
     }
     // X 버튼으로 닫아도 HWND를 살려야 WM_DEVICECHANGE + 키보드 훅이 유지됨.
     // 트레이로 숨기고 이벤트를 무시해 실제 파괴를 막는다.
+    QMessageBox msg(this);
+    msg.setIcon(QMessageBox::Information);
+    msg.setWindowTitle(tr("백그라운드 실행 안내"));
+    msg.setText(tr("창을 닫아도 Abang-All은 백그라운드에서 계속 모니터링합니다."));
+    msg.setInformativeText(tr("완전히 종료하려면 작업 표시줄 트레이 아이콘을 우클릭한 뒤 \"종료\"를 선택하세요."));
+    msg.setStandardButtons(QMessageBox::Ok);
+    if (auto* ok = msg.button(QMessageBox::Ok))
+        ok->setText(tr("확인"));
+    msg.exec();
+
     event->ignore();
     hide();
     notifyBackgroundRunning();

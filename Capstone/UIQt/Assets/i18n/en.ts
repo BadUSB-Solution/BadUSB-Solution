@@ -364,6 +364,9 @@ When key input is detected from an unregistered HID device, it will be shown her
 16진수 형식으로 표시됩니다.</source><translation>Waiting for input...
 Shown in hexadecimal format.</translation></message>
     <message><source>백그라운드에서 계속 모니터링 중입니다.</source><translation>Continuing to monitor in the background.</translation></message>
+    <message><source>백그라운드 실행 안내</source><translation>Background Running Notice</translation></message>
+    <message><source>창을 닫아도 Abang-All은 백그라운드에서 계속 모니터링합니다.</source><translation>Closing the window keeps Abang-All monitoring in the background.</translation></message>
+    <message><source>완전히 종료하려면 작업 표시줄 트레이 아이콘을 우클릭한 뒤 "종료"를 선택하세요.</source><translation>To fully quit, right-click the taskbar tray icon and choose "Quit".</translation></message>
     <message><source>차단된 장치가 연결되었습니다.
 %1</source><translation>A blocked device has been connected.
 %1</translation></message>
