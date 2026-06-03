@@ -22,10 +22,12 @@
 #include <QDateTime>
 #include <QDialog>
 #include <QDir>
+#include <QEasingCurve>
 #include <QFrame>
 #include <QFont>
 #include <QFontDatabase>
 #include <QFontMetrics>
+#include <QGraphicsOpacityEffect>
 #include <QGridLayout>
 #include <QHeaderView>
 #include <QHBoxLayout>
@@ -42,12 +44,14 @@
 #include <QPaintEvent>
 #include <QPixmap>
 #include <QPushButton>
+#include <QPropertyAnimation>
 #include <QRadioButton>
 #include <QResizeEvent>
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QShortcut>
 #include <QSize>
+#include <QScreen>
 #include <QSpacerItem>
 #include <QStackedWidget>
 #include <QSettings>
@@ -57,6 +61,7 @@
 #include <QTableWidgetItem>
 #include <QTextEdit>
 #include <QTimer>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <QDesktopServices>
 #include <QMessageBox>
@@ -620,6 +625,103 @@ namespace
         if (!WinNotify::notify(finalTitle, finalMessage, /*silent=*/!soundOn, notificationDurationMs()) && trayIcon) {
             trayIcon->showMessage(finalTitle, finalMessage, QSystemTrayIcon::Warning, notificationDurationMs());
         }
+    }
+
+    void showBackgroundRunningToast(const QRect& anchorGeometry)
+    {
+        const auto& t = UiTheme::tokens();
+        auto* toast = new QFrame(nullptr, Qt::Tool | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        toast->setAttribute(Qt::WA_DeleteOnClose);
+        toast->setObjectName("backgroundToast");
+        toast->setFixedWidth(360);
+        toast->setStyleSheet(QString(
+            "QFrame#backgroundToast {"
+            "background:%1;"
+            "border:1px solid %2;"
+            "border-radius:10px;"
+            "}"
+            "QLabel#toastTitle { color:%3; font-size:14px; font-weight:700; }"
+            "QLabel#toastBody { color:%4; font-size:12px; }"
+            "QToolButton#toastClose {"
+            "color:%5;"
+            "background:transparent;"
+            "border:none;"
+            "border-radius:12px;"
+            "font-size:16px;"
+            "font-weight:700;"
+            "}"
+            "QToolButton#toastClose:hover { background:%6; color:%3; }")
+            .arg(t.Surface, t.Border, t.Text, t.TextMid, t.TextMuted, t.HoverSurface));
+
+        auto* root = new QHBoxLayout(toast);
+        root->setContentsMargins(16, 14, 16, 14);
+        root->setSpacing(12);
+
+        auto* icon = new QLabel;
+        icon->setPixmap(QIcon(":/icons/brand-mark.png").pixmap(28, 28));
+        root->addWidget(icon, 0, Qt::AlignTop);
+
+        auto* textCol = new QVBoxLayout;
+        textCol->setSpacing(4);
+        auto* title = new QLabel(trMW("백그라운드 모니터링 중"));
+        title->setObjectName("toastTitle");
+        title->setFont(pretendardFont(FontRole::SemiBold));
+        auto* body = new QLabel(trMW("창은 숨겨졌고 USB 장치 감시는 계속 실행됩니다."));
+        body->setObjectName("toastBody");
+        body->setWordWrap(true);
+        body->setFont(pretendardFont(FontRole::Regular));
+        textCol->addWidget(title);
+        textCol->addWidget(body);
+        root->addLayout(textCol, 1);
+
+        auto* closeBtn = new QToolButton;
+        closeBtn->setObjectName("toastClose");
+        closeBtn->setText(QStringLiteral("×"));
+        closeBtn->setCursor(Qt::PointingHandCursor);
+        closeBtn->setFixedSize(26, 26);
+        closeBtn->setToolTip(trMW("닫기"));
+        root->addWidget(closeBtn, 0, Qt::AlignTop);
+
+        toast->adjustSize();
+
+        QScreen* screen = QGuiApplication::screenAt(anchorGeometry.center());
+        if (!screen)
+            screen = QGuiApplication::primaryScreen();
+        const QRect available = screen ? screen->availableGeometry() : anchorGeometry;
+        const QPoint target(available.right() - toast->width() - 24,
+                            available.bottom() - toast->height() - 24);
+        toast->move(target + QPoint(0, 12));
+
+        auto* opacity = new QGraphicsOpacityEffect(toast);
+        opacity->setOpacity(0.0);
+        toast->setGraphicsEffect(opacity);
+        toast->show();
+
+        auto* fadeIn = new QPropertyAnimation(opacity, "opacity", toast);
+        fadeIn->setDuration(160);
+        fadeIn->setStartValue(0.0);
+        fadeIn->setEndValue(1.0);
+        fadeIn->start(QAbstractAnimation::DeleteWhenStopped);
+
+        auto* slideIn = new QPropertyAnimation(toast, "pos", toast);
+        slideIn->setDuration(180);
+        slideIn->setStartValue(toast->pos());
+        slideIn->setEndValue(target);
+        slideIn->setEasingCurve(QEasingCurve::OutCubic);
+        slideIn->start(QAbstractAnimation::DeleteWhenStopped);
+
+        QObject::connect(closeBtn, &QToolButton::clicked, toast, [toast] {
+            toast->close();
+        });
+
+        QTimer::singleShot(3000, toast, [toast, opacity] {
+            auto* fadeOut = new QPropertyAnimation(opacity, "opacity", toast);
+            fadeOut->setDuration(420);
+            fadeOut->setStartValue(opacity->opacity());
+            fadeOut->setEndValue(0.0);
+            QObject::connect(fadeOut, &QPropertyAnimation::finished, toast, &QWidget::close);
+            fadeOut->start(QAbstractAnimation::DeleteWhenStopped);
+        });
     }
 
 #ifdef Q_OS_WIN
@@ -2767,11 +2869,7 @@ void MainWindow::refreshTrayWidget()
 
 void MainWindow::notifyBackgroundRunning()
 {
-    // 정보성 안내 — 위험 알림이 아니므로 항상 무음 (NIIF_NOSOUND)
-    // 사용자가 단순히 X를 눌러 트레이로 숨겼을 때 소리까지 나면 거슬림
-    WinNotify::notify(QStringLiteral("Abang-All"),
-                      tr("백그라운드에서 계속 모니터링 중입니다."),
-                      /*silent=*/true, notificationDurationMs());
+    showBackgroundRunningToast(frameGeometry());
 }
 
 void MainWindow::notifyRiskDetected(const QString& message)
@@ -2796,19 +2894,10 @@ void MainWindow::closeEvent(QCloseEvent* event)
     }
     // X 버튼으로 닫아도 HWND를 살려야 WM_DEVICECHANGE + 키보드 훅이 유지됨.
     // 트레이로 숨기고 이벤트를 무시해 실제 파괴를 막는다.
-    QMessageBox msg(this);
-    msg.setIcon(QMessageBox::Information);
-    msg.setWindowTitle(tr("백그라운드 실행 안내"));
-    msg.setText(tr("창을 닫아도 Abang-All은 백그라운드에서 계속 모니터링합니다."));
-    msg.setInformativeText(tr("완전히 종료하려면 작업 표시줄 트레이 아이콘을 우클릭한 뒤 \"종료\"를 선택하세요."));
-    msg.setStandardButtons(QMessageBox::Ok);
-    if (auto* ok = msg.button(QMessageBox::Ok))
-        ok->setText(tr("확인"));
-    msg.exec();
-
+    const QRect toastAnchor = frameGeometry();
     event->ignore();
     hide();
-    notifyBackgroundRunning();
+    showBackgroundRunningToast(toastAnchor);
 }
 
 void MainWindow::resizeEvent(QResizeEvent* event)
