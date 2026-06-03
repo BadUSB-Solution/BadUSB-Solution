@@ -20,7 +20,7 @@ namespace WinNotify
 {
     // 알림 발사. silent=true 면 Windows 자체 알림음 OFF.
     // (호출자가 별도 QApplication::beep() 를 통해 소리 제어)
-    void notify(const QString& title, const QString& body, bool silent, int timeoutMs);
+    bool notify(const QString& title, const QString& body, bool silent, int timeoutMs);
 
     // 앱 종료 시 정리 — 등록한 트레이 아이콘 제거.
     void cleanup();

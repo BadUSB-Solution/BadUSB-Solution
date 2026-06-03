@@ -131,7 +131,6 @@
     <message><source>Windows 시작 시 메인 창 표시</source><translation>Show main window on Windows startup</translation></message>
     <message><source>로그 원문</source><translation>Log Raw Text</translation></message>
     <message><source>장치 정보 없음</source><translation>No device info</translation></message>
-    <message><source>복사</source><translation>Copy</translation></message>
     <message><source>닫기</source><translation>Close</translation></message>
     <message><source>화면 테마</source><translation>Theme</translation></message>
     <message><source>시스템</source><translation>System</translation></message>
@@ -189,7 +188,6 @@ The language will change after you fully quit it from the tray icon ("Quit") and
     <message><source>위험한 입력 패턴이 감지되어 차단을 권장합니다.
 %1</source><translation>Dangerous input patterns detected — blocking is recommended.
 %1</translation></message>
-    <message><source>취소</source><translation>Cancel</translation></message>
     <message><source>적용</source><translation>Apply</translation></message>
     <message><source>없음</source><translation>None</translation></message>
     <message><source>ON</source><translation>ON</translation></message>
@@ -429,7 +427,6 @@ Verify this is not a legitimate device currently in use before proceeding.</tran
     <message><source>자동 차단은 테스트 전 관리자 권한 실행이 필요합니다.</source><translation>Auto-block requires running as administrator before testing.</translation></message>
     <message><source>임계값을 낮추면 민감하게 탐지하고, 높이면 오탐 가능성이 줄어듭니다.</source><translation>Lowering the threshold makes detection more sensitive; raising it reduces false positives.</translation></message>
     <message><source>저장 후 대시보드 정책 요약에 반영되는지 확인합니다.</source><translation>After saving, check that changes are reflected in the Dashboard Policy Summary.</translation></message>
-    <message><source>도움말</source><translation>Help</translation></message>
     <message><source>현재 화면의 주요 사용 흐름을 안내합니다.</source><translation>Guides you through the main flow of the current screen.</translation></message>
     <message><source>각 페이지에서 F1을 누르면 해당 화면의 빠른 도움말이 열립니다.</source><translation>Press F1 on any page to open quick help for that screen.</translation></message>
     <message><source>상세 설명은 도움말 페이지의 항목별 문서를 확인합니다.</source><translation>For detailed explanations, see the per-topic documentation on the Help page.</translation></message>
