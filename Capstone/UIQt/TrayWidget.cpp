@@ -4,22 +4,20 @@
 
 #include <QApplication>
 #include <QFrame>
-#include <QGraphicsColorizeEffect>
-#include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QLabel>
 #include <QPixmap>
 #include <QPushButton>
 #include <QScreen>
+#include <QSizePolicy>
 #include <QVBoxLayout>
 
 namespace
 {
     QLabel* makeLabel(const QString& text)
     {
-        auto* label = new QLabel(text);
-        return label;
+        return new QLabel(text);
     }
 
     QString labelStyle(int size, const QString& color, int weight = 400)
@@ -37,7 +35,7 @@ TrayWidget::TrayWidget(QWidget* parent)
     : QWidget(parent,
               Qt::FramelessWindowHint | Qt::Tool | Qt::WindowStaysOnTopHint)
 {
-    setFixedSize(560, 258);
+    setFixedSize(520, 300);
 
     container_ = new QFrame(this);
     container_->setGeometry(0, 0, width(), height());
@@ -47,17 +45,17 @@ TrayWidget::TrayWidget(QWidget* parent)
     root->setSpacing(0);
 
     auto* header = new QWidget;
-    header->setFixedHeight(60);
+    header->setFixedHeight(78);
     header->setStyleSheet("QWidget { background: transparent; border: none; }");
 
     auto* headerL = new QHBoxLayout(header);
-    headerL->setContentsMargins(18, 5, 18, 5);
-    headerL->setSpacing(10);
+    headerL->setContentsMargins(24, 12, 22, 8);
+    headerL->setSpacing(12);
 
     auto* brand = new QLabel;
-    brand->setFixedSize(40, 40);
+    brand->setFixedSize(52, 52);
     brand->setStyleSheet("QLabel { background: transparent; border: none; }");
-    brand->setPixmap(QIcon(":/icons/brand-mark.png").pixmap(38, 38));
+    brand->setPixmap(QIcon(":/icons/brand-mark.png").pixmap(50, 50));
     brand->setAlignment(Qt::AlignCenter);
     headerL->addWidget(brand);
 
@@ -73,18 +71,28 @@ TrayWidget::TrayWidget(QWidget* parent)
     headerL->addLayout(titleBox);
     headerL->addStretch();
 
-    monitoringBadge_ = makeLabel(tr("●  모니터링 ON"));
-    monitoringBadge_->setFixedHeight(28);
+    monitoringBadge_ = makeLabel(tr("● 모니터링 ON"));
+    monitoringBadge_->setFixedSize(144, 34);
     monitoringBadge_->setAlignment(Qt::AlignCenter);
     headerL->addWidget(monitoringBadge_);
-    headerL->addSpacing(6);
+    headerL->addSpacing(4);
+
+    minimizeBtn_ = new QPushButton("-");
+    minimizeBtn_->setObjectName("trayIconButton");
+    minimizeBtn_->setFixedSize(34, 34);
+    minimizeBtn_->setCursor(Qt::PointingHandCursor);
 
     expandBtn_ = new QPushButton("↗");
+    expandBtn_->setObjectName("trayExpandButton");
     expandBtn_->setFixedSize(34, 34);
     expandBtn_->setCursor(Qt::PointingHandCursor);
+
     closeBtn_ = new QPushButton("×");
+    closeBtn_->setObjectName("trayIconButton");
     closeBtn_->setFixedSize(34, 34);
     closeBtn_->setCursor(Qt::PointingHandCursor);
+
+    headerL->addWidget(minimizeBtn_);
     headerL->addWidget(expandBtn_);
     headerL->addWidget(closeBtn_);
     root->addWidget(header);
@@ -93,26 +101,25 @@ TrayWidget::TrayWidget(QWidget* parent)
     content->setStyleSheet("QWidget { background: transparent; border: none; }");
 
     auto* contentL = new QVBoxLayout(content);
-    contentL->setContentsMargins(14, 0, 12, 0);
-    contentL->setSpacing(8);
+    contentL->setContentsMargins(24, 8, 24, 0);
+    contentL->setSpacing(12);
 
-    // ── USB card ───────────────────────────────────────────────────────────
     usbCard_ = new QFrame;
     usbCard_->setObjectName("trayCard");
-    usbCard_->setFixedHeight(70);
+    usbCard_->setFixedHeight(82);
     auto* usbL = new QHBoxLayout(usbCard_);
-    usbL->setContentsMargins(18, 8, 18, 8);
-    usbL->setSpacing(16);
+    usbL->setContentsMargins(22, 12, 22, 12);
+    usbL->setSpacing(20);
 
     usbIconCircle_ = new QFrame;
-    usbIconCircle_->setFixedSize(40, 40);
+    usbIconCircle_->setFixedSize(54, 54);
     {
         auto* layout = new QHBoxLayout(usbIconCircle_);
         layout->setContentsMargins(0, 0, 0, 0);
         auto* label = new QLabel;
-        label->setFixedSize(22, 22);
+        label->setFixedSize(28, 28);
         label->setStyleSheet("QLabel { background: transparent; border: none; }");
-        label->setPixmap(QIcon(":/icons/status-shield-blue.svg").pixmap(22, 22));
+        label->setPixmap(QIcon(":/icons/status-shield-blue.svg").pixmap(28, 28));
         layout->addWidget(label, 0, Qt::AlignCenter);
     }
     usbL->addWidget(usbIconCircle_);
@@ -130,21 +137,20 @@ TrayWidget::TrayWidget(QWidget* parent)
     usbL->addStretch();
 
     realtimeBtn_ = new QPushButton(tr("실시간"));
-    realtimeBtn_->setFixedSize(72, 32);
+    realtimeBtn_->setFixedSize(88, 36);
     realtimeBtn_->setCursor(Qt::PointingHandCursor);
     usbL->addWidget(realtimeBtn_);
     contentL->addWidget(usbCard_);
 
-    // ── Threat card ────────────────────────────────────────────────────────
     threatCard_ = new QFrame;
     threatCard_->setObjectName("trayCard");
     threatCard_->setFixedHeight(82);
     auto* threatL = new QHBoxLayout(threatCard_);
-    threatL->setContentsMargins(18, 8, 18, 8);
-    threatL->setSpacing(16);
+    threatL->setContentsMargins(22, 12, 22, 12);
+    threatL->setSpacing(20);
 
     threatIconLabel_ = new QLabel;
-    threatIconLabel_->setFixedSize(40, 40);
+    threatIconLabel_->setFixedSize(54, 54);
     threatIconLabel_->setAlignment(Qt::AlignCenter);
     threatL->addWidget(threatIconLabel_);
 
@@ -165,18 +171,17 @@ TrayWidget::TrayWidget(QWidget* parent)
     contentL->addWidget(threatCard_);
     root->addWidget(content, 1);
 
-    // ── Footer ────────────────────────────────────────────────────────────
     footer_ = new QWidget;
-    footer_->setFixedHeight(38);
+    footer_->setFixedHeight(46);
 
     auto* footerL = new QHBoxLayout(footer_);
-    footerL->setContentsMargins(14, 0, 14, 0);
-    footerL->setSpacing(8);
+    footerL->setContentsMargins(24, 0, 24, 0);
+    footerL->setSpacing(12);
     footerLabel_ = makeLabel(tr("최근 이벤트"));
     footerL->addWidget(footerLabel_);
 
     footerDivider_ = new QFrame;
-    footerDivider_->setFixedSize(1, 18);
+    footerDivider_->setFixedSize(1, 20);
     footerL->addWidget(footerDivider_);
 
     eventText_ = makeLabel("-");
@@ -189,6 +194,7 @@ TrayWidget::TrayWidget(QWidget* parent)
 
     connect(expandBtn_, &QPushButton::clicked, this, &TrayWidget::expandRequested);
     connect(realtimeBtn_, &QPushButton::clicked, this, &TrayWidget::expandRequested);
+    connect(minimizeBtn_, &QPushButton::clicked, this, &QWidget::hide);
     connect(closeBtn_, &QPushButton::clicked, this, &QWidget::hide);
 
     setUsbCount(0);
@@ -204,65 +210,68 @@ void TrayWidget::applyTheme()
     const bool dark = UiTheme::isDark();
 
     container_->setStyleSheet(QString(
-        "QFrame { background: %1; border: 1px solid %2; border-radius: 14px; }")
-        .arg(t.AppBg, t.Border));
+        "QFrame { background: %1; border: 1px solid %2; border-radius: 16px; }")
+        .arg(t.White, t.Border));
 
-    titleLabel_->setStyleSheet(labelStyle(20, t.TextDark, 800));
-    subtitleLabel_->setStyleSheet(labelStyle(12, t.SubtextMid, 500));
+    titleLabel_->setStyleSheet(labelStyle(24, t.TextDark, 850));
+    subtitleLabel_->setStyleSheet(labelStyle(13, t.SubtextMid, 500));
 
-    // Monitoring ON pill — soft green tint, theme-aware.
     const QString monBg     = dark ? "#0F2E1F" : "#E8FFF3";
     const QString monText   = dark ? "#5EE0A5" : "#0B8F52";
     const QString monBorder = dark ? "#1F5E3D" : "#A7E8C8";
     monitoringBadge_->setStyleSheet(QString(
-        "QLabel { background: %1; color: %2; font-size: 12px;"
-        " font-weight: 700; padding: 0 12px; border-radius: 14px;"
+        "QLabel { background: %1; color: %2; font-size: 14px;"
+        " font-weight: 800; padding: 0 12px; border-radius: 17px;"
         " border: 1px solid %3; }")
         .arg(monBg, monText, monBorder));
 
-    const QString headerBtn = QString(
-        "QPushButton { background: transparent; border: none; border-radius: 17px;"
-        " color: %1; font-size: 20px; font-weight: 400; }"
-        "QPushButton:hover { background: %2; color: %3; }")
+    const QString iconBtn = QString(
+        "QPushButton#trayIconButton { background: transparent; border: none;"
+        " border-radius: 17px; color: %1; font-size: 24px; font-weight: 600; }"
+        "QPushButton#trayIconButton:hover { background: %2; color: %3; }")
         .arg(t.SubtextMid, t.PrimarySoft, t.PrimaryText);
-    expandBtn_->setStyleSheet(headerBtn);
-    closeBtn_->setStyleSheet(headerBtn);
+    minimizeBtn_->setStyleSheet(iconBtn);
+    closeBtn_->setStyleSheet(iconBtn);
+
+    expandBtn_->setStyleSheet(QString(
+        "QPushButton#trayExpandButton { background: %1; border: 1px solid %2;"
+        " border-radius: 17px; color: %3; font-size: 22px; font-weight: 800; }"
+        "QPushButton#trayExpandButton:hover { background: %4; color: %5; }")
+        .arg(t.SurfaceAlt, t.Border, t.SubtextMid, t.PrimarySoft, t.PrimaryText));
 
     const QString cardStyle = QString(
-        "QFrame#trayCard { background: %1; border: 1px solid %2; border-radius: 12px; }")
+        "QFrame#trayCard { background: %1; border: 1px solid %2; border-radius: 14px; }")
         .arg(t.Surface, t.Border);
     usbCard_->setStyleSheet(cardStyle);
     threatCard_->setStyleSheet(cardStyle);
 
     usbIconCircle_->setStyleSheet(QString(
-        "QFrame { background: %1; border: 1px solid %2; border-radius: 20px; }")
+        "QFrame { background: %1; border: 1px solid %2; border-radius: 27px; }")
         .arg(t.PrimarySoft, t.PrimarySoftBorder));
 
-    usbHeaderLabel_->setStyleSheet(labelStyle(13, t.SubtextMid, 600));
-    usbCountLabel_->setStyleSheet(labelStyle(22, t.TextDark, 900));
+    usbHeaderLabel_->setStyleSheet(labelStyle(15, t.SubtextMid, 650));
+    usbCountLabel_->setStyleSheet(labelStyle(21, t.TextDark, 900));
 
-    // Realtime pill — soft blue tint, not a heavy CTA.
-    const QString rtBg     = dark ? "#102F56" : "#EAF2FF";
-    const QString rtText   = dark ? "#9CCBFF" : t.PrimaryHover;
-    const QString rtBorder = dark ? "#235D9C" : "#B7D4FF";
+    const QString rtBg      = dark ? "#102F56" : "#EAF2FF";
+    const QString rtText    = dark ? "#9CCBFF" : t.PrimaryHover;
+    const QString rtBorder  = dark ? "#235D9C" : "#B7D4FF";
     const QString rtHoverBg = dark ? "#173E6E" : "#DCE7FB";
     realtimeBtn_->setStyleSheet(QString(
         "QPushButton { color: %1; background: %2; border: 1px solid %3;"
-        " border-radius: 8px; font-size: 13px; font-weight: 700; }"
+        " border-radius: 10px; font-size: 14px; font-weight: 800; }"
         "QPushButton:hover { background: %4; }")
         .arg(rtText, rtBg, rtBorder, rtHoverBg));
 
-    threatHeaderLabel_->setStyleSheet(labelStyle(13, t.SubtextMid, 600));
+    threatHeaderLabel_->setStyleSheet(labelStyle(15, t.SubtextMid, 650));
 
     footer_->setStyleSheet(QString(
         "QWidget { background: %1; border-top: 1px solid %2;"
-        " border-bottom-left-radius: 14px; border-bottom-right-radius: 14px; }")
+        " border-bottom-left-radius: 16px; border-bottom-right-radius: 16px; }")
         .arg(t.Surface, t.Border));
-    footerLabel_->setStyleSheet(labelStyle(13, t.PrimaryHover, 800));
+    footerLabel_->setStyleSheet(labelStyle(15, t.PrimaryHover, 850));
     footerDivider_->setStyleSheet(QString("QFrame { background: %1; border: none; }").arg(t.Border));
-    eventText_->setStyleSheet(labelStyle(13, t.TextDark, 600));
-    eventTime_->setStyleSheet(labelStyle(12, t.SubtextMid, 600));
-
+    eventText_->setStyleSheet(labelStyle(15, t.TextDark, 650));
+    eventTime_->setStyleSheet(labelStyle(14, t.SubtextMid, 650));
 
     applyLevel();
 }
@@ -296,8 +305,8 @@ void TrayWidget::applyLevel()
     const bool dark = UiTheme::isDark();
 
     struct Cfg {
-        const char* statusText;   // big text shown ("안전/주의/차단")
-        const char* statusColor;  // big text color
+        const char* statusText;
+        const char* statusColor;
         const char* icon;
         QString iconBg;
         QString iconBorder;
@@ -330,17 +339,17 @@ void TrayWidget::applyLevel()
     const Cfg& cfg = cfgs[idx];
 
     statusText_->setText(tr(cfg.statusText));
-    statusText_->setStyleSheet(labelStyle(22, cfg.statusColor, 900));
+    statusText_->setStyleSheet(labelStyle(21, cfg.statusColor, 900));
 
     threatIconLabel_->setStyleSheet(QString(
-        "QLabel { background: %1; border: 1px solid %2; border-radius: 20px; }")
+        "QLabel { background: %1; border: 1px solid %2; border-radius: 27px; }")
         .arg(cfg.iconBg, cfg.iconBorder));
-    threatIconLabel_->setPixmap(QIcon(cfg.icon).pixmap(22, 22));
+    threatIconLabel_->setPixmap(QIcon(cfg.icon).pixmap(28, 28));
 }
 
 void TrayWidget::positionNearTray()
 {
     const QRect screen = QApplication::primaryScreen()->availableGeometry();
-    move(screen.right() - width() - 8,
-         screen.bottom() - height() - 8);
+    move(screen.right() - width() - 12,
+         screen.bottom() - height() - 12);
 }

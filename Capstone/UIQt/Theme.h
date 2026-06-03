@@ -2,6 +2,7 @@
 
 #include <QColor>
 #include <QPalette>
+#include <QSettings>
 #include <QString>
 
 namespace UiTheme
@@ -147,7 +148,21 @@ namespace UiTheme
 
     inline ThemeMode resolvedMode(ThemeMode mode)
     {
-        return mode == ThemeMode::Dark ? ThemeMode::Dark : ThemeMode::Light;
+        if (mode == ThemeMode::Dark)
+            return ThemeMode::Dark;
+        if (mode == ThemeMode::Light)
+            return ThemeMode::Light;
+
+#ifdef Q_OS_WIN
+        QSettings personalize(
+            QStringLiteral("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize"),
+            QSettings::NativeFormat);
+        const int appsUseLightTheme =
+            personalize.value(QStringLiteral("AppsUseLightTheme"), 1).toInt();
+        return appsUseLightTheme == 0 ? ThemeMode::Dark : ThemeMode::Light;
+#else
+        return ThemeMode::Light;
+#endif
     }
 
     inline void setActiveMode(ThemeMode mode)

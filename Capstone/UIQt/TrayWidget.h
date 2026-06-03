@@ -7,7 +7,7 @@ class QLabel;
 class QPushButton;
 
 // ---------------------------------------------------------------------------
-// TrayWidget - compact system-tray popup (560 x 258 px)
+// TrayWidget - compact system-tray popup (520 x 300 px)
 //
 // Three security states:
 //   Normal  — green  "정상"   / "안전"       badge
@@ -46,6 +46,7 @@ private:
     QLabel*      titleLabel_      = nullptr;
     QLabel*      subtitleLabel_   = nullptr;
     QLabel*      monitoringBadge_ = nullptr;
+    QPushButton* minimizeBtn_     = nullptr;
     QPushButton* expandBtn_       = nullptr;
     QPushButton* closeBtn_        = nullptr;
     QFrame*      usbCard_         = nullptr;

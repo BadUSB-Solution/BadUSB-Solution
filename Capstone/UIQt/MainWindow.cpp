@@ -25,6 +25,7 @@
 #include <QFrame>
 #include <QFont>
 #include <QFontDatabase>
+#include <QFontMetrics>
 #include <QGridLayout>
 #include <QHeaderView>
 #include <QHBoxLayout>
@@ -118,6 +119,50 @@ namespace
     // "MainWindow" translation context so strings share that .ts catalog.
     inline QString trMW(const char* s) {
         return QCoreApplication::translate("MainWindow", s);
+    }
+
+    QString displayLogDeviceName(const QString& raw)
+    {
+        QString line = raw;
+        static const QRegularExpression timestampRx(
+            R"(^\s*\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]\s*)");
+        line.remove(timestampRx);
+
+        static const QStringList prefixes = {
+            QStringLiteral("Whitelisted; closing immediate dialog:"),
+            QStringLiteral("Policy removed:"),
+            QStringLiteral("Policy allow:"),
+            QStringLiteral("Policy block:"),
+            QStringLiteral("Buffer monitor allow:"),
+            QStringLiteral("Buffer monitor block:"),
+            QStringLiteral("Auto-blocked (설정):"),
+            QStringLiteral("Auto-allowed (설정):"),
+            QStringLiteral("approval:"),
+            QStringLiteral("hook active:"),
+            QStringLiteral("hook state:"),
+            QStringLiteral("block:"),
+            QStringLiteral("allow:")
+        };
+        for (const auto& prefix : prefixes) {
+            const int idx = line.indexOf(prefix, 0, Qt::CaseInsensitive);
+            if (idx == -1) continue;
+            QString device = line.mid(idx + prefix.length()).trimmed();
+            device.remove(QRegularExpression(R"([.;]\s*$)"));
+            if (!device.isEmpty())
+                return device;
+        }
+
+        static const QRegularExpression hidRx(
+            R"((USB\s+Receiver|Wireless\s+Device|HID\s+Device|Unknown\s+HID\s+Device|fifine|keyboard|mouse))",
+            QRegularExpression::CaseInsensitiveOption);
+        const auto hidMatch = hidRx.match(line);
+        if (hidMatch.hasMatch())
+            return hidMatch.captured(1).trimmed();
+
+        if (line.contains(QStringLiteral("[Qt]"), Qt::CaseInsensitive) ||
+            line.contains(QStringLiteral("[Hook]"), Qt::CaseInsensitive))
+            return trMW("시스템");
+        return trMW("알 수 없음");
     }
 
     enum class FontRole { Regular, Medium, SemiBold, Bold };
@@ -1028,7 +1073,7 @@ namespace
     QSize policyBadgeSize(const QString& /*text*/)
     {
         // 허용/차단/승인 대기/기록/확인 필요 모두 동일한 너비로 통일
-        return QSize(76, 26);
+        return QSize(88, 26);
     }
 
     QString themedLabelStyle(const char* color, int size = 14)
@@ -1058,6 +1103,7 @@ namespace
     {
         auto* badge = new QLabel(text);
         badge->setObjectName(badgeName);
+        badge->setToolTip(text);
         badge->setAlignment(Qt::AlignCenter);
         badge->setFont(pretendardFont(FontRole::SemiBold));
         badge->setFixedSize(policyBadgeSize(text));
@@ -1113,6 +1159,7 @@ namespace
         dot->setProperty("connected", connected);
         dot->setFixedSize(8, 8);
         auto* txt = new QLabel(connected ? trMW("연결됨") : trMW("연결 안됨"));
+        txt->setToolTip(txt->text());
         txt->setObjectName("usbStatusText");
         txt->setAttribute(Qt::WA_TransparentForMouseEvents);
         txt->setFont(pretendardFont(FontRole::Regular));
@@ -1131,6 +1178,7 @@ namespace
         l->setContentsMargins(leftPadding, 0, 8, 0);
         l->setSpacing(0);
         auto* txt = new QLabel(text);
+        txt->setToolTip(text);
         const auto& t = UiTheme::tokens();
         txt->setObjectName(color == QLatin1String(t.Text) ? "usbCellText" : "usbCellMutedText");
         txt->setAttribute(Qt::WA_TransparentForMouseEvents);
@@ -1574,6 +1622,23 @@ namespace
                 dragging_ = false;
             }
 
+            return false;
+        }
+    };
+
+    class WidgetDoubleClickFilter : public QObject {
+        std::function<void()> onDoubleClick_;
+    public:
+        WidgetDoubleClickFilter(QObject* parent, std::function<void()> onDoubleClick)
+            : QObject(parent), onDoubleClick_(std::move(onDoubleClick)) {}
+        bool eventFilter(QObject*, QEvent* e) override {
+            if (e->type() == QEvent::MouseButtonDblClick) {
+                auto* m = static_cast<QMouseEvent*>(e);
+                if (m->button() == Qt::LeftButton && onDoubleClick_) {
+                    onDoubleClick_();
+                    return true;
+                }
+            }
             return false;
         }
     };
@@ -2482,13 +2547,6 @@ MainWindow::MainWindow(QWidget* parent)
     topbarLayout->addStretch();
 
 
-    auto* userLayout = new QHBoxLayout;
-    userLayout->setContentsMargins(10, 0, 14, 0);
-    userLayout->setSpacing(8);
-    userLayout->addWidget(iconLabel(":/icons/ui-user.svg", 16));
-    userLayout->addWidget(label(tr("관리자")));
-    topbarLayout->addLayout(userLayout);
-
     pages_ = new QStackedWidget;
     pages_->addWidget(createDashboardPage());      // 0
     pages_->addWidget(createUsbListPage());         // 1
@@ -2830,9 +2888,7 @@ QWidget* MainWindow::createDashboardPage()
 
     const DashboardLayoutMode mode = dashboardLayoutModeForWidth(width());
     dashboardLayoutMode_ = static_cast<int>(mode);
-    const int sideMargin = mode == DashboardLayoutMode::Wide ? 80
-                         : mode == DashboardLayoutMode::Medium ? 48
-                         : 24;
+    const int sideMargin = 24;
     const int statColumns = mode == DashboardLayoutMode::Wide ? 4 : 2;
     const int sectionColumns = mode == DashboardLayoutMode::Narrow ? 1 : 2;
 
@@ -2992,8 +3048,8 @@ QWidget* MainWindow::createDashboardPage()
             scrollArea->setWidgetResizable(true);
             scrollArea->setFrameShape(QFrame::NoFrame);
             scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-            scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-            scrollArea->setFixedHeight(4 * 50);
+            scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            scrollArea->setFixedHeight(4 * 46 + 18);
             bl->addWidget(scrollArea, 0);
             bodyRow->addWidget(createCard(tr("보호 상태 개요"), body), 1);
         }
@@ -3015,7 +3071,7 @@ QWidget* MainWindow::createDashboardPage()
             auto* scrollArea = new QScrollArea;
             scrollArea->setWidgetResizable(true);
             scrollArea->setFrameShape(QFrame::NoFrame);
-            scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+            scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
             scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
             scrollArea->setStyleSheet(
                 "QScrollArea, QScrollArea > QWidget > QWidget { background: transparent; border: none; }");
@@ -3036,8 +3092,8 @@ QWidget* MainWindow::createDashboardPage()
             {
                 const std::wstring allLog = Logger::GetAll();
                 QStringList logLines = fromWString(allLog).split('\n', Qt::SkipEmptyParts);
-                // Walk from end to collect up to 50
-                for (int li = logLines.size() - 1; li >= 0 && events.size() < 50; --li) {
+                // Walk from end to collect the dashboard summary only.
+                for (int li = logLines.size() - 1; li >= 0 && events.size() < 5; --li) {
                     const QString& raw = logLines[li].trimmed();
                     if (raw.isEmpty()) continue;
                     // Try to extract timestamp at start (format: [YYYY-MM-DD HH:mm:ss] or bare)
@@ -3114,30 +3170,47 @@ QWidget* MainWindow::createDashboardPage()
             auto* devL = new QVBoxLayout(devPage);
             devL->setContentsMargins(16, 8, 16, 16);
             devL->setSpacing(12);
-            const int displayCount = qMin(dashDevRows.size(), 4);
+            const int displayCount = qMin(dashDevRows.size(), 3);
             auto* table = new QTableWidget(displayCount == 0 ? 1 : displayCount, 5);
             table->setHorizontalHeaderLabels({tr("시간"), tr("유형"), tr("제조사"), tr("장치 이름"), tr("상태")});
             configureTable(table);
-            table->verticalHeader()->setDefaultSectionSize(40);
+            table->verticalHeader()->setDefaultSectionSize(38);
+            table->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+            table->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
             table->setSelectionMode(QAbstractItemView::NoSelection);
             table->setFocusPolicy(Qt::NoFocus);
             if (dashDevRows.isEmpty()) {
-                table->setItem(0, 3, new QTableWidgetItem(tr("연결된 HID 장치 없음")));
+                auto* item = new QTableWidgetItem(tr("연결된 HID 장치 없음"));
+                item->setToolTip(item->text());
+                table->setItem(0, 3, item);
             } else {
                 for (int r = 0; r < displayCount; ++r) {
                     const auto& row = dashDevRows[r];
-                    table->setItem(r, 0, new QTableWidgetItem(row.time));
-                    table->setItem(r, 1, new QTableWidgetItem(row.type));
-                    table->setItem(r, 2, new QTableWidgetItem(row.mfr));
-                    table->setItem(r, 3, new QTableWidgetItem(row.name));
+                    auto addItem = [table, r](int col, const QString& text) {
+                        auto* item = new QTableWidgetItem(text);
+                        item->setToolTip(text);
+                        table->setItem(r, col, item);
+                    };
+                    addItem(0, row.time);
+                    addItem(1, row.type);
+                    addItem(2, row.mfr);
+                    addItem(3, row.name);
                     const char* badge = row.policy == tr("허용") ? "successBadge"
                                       : row.policy == tr("차단") ? "dangerBadge"
                                       : "warningBadge";
                     table->setCellWidget(r, 4, makeBadgeCell(row.policy, badge));
                 }
             }
-            table->setMinimumHeight(170);
+            table->setFixedHeight(44 + (displayCount == 0 ? 1 : displayCount) * 38 + 2);
+            table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Fixed);
+            table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Fixed);
+            table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Fixed);
             table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::Stretch);
+            table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::Fixed);
+            table->setColumnWidth(0, 58);
+            table->setColumnWidth(1, 82);
+            table->setColumnWidth(2, 92);
+            table->setColumnWidth(4, 104);
             devL->addWidget(table, 1);
             auto* fl = new QHBoxLayout;
             fl->addWidget(label(
@@ -3229,11 +3302,11 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
     configureTable(usbTable_);
     usbTable_->setSelectionMode(QAbstractItemView::NoSelection);
     usbTable_->setFocusPolicy(Qt::NoFocus);
-    usbTable_->setColumnWidth(0, 220);
-    usbTable_->setColumnWidth(1, 90);
-    usbTable_->setColumnWidth(2, 110);
-    usbTable_->setColumnWidth(3, 100);
-    usbTable_->setColumnWidth(4, 110);
+    usbTable_->setColumnWidth(0, 280);
+    usbTable_->setColumnWidth(1, 110);
+    usbTable_->setColumnWidth(2, 130);
+    usbTable_->setColumnWidth(3, 112);
+    usbTable_->setColumnWidth(4, 126);
     usbTable_->horizontalHeader()->setSectionResizeMode(5, QHeaderView::Stretch);
 
     // Right: detail card (340px) — widget pointers saved to members
@@ -3276,6 +3349,67 @@ QWidget* MainWindow::createUsbListPage(bool /*showTitle*/)
         usbDetName_ = new QLabel("—");
         usbDetName_->setObjectName("usbDetailName");
         usbDetName_->setFont(pretendardFont(FontRole::Bold));
+        usbDetName_->setFixedWidth(215);
+        usbDetName_->setWordWrap(false);
+        usbDetName_->setCursor(Qt::PointingHandCursor);
+        usbDetName_->setToolTip(tr("더블 클릭하면 전체 장치명을 볼 수 있습니다."));
+        usbDetName_->installEventFilter(new WidgetDoubleClickFilter(usbDetName_, [this] {
+            const QString fullName = usbDetName_
+                ? usbDetName_->property("fullDeviceName").toString()
+                : QString();
+            if (fullName.isEmpty())
+                return;
+
+            QDialog dlg(this);
+            dlg.setWindowTitle(tr("장치 이름"));
+            dlg.setModal(true);
+            dlg.setMinimumWidth(480);
+            dlg.setObjectName("deviceNameDialog");
+
+            auto* root = new QVBoxLayout(&dlg);
+            root->setContentsMargins(20, 18, 20, 18);
+            root->setSpacing(14);
+
+            auto* title = new QLabel(tr("전체 장치 이름"));
+            title->setObjectName("cardTitle");
+            title->setFont(pretendardFont(FontRole::SemiBold));
+            root->addWidget(title);
+
+            auto* nameBox = new QFrame;
+            nameBox->setObjectName("detailActionCard");
+            auto* nameLayout = new QVBoxLayout(nameBox);
+            nameLayout->setContentsMargins(14, 12, 14, 12);
+            nameLayout->setSpacing(4);
+
+            auto* nameLabel = new QLabel(fullName);
+            nameLabel->setObjectName("usbDetailName");
+            nameLabel->setFont(pretendardFont(FontRole::SemiBold));
+            nameLabel->setWordWrap(true);
+            nameLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+            nameLayout->addWidget(nameLabel);
+            root->addWidget(nameBox);
+
+            auto* hint = new QLabel(tr("장치 목록과 상세 패널에서는 긴 이름을 줄여서 표시합니다."));
+            hint->setObjectName("pageSubtitle");
+            hint->setWordWrap(true);
+            root->addWidget(hint);
+
+            auto* actions = new QHBoxLayout;
+            actions->addStretch();
+            auto* closeBtn = new QPushButton(tr("닫기"));
+            closeBtn->setObjectName("primaryButton");
+            closeBtn->setFont(pretendardFont(FontRole::Medium));
+            closeBtn->setFixedWidth(96);
+            connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
+            actions->addWidget(closeBtn);
+            root->addLayout(actions);
+
+            dlg.setStyleSheet(QStringLiteral(
+                "QDialog#deviceNameDialog { background: %1; }"
+                "QFrame#detailActionCard { background: %2; border: 1px solid %3; border-radius: 8px; }"
+            ).arg(UiTheme::tokens().White, UiTheme::tokens().Surface, UiTheme::tokens().Border));
+            dlg.exec();
+        }));
         usbDetMfr_ = new QLabel("—");
         usbDetMfr_->setObjectName("usbDetailMfr");
         usbDetMfr_->setFont(pretendardFont(FontRole::Regular));
@@ -3643,6 +3777,7 @@ void MainWindow::refreshUsbTable()
         nl->addWidget(iconLabel(row.iconRes, 16));
         auto* nameLbl = new QLabel(row.name);
         nameLbl->setObjectName("usbDeviceName");
+        nameLbl->setToolTip(row.name);
         nameLbl->setAttribute(Qt::WA_TransparentForMouseEvents);
         nameLbl->setFont(pretendardFont(FontRole::Medium));
         nl->addWidget(nameLbl);
@@ -3703,7 +3838,11 @@ void MainWindow::applyUsbDetailPanel(int row)
     if (!usbDetName_ || row < 0 || row >= usbRows_.size()) return;
     const auto& r = usbRows_[row];
 
-    usbDetName_->setText(r.name);
+    const QString fullName = r.name.isEmpty() ? tr("알 수 없음") : r.name;
+    usbDetName_->setProperty("fullDeviceName", fullName);
+    usbDetName_->setText(QFontMetrics(usbDetName_->font()).elidedText(
+        fullName, Qt::ElideRight, qMax(120, usbDetName_->width())));
+    usbDetName_->setToolTip(fullName);
     usbDetMfr_->setText(r.manufacturer);
 
     const bool connected = (r.status == "연결됨");
@@ -3930,25 +4069,6 @@ QWidget* MainWindow::createLogPage()
         return {":/icons/status-info.svg", tr("기록"), "neutralBadge"};
     };
 
-    // Extract a device name from the log line (text after known ": " prefixes)
-    auto extractDevice = [](const QString& line) -> QString {
-        static const QStringList kPrefixes = {
-            "approval: ", "hook active: ", "hook state: ",
-            "block: ", "allow: ",
-            "Policy removed: ", "Policy allow: ", "Policy block: ",
-            "Auto-blocked (설정): ", "Auto-allowed (설정): ",
-            "Buffer monitor allow: ", "Buffer monitor block: ",
-        };
-        for (const auto& p : kPrefixes) {
-            const int idx = line.indexOf(p, 0, Qt::CaseInsensitive);
-            if (idx != -1) {
-                const QString candidate = line.mid(idx + p.length()).trimmed();
-                if (!candidate.isEmpty()) return candidate;
-            }
-        }
-        return "-";
-    };
-
     struct LogRow { QString time, event, eventIcon, device, result, badge; };
 
     QList<LogRow> logRows;
@@ -3957,7 +4077,7 @@ QWidget* MainWindow::createLogPage()
         line = line.trimmed();
         if (line.isEmpty()) continue;
         auto [icon, result, badge] = classifyLine(line);
-        logRows.push_back({nowTimestamp(), line, icon, extractDevice(line), result, badge});
+        logRows.push_back({nowTimestamp(), line, icon, displayLogDeviceName(line), result, badge});
     }
     if (logRows.isEmpty())
         logRows.push_back({nowTimestamp(), tr("아직 기록된 로그가 없습니다."),
@@ -3993,6 +4113,7 @@ QWidget* MainWindow::createLogPage()
             l->setContentsMargins(20, 0, 8, 0);
             l->setSpacing(0);
             auto* txt = new QLabel(text);
+            txt->setToolTip(text);
             txt->setAttribute(Qt::WA_TransparentForMouseEvents);
             txt->setObjectName(color == QLatin1String(UiTheme::tokens().Subtext) ? "logTextMuted" : "logTextMid");
             txt->setFont(pretendardFont(FontRole::Regular));
@@ -4016,6 +4137,7 @@ QWidget* MainWindow::createLogPage()
             ico->setPixmap(QIcon(iconSvg).pixmap(16, 16));
             l->addWidget(ico);
             auto* txt = new QLabel(text);
+            txt->setToolTip(text);
             txt->setAttribute(Qt::WA_TransparentForMouseEvents);
             txt->setObjectName("logEventText");
             txt->setFont(pretendardFont(FontRole::Medium));
@@ -4666,9 +4788,7 @@ QWidget* MainWindow::createSettingsPage()
     QCheckBox* cbNotif = nullptr;
     QCheckBox* cbSound = nullptr;
     QComboBox* comboNotifDuration = nullptr;
-    QComboBox* comboNotifProfile = nullptr;
     QComboBox* comboLogRetention = nullptr;
-    QPushButton* testNotifBtn = nullptr;
 
     {
         auto* headerRow = new QHBoxLayout;
@@ -4860,17 +4980,6 @@ QWidget* MainWindow::createSettingsPage()
         comboNotifDuration->setFixedWidth(180);
         addControlRow(wl, tr("알림 표시 시간"), comboNotifDuration);
 
-        comboNotifProfile = new QComboBox;
-        comboNotifProfile->addItems({ tr("간결"), tr("기본"), tr("강조") });
-        comboNotifProfile->setFixedWidth(180);
-        addControlRow(wl, tr("알림 프리셋"), comboNotifProfile);
-
-        testNotifBtn = new QPushButton(tr("알림 테스트"));
-        testNotifBtn->setObjectName("secondaryButton");
-        testNotifBtn->setFont(pretendardFont(FontRole::SemiBold));
-        testNotifBtn->setFixedWidth(160);
-        wl->addWidget(testNotifBtn);
-
         addSection(wl, tr("로그"));
         comboLogRetention = new QComboBox;
         comboLogRetention->addItems({ tr("7일"), tr("30일"), tr("90일"), tr("영구 보관") });
@@ -4931,7 +5040,6 @@ QWidget* MainWindow::createSettingsPage()
             const int dIdx = durationValues.indexOf(settings.notificationDurationSec);
             comboNotifDuration->setCurrentIndex(dIdx >= 0 ? dIdx : 0); // 기본 3초
         }
-        comboNotifProfile->setCurrentIndex(std::clamp(settings.notificationProfile, 0, 2));
         {
             const QList<int> retentionValues = {7, 30, 90, 0};  // 0 = 영구 보관
             const int retIdx = retentionValues.indexOf(settings.logRetentionDays);
@@ -4948,33 +5056,6 @@ QWidget* MainWindow::createSettingsPage()
         applyTheme(UiTheme::themeModeFromKey(key));
     });
 
-    connect(testNotifBtn, &QPushButton::clicked, this, [=] {
-        const QList<int> durationValues = {3, 5, 10};
-        const int durIdx = comboNotifDuration->currentIndex();
-        int seconds = (durIdx >= 0 && durIdx < durationValues.size()) ? durationValues[durIdx] : 3;
-        const int profile = std::clamp(comboNotifProfile->currentIndex(), 0, 2);
-        if (profile == 2 && seconds < 10)
-            seconds = 10;
-
-        QString title = tr("Abang-All");
-        QString body = tr("위험한 입력 패턴이 감지되었습니다.");
-        if (profile == 0) {
-            title = tr("위험 알림");
-        } else if (profile == 2) {
-            title = tr("긴급 위험 알림");
-            body += QStringLiteral("\n\n") + tr("즉시 장치 상태를 확인하고 필요하면 차단 정책을 적용하세요.");
-        }
-
-        const int timeoutMs = seconds * 1000;
-        if (!WinNotify::notify(title, body, /*silent=*/!cbSound->isChecked(), timeoutMs)) {
-            if (trayIcon_) {
-                trayIcon_->showMessage(title, body, QSystemTrayIcon::Warning, timeoutMs);
-            } else {
-                QMessageBox::information(this, title, body);
-            }
-        }
-    });
-
     connect(saveBtn, &QPushButton::clicked, this, [=] {
         Policy::LoadSettings();
         Policy::Settings settings = Policy::GetSettings();
@@ -4988,7 +5069,7 @@ QWidget* MainWindow::createSettingsPage()
             settings.notificationDurationSec =
                 (durIdx >= 0 && durIdx < durationValues.size()) ? durationValues[durIdx] : 3;
         }
-        settings.notificationProfile = std::clamp(comboNotifProfile->currentIndex(), 0, 2);
+        settings.notificationProfile = 1;
         int newRetention = 30;
         {
             const QList<int> retentionValues = {7, 30, 90, 0};
@@ -5770,25 +5851,6 @@ void MainWindow::appendNewLogRows()
     const int startRow = logTable_->rowCount();
     logTable_->setRowCount(startRow + (total - lastLogLineCount_));
 
-    // Extract device name using same logic as createLogPage()
-    auto extractDeviceAppend = [](const QString& line) -> QString {
-        static const QStringList kPrefixes = {
-            "approval: ", "hook active: ", "hook state: ",
-            "block: ", "allow: ",
-            "Policy removed: ", "Policy allow: ", "Policy block: ",
-            "Auto-blocked (설정): ", "Auto-allowed (설정): ",
-            "Buffer monitor allow: ", "Buffer monitor block: ",
-        };
-        for (const auto& p : kPrefixes) {
-            const int idx = line.indexOf(p, 0, Qt::CaseInsensitive);
-            if (idx != -1) {
-                const QString candidate = line.mid(idx + p.length()).trimmed();
-                if (!candidate.isEmpty()) return candidate;
-            }
-        }
-        return "-";
-    };
-
     int insertRow = startRow;
     for (int i = lastLogLineCount_; i < total; ++i) {
         const QString line = allLines[i].trimmed();
@@ -5796,7 +5858,7 @@ void MainWindow::appendNewLogRows()
         const QString icon = iconForLine(line);
         const auto [result, badge] = badgeForLine(line);
         const QString ts     = nowTimestamp();
-        const QString device = extractDeviceAppend(line);
+        const QString device = displayLogDeviceName(line);
 
         // Same contract as createLogPage(): store metadata as QObject properties
         // on the column-0 cell widget. No setItem() needed (matches USB table pattern).
@@ -5807,6 +5869,7 @@ void MainWindow::appendNewLogRows()
             auto* l = new QHBoxLayout(w);
             l->setContentsMargins(20, 0, 8, 0);
             auto* lbl = new QLabel(text);
+            lbl->setToolTip(text);
             lbl->setAttribute(Qt::WA_TransparentForMouseEvents);
             lbl->setObjectName(color == QLatin1String(UiTheme::tokens().Subtext) ? "logTextMuted" : "logTextMid");
             lbl->setFont(pretendardFont(FontRole::Regular));
@@ -5828,6 +5891,7 @@ void MainWindow::appendNewLogRows()
             ico->setPixmap(QIcon(iconRes).pixmap(16, 16));
             l->addWidget(ico);
             auto* txt = new QLabel(text);
+            txt->setToolTip(text);
             txt->setAttribute(Qt::WA_TransparentForMouseEvents);
             txt->setObjectName("logEventText");
             txt->setFont(pretendardFont(FontRole::Medium));
@@ -5888,10 +5952,17 @@ void MainWindow::exportLogToCsv()
     if (!logTable_) return;
     const QString defaultName = QStringLiteral("abang_all_log_") +
         QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + QStringLiteral(".csv");
+
+    if (centralWidget())
+        centralWidget()->setEnabled(false);
     const QString path = QFileDialog::getSaveFileName(this,
         tr("내보내기 (CSV)"),
         QDir(QDir::homePath()).filePath(defaultName),
         QStringLiteral("CSV (*.csv)"));
+    if (centralWidget())
+        centralWidget()->setEnabled(true);
+    raise();
+    activateWindow();
     if (path.isEmpty()) return;
 
     QFile f(path);
