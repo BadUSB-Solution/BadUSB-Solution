@@ -96,6 +96,9 @@ if(BUILD_QT_UI)
         Capstone/UIQt/Theme.h
         Capstone/UIQt/WinNotify.h
         Capstone/UIQt/WinNotify.cpp
+        Capstone/UIQt/AppVersion.h
+        Capstone/UIQt/UpdateChecker.h
+        Capstone/UIQt/UpdateChecker.cpp
         Capstone/UIQt/Assets/ui.qrc
         Capstone/UIQt/Assets/app_icon.rc
     )

@@ -14,7 +14,7 @@
 ; ============================================================================
 
 #define AppName        "AbangAll"
-#define AppVersion     "1.0.0"
+#define AppVersion     "1.0.4"
 #define AppPublisher   "AbangAll Team"
 #define AppExeName     "AbangAll.exe"
 ; Qt UI 빌드 산출물 디렉터리 (CMake가 windeployqt까지 자동 처리해서 모든 Qt 의존성 동봉됨)
