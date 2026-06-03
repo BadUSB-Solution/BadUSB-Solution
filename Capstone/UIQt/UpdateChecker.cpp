@@ -11,8 +11,10 @@
 #include <QNetworkRequest>
 #include <QPointer>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QUrl>
 
 namespace
@@ -37,10 +39,19 @@ namespace
         }
         return false;
     }
+
+    // 동시에 여러 번 확인하거나(주기 타이머 + 시작 확인 겹침) 다이얼로그가
+    // 중첩되는 것을 막는 가드. 확인이 끝나거나 다이얼로그가 닫히면 해제된다.
+    bool g_checkInFlight = false;
 }
 
 void UpdateChecker::checkAsync(QWidget* parent)
 {
+    if (g_checkInFlight) {
+        return; // 이미 확인 중(또는 알림 다이얼로그 표시 중) — 중복 방지
+    }
+    g_checkInFlight = true;
+
     // manager 는 요청이 끝날 때까지 살아 있어야 하므로 힙에 만들고 finished 에서 정리.
     auto* manager = new QNetworkAccessManager(parent ? static_cast<QObject*>(parent) : nullptr);
 
@@ -53,6 +64,9 @@ void UpdateChecker::checkAsync(QWidget* parent)
     const QPointer<QWidget> parentGuard(parent);
 
     QObject::connect(reply, &QNetworkReply::finished, manager, [reply, manager, parentGuard]() {
+        // 어느 경로로 끝나든(오류/무시/다이얼로그 닫힘) 가드를 풀어준다.
+        const auto resetInFlight = qScopeGuard([]() { g_checkInFlight = false; });
+
         reply->deleteLater();
         manager->deleteLater();
 
@@ -104,4 +118,17 @@ void UpdateChecker::checkAsync(QWidget* parent)
             QDesktopServices::openUrl(QUrl(downloadUrl));
         }
     });
+}
+
+void UpdateChecker::start(QWidget* parent)
+{
+    checkAsync(parent); // 시작 시 즉시 1회
+
+    // 이후 12시간마다 재확인. timer 는 parent 에 종속 → 창이 사라지면 함께 정리됨.
+    auto* timer = new QTimer(parent ? static_cast<QObject*>(parent) : nullptr);
+    timer->setInterval(12 * 60 * 60 * 1000); // 12시간(ms)
+    QObject::connect(timer, &QTimer::timeout, timer, [parent]() {
+        UpdateChecker::checkAsync(parent);
+    });
+    timer->start();
 }

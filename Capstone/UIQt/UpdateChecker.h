@@ -15,6 +15,10 @@
 
 namespace UpdateChecker
 {
-    // 비동기 업데이트 확인. parent 는 안내 다이얼로그의 부모(없으면 nullptr).
+    // 비동기 업데이트 확인(1회). parent 는 안내 다이얼로그의 부모(없으면 nullptr).
     void checkAsync(QWidget* parent);
+
+    // 시작 시 1회 확인 + 이후 12시간마다 자동 재확인.
+    // 트레이 상주 앱이라 오래 켜둬도 새 버전을 인지할 수 있게 한다.
+    void start(QWidget* parent);
 }

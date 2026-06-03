@@ -155,8 +155,8 @@ int main(int argc, char* argv[])
     if (Policy::GetSettings().showMainOnStartup)
         window.show();
 
-    // 시작 시 새 버전 확인 (비동기 — 결과 없으면 조용히 넘어감)
-    UpdateChecker::checkAsync(&window);
+    // 시작 시 새 버전 확인 + 이후 12시간마다 재확인 (비동기 — 결과 없으면 조용히 넘어감)
+    UpdateChecker::start(&window);
 
     // 두 번째 실행 신호 수신 → 메인 창 표시 + 포커스
     QObject::connect(&server, &QLocalServer::newConnection, [&]() {
