@@ -371,19 +371,25 @@ begin
   begin
     g_Scanned := True;
 
+    // 스캔 동안에는 [뒤로]/[다음]만 비활성화하고 [취소]는 그대로 눌러서
+    // 설치를 중단할 수 있게 둔다. (스캔이 끝나면 다시 활성화)
+    WizardForm.BackButton.Enabled   := False;
+    WizardForm.NextButton.Enabled   := False;
+    WizardForm.CancelButton.Enabled := True;
+
     // 로딩 시작 — "검색 중" 라벨 + marquee 진행바 표시.
-    //   EnumerateHidDevices() 는 동기 실행이지만 Exec 가 메시지를 펌프하므로
-    //   진행바가 스캔 종료 전까지 계속 애니메이션된다.
     HidScanStatus.Caption  := ExpandConstant('{cm:HidScanInProgress}');
     HidScanStatus.Visible  := True;
     HidScanProgress.Visible := True;
     HidScanProgress.Show;
-    WizardForm.Refresh;  // 스캔 차단 전에 라벨/진행바를 즉시 그려둔다.
+    WizardForm.Refresh;  // 스캔 차단 전에 라벨/진행바/버튼 상태를 즉시 그려둔다.
 
     EnumerateHidDevices();
 
-    // 스캔 종료 — 진행바 숨김.
+    // 스캔 종료 — 진행바 숨김 + 이동 버튼 복구.
     HidScanProgress.Visible := False;
+    WizardForm.BackButton.Enabled := True;
+    WizardForm.NextButton.Enabled := True;
 
     if GetArrayLength(g_Devices) = 0 then
     begin
