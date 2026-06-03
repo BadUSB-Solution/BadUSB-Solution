@@ -6,6 +6,7 @@
 //       "notifyOnRisk": true,
 //       "notificationSound": true,
 //       "notificationDurationSec": 3,
+//       "notificationProfile": 1,
 //       "logRetentionDays": 30
 //   }
 //
@@ -126,6 +127,7 @@ namespace
             else if (key == static_cast<const char*>(AY_OBFUSCATE("notifyOnRisk")))            ReadBool(s, p, out.notifyOnRisk);
             else if (key == static_cast<const char*>(AY_OBFUSCATE("notificationSound")))       ReadBool(s, p, out.notificationSound);
             else if (key == static_cast<const char*>(AY_OBFUSCATE("notificationDurationSec"))) ReadInt(s, p, out.notificationDurationSec);
+            else if (key == static_cast<const char*>(AY_OBFUSCATE("notificationProfile")))     ReadInt(s, p, out.notificationProfile);
             else if (key == static_cast<const char*>(AY_OBFUSCATE("logRetentionDays")))        ReadInt(s, p, out.logRetentionDays);
             else                                                                                SkipValue(s, p);
 
@@ -147,6 +149,7 @@ namespace
         ss << "    " << AY_OBFUSCATE("\"notifyOnRisk\": ")             << B(s.notifyOnRisk)                       << ",\n";
         ss << "    " << AY_OBFUSCATE("\"notificationSound\": ")        << B(s.notificationSound)                  << ",\n";
         ss << "    " << AY_OBFUSCATE("\"notificationDurationSec\": ")  << s.notificationDurationSec               << ",\n";
+        ss << "    " << AY_OBFUSCATE("\"notificationProfile\": ")      << s.notificationProfile                   << ",\n";
         ss << "    " << AY_OBFUSCATE("\"logRetentionDays\": ")         << s.logRetentionDays                      << "\n";
         ss << "}\n";
         return ss.str();

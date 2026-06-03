@@ -55,7 +55,8 @@ namespace WinNotify
             nid.dwStateMask  = NIS_HIDDEN;
             nid.hIcon        = LoadIconW(nullptr, IDI_INFORMATION);
             wcscpy_s(nid.szTip, ARRAYSIZE(nid.szTip), L"Abang-All");
-            Shell_NotifyIconW(NIM_ADD, &nid);
+            if (!Shell_NotifyIconW(NIM_ADD, &nid))
+                return false;
 
             // Vista+ 권장 버전 설정 (안 해도 동작, 해두면 새 알림 동작 보장).
             nid.uVersion = NOTIFYICON_VERSION_4;
@@ -74,10 +75,10 @@ namespace WinNotify
         }
     } // anonymous namespace
 
-    void notify(const QString& title, const QString& body, bool silent, int timeoutMs)
+    bool notify(const QString& title, const QString& body, bool silent, int timeoutMs)
     {
         if (!ensureInitialized())
-            return;
+            return false;
 
         NOTIFYICONDATAW nid{};
         nid.cbSize       = sizeof(nid);
@@ -94,7 +95,7 @@ namespace WinNotify
         copyTruncated(nid.szInfoTitle, ARRAYSIZE(nid.szInfoTitle), t);
         copyTruncated(nid.szInfo,      ARRAYSIZE(nid.szInfo),      b);
 
-        Shell_NotifyIconW(NIM_MODIFY, &nid);
+        return Shell_NotifyIconW(NIM_MODIFY, &nid);
     }
 
     void cleanup()

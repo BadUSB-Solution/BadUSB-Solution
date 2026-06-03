@@ -531,16 +531,50 @@ namespace
 
     int notificationDurationMs()
     {
-        return std::clamp(Policy::GetSettings().notificationDurationSec, 1, 60) * 1000;
+        const Policy::Settings settings = Policy::GetSettings();
+        int seconds = std::clamp(settings.notificationDurationSec, 1, 60);
+        if (settings.notificationProfile == 2 && seconds < 10)
+            seconds = 10;
+        return seconds * 1000;
     }
 
-    void showRiskTrayMessage(QSystemTrayIcon* /*trayIcon*/, const QString& title,
+    int notificationProfile()
+    {
+        return std::clamp(Policy::GetSettings().notificationProfile, 0, 2);
+    }
+
+    QString riskNotificationTitle(const QString& fallbackTitle)
+    {
+        switch (notificationProfile()) {
+        case 0: return trMW("위험 알림");
+        case 2: return trMW("긴급 위험 알림");
+        default: return fallbackTitle;
+        }
+    }
+
+    QString riskNotificationMessage(const QString& message)
+    {
+        switch (notificationProfile()) {
+        case 0:
+            return message.section('\n', 0, 0);
+        case 2:
+            return message + QStringLiteral("\n\n") + trMW("즉시 장치 상태를 확인하고 필요하면 차단 정책을 적용하세요.");
+        default:
+            return message;
+        }
+    }
+
+    void showRiskTrayMessage(QSystemTrayIcon* trayIcon, const QString& title,
                              const QString& message, QSystemTrayIcon::MessageIcon /*icon*/)
     {
         // WinNotify 로 통일 — 소리 토글에 따라 NIIF_NOSOUND 적용 (Qt 기본 showMessage 는
         // Windows 알림음을 끌 수 없어서 모든 위험 알림을 우리 헬퍼로 보냄).
         const bool soundOn = notificationSoundEnabled();
-        WinNotify::notify(title, message, /*silent=*/!soundOn, notificationDurationMs());
+        const QString finalTitle = riskNotificationTitle(title);
+        const QString finalMessage = riskNotificationMessage(message);
+        if (!WinNotify::notify(finalTitle, finalMessage, /*silent=*/!soundOn, notificationDurationMs()) && trayIcon) {
+            trayIcon->showMessage(finalTitle, finalMessage, QSystemTrayIcon::Warning, notificationDurationMs());
+        }
     }
 
 #ifdef Q_OS_WIN
@@ -2688,8 +2722,11 @@ void MainWindow::notifyRiskDetected(const QString& message)
     if (!notifyOnRiskEnabled()) return;
     // 소리 OFF 면 NIIF_NOSOUND 로 무음 트레이 알림만 표시
     const bool soundOn = notificationSoundEnabled();
-    WinNotify::notify(QStringLiteral("Abang-All"), message,
-                      /*silent=*/!soundOn, notificationDurationMs());
+    const QString title = riskNotificationTitle(QStringLiteral("Abang-All"));
+    const QString body = riskNotificationMessage(message);
+    if (!WinNotify::notify(title, body, /*silent=*/!soundOn, notificationDurationMs()) && trayIcon_) {
+        trayIcon_->showMessage(title, body, QSystemTrayIcon::Warning, notificationDurationMs());
+    }
 }
 
 void MainWindow::closeEvent(QCloseEvent* event)
@@ -4629,7 +4666,9 @@ QWidget* MainWindow::createSettingsPage()
     QCheckBox* cbNotif = nullptr;
     QCheckBox* cbSound = nullptr;
     QComboBox* comboNotifDuration = nullptr;
+    QComboBox* comboNotifProfile = nullptr;
     QComboBox* comboLogRetention = nullptr;
+    QPushButton* testNotifBtn = nullptr;
 
     {
         auto* headerRow = new QHBoxLayout;
@@ -4821,6 +4860,17 @@ QWidget* MainWindow::createSettingsPage()
         comboNotifDuration->setFixedWidth(180);
         addControlRow(wl, tr("알림 표시 시간"), comboNotifDuration);
 
+        comboNotifProfile = new QComboBox;
+        comboNotifProfile->addItems({ tr("간결"), tr("기본"), tr("강조") });
+        comboNotifProfile->setFixedWidth(180);
+        addControlRow(wl, tr("알림 프리셋"), comboNotifProfile);
+
+        testNotifBtn = new QPushButton(tr("알림 테스트"));
+        testNotifBtn->setObjectName("secondaryButton");
+        testNotifBtn->setFont(pretendardFont(FontRole::SemiBold));
+        testNotifBtn->setFixedWidth(160);
+        wl->addWidget(testNotifBtn);
+
         addSection(wl, tr("로그"));
         comboLogRetention = new QComboBox;
         comboLogRetention->addItems({ tr("7일"), tr("30일"), tr("90일"), tr("영구 보관") });
@@ -4881,6 +4931,7 @@ QWidget* MainWindow::createSettingsPage()
             const int dIdx = durationValues.indexOf(settings.notificationDurationSec);
             comboNotifDuration->setCurrentIndex(dIdx >= 0 ? dIdx : 0); // 기본 3초
         }
+        comboNotifProfile->setCurrentIndex(std::clamp(settings.notificationProfile, 0, 2));
         {
             const QList<int> retentionValues = {7, 30, 90, 0};  // 0 = 영구 보관
             const int retIdx = retentionValues.indexOf(settings.logRetentionDays);
@@ -4897,6 +4948,33 @@ QWidget* MainWindow::createSettingsPage()
         applyTheme(UiTheme::themeModeFromKey(key));
     });
 
+    connect(testNotifBtn, &QPushButton::clicked, this, [=] {
+        const QList<int> durationValues = {3, 5, 10};
+        const int durIdx = comboNotifDuration->currentIndex();
+        int seconds = (durIdx >= 0 && durIdx < durationValues.size()) ? durationValues[durIdx] : 3;
+        const int profile = std::clamp(comboNotifProfile->currentIndex(), 0, 2);
+        if (profile == 2 && seconds < 10)
+            seconds = 10;
+
+        QString title = tr("Abang-All");
+        QString body = tr("위험한 입력 패턴이 감지되었습니다.");
+        if (profile == 0) {
+            title = tr("위험 알림");
+        } else if (profile == 2) {
+            title = tr("긴급 위험 알림");
+            body += QStringLiteral("\n\n") + tr("즉시 장치 상태를 확인하고 필요하면 차단 정책을 적용하세요.");
+        }
+
+        const int timeoutMs = seconds * 1000;
+        if (!WinNotify::notify(title, body, /*silent=*/!cbSound->isChecked(), timeoutMs)) {
+            if (trayIcon_) {
+                trayIcon_->showMessage(title, body, QSystemTrayIcon::Warning, timeoutMs);
+            } else {
+                QMessageBox::information(this, title, body);
+            }
+        }
+    });
+
     connect(saveBtn, &QPushButton::clicked, this, [=] {
         Policy::LoadSettings();
         Policy::Settings settings = Policy::GetSettings();
@@ -4910,6 +4988,7 @@ QWidget* MainWindow::createSettingsPage()
             settings.notificationDurationSec =
                 (durIdx >= 0 && durIdx < durationValues.size()) ? durationValues[durIdx] : 3;
         }
+        settings.notificationProfile = std::clamp(comboNotifProfile->currentIndex(), 0, 2);
         int newRetention = 30;
         {
             const QList<int> retentionValues = {7, 30, 90, 0};

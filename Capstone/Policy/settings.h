@@ -19,6 +19,7 @@ namespace Policy
         bool notifyOnRisk            = true;  // 위험 장치 연결 시 우측 하단 팝업 알림
         bool notificationSound       = true;  // 알림 표시 시 시스템 비프음
         int  notificationDurationSec = 3;     // 알림 표시 시간 (3 / 5 / 10)
+        int  notificationProfile     = 1;     // 알림 프리셋: 0 간결 / 1 기본 / 2 강조
 
         // ── 로그 ──
         int  logRetentionDays        = 30;    // 7 / 30 / 90 / 0(=영구)
