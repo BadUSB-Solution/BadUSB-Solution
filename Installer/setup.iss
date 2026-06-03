@@ -110,6 +110,7 @@ Source: "{#SourceExePath}"; DestDir: "{app}"; DestName: "{#AppExeName}"; Flags: 
 ; ── 시그니처 DB
 Source: "{#SourceDbPath}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "assets\icon.ico"; DestDir: "{app}"; DestName: "app_icon.ico"; Flags: ignoreversion
+Source: "assets\fonts\*"; DestDir: "{app}\fonts"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; HID 스캔 PowerShell 스크립트 — 인스톨러 EXE 안에 묶고, {tmp} 에 일시 추출
 ;   본체 hid_fingerprint.cpp 와 동일 로직 (ContainerId 통합 + 부모 chain 이름 탐색)
 Source: "scripts\hid_scan.ps1"; Flags: dontcopy

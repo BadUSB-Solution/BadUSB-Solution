@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
 #include <QFont>
@@ -22,6 +23,7 @@ namespace
     QString loadPretendardFamily()
     {
         const QStringList fontDirectories = {
+            QCoreApplication::applicationDirPath() + "/fonts",
             qEnvironmentVariable("LOCALAPPDATA") + "/Microsoft/Windows/Fonts",
             qEnvironmentVariable("WINDIR") + "/Fonts",
         };
